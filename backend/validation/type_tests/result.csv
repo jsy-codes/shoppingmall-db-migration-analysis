@@ -1,0 +1,11 @@
+file,result
+P01.sql,OK
+P02.sql,OK
+P03.sql,1054 (42S22): Unknown column 'ROWNUM' in 'where clause'
+P04.sql,1305 (42000): FUNCTION type_test.NVL does not exist
+P05.sql,OK
+P06.sql,1406 (22001): Data too long for column 'name' at row 1
+P07.sql,OK
+P08.sql,OK
+P09.sql,OK
+P10.sql,OK

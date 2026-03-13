@@ -1,0 +1,24 @@
+DROP TABLE IF EXISTS t10;
+
+CREATE TABLE t10 (
+    id INT,
+    val INT
+);
+
+INSERT INTO t10 VALUES
+(1,10),
+(2,20),
+(3,30);
+
+EXPLAIN
+SELECT *
+FROM t10
+WHERE id IN (
+    SELECT id FROM t10 WHERE val > 10
+);
+
+EXPLAIN
+SELECT t1.*
+FROM t10 t1
+JOIN t10 t2 ON t1.id = t2.id
+WHERE t2.val > 10;
