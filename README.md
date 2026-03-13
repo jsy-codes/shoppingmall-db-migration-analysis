@@ -29,7 +29,7 @@ LLM 기반 분석기를 이용하여
 
 을 자동화한다.
 
-# shoppingmall-db-migration-analysis
+# shoppingmall-db-migration-analysis project structure 구조 예시
 Legacy shopping mall database analysis and performance tuning project
 shoppingmall-db-migration-analysis/
 ├─ backend/           
@@ -55,5 +55,5 @@ shoppingmall-db-migration-analysis/
 # branch 구조
 main        최종 배포용(실행 가능 ver)
 dev         통합 개발 브랜치
-dev/jsy     각자 feature 작업 브랜치 dev아래 만들고, dev PR
+jsy         각자 feature 작업 브랜치 만들고, dev PR
 
