@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS t4;
+
+CREATE TABLE t4 (
+    id INT,
+    val INT
+);
+
+INSERT INTO t4 VALUES
+(1,NULL),
+(2,10);
+
+-- Oracle
+SELECT NVL(val,0) FROM t4;
+
+-- MySQL
+SELECT IFNULL(val,0) FROM t4;

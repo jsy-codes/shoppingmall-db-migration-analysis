@@ -1,0 +1,10 @@
+test,row_count
+implicit_cast,2
+string_vs_number,2
+decimal_precision,3
+char_padding,2
+date_compare,1
+null_compare,0
+null_is_null,2
+decimal_vs_string,1
+char_vs_varchar,0

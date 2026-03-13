@@ -1,0 +1,101 @@
+[
+  {
+    "id": "P01",
+    "name": "Implicit Type Cast",
+    "risk": "MEDIUM",
+    "keywords": ["number", "string", "cast", "implicit"],
+    "rule": "number column compared with string",
+    "description": "Implicit type conversion may disable index usage",
+    "fix": "Use same data type in comparison"
+  },
+
+  {
+    "id": "P02",
+    "name": "Function on Indexed Column",
+    "risk": "HIGH",
+    "keywords": ["UPPER", "LOWER", "FUNCTION", "INDEX"],
+    "rule": "function applied to indexed column",
+    "description": "Function on column prevents index usage",
+    "fix": "Avoid function or use generated column"
+  },
+
+  {
+    "id": "P03",
+    "name": "ROWNUM Pagination",
+    "risk": "HIGH",
+    "keywords": ["ROWNUM"],
+    "rule": "ROWNUM used",
+    "description": "ROWNUM not compatible with MySQL",
+    "fix": "Use LIMIT"
+  },
+
+  {
+    "id": "P04",
+    "name": "NVL Function",
+    "risk": "LOW",
+    "keywords": ["NVL"],
+    "rule": "NVL used",
+    "description": "NVL not supported in MySQL",
+    "fix": "Use IFNULL"
+  },
+
+  {
+    "id": "P05",
+    "name": "DATE vs DATETIME",
+    "risk": "MEDIUM",
+    "keywords": ["DATE", "TIME", "DATETIME"],
+    "rule": "DATE type mismatch",
+    "description": "Oracle DATE includes time, MySQL DATE does not",
+    "fix": "Use DATETIME or TIMESTAMP"
+  },
+
+  {
+    "id": "P06",
+    "name": "VARCHAR2 Difference",
+    "risk": "LOW",
+    "keywords": ["VARCHAR2"],
+    "rule": "VARCHAR2 used",
+    "description": "VARCHAR2 not exists in MySQL",
+    "fix": "Use VARCHAR"
+  },
+
+  {
+    "id": "P07",
+    "name": "CHAR Padding",
+    "risk": "LOW",
+    "keywords": ["CHAR"],
+    "rule": "CHAR type used",
+    "description": "CHAR pads spaces which affects comparison",
+    "fix": "Use VARCHAR or TRIM"
+  },
+
+  {
+    "id": "P08",
+    "name": "Function Based Index",
+    "risk": "HIGH",
+    "keywords": ["INDEX", "FUNCTION"],
+    "rule": "function index",
+    "description": "Function-based index not supported directly",
+    "fix": "Use generated column index"
+  },
+
+  {
+    "id": "P09",
+    "name": "Join Without Index",
+    "risk": "HIGH",
+    "keywords": ["JOIN"],
+    "rule": "join without index",
+    "description": "Join without index may cause full scan",
+    "fix": "Add index"
+  },
+
+  {
+    "id": "P10",
+    "name": "Nested Subquery",
+    "risk": "MEDIUM",
+    "keywords": ["SUBQUERY"],
+    "rule": "nested subquery",
+    "description": "Nested subquery may be slow in MySQL",
+    "fix": "Rewrite using JOIN"
+  }
+]

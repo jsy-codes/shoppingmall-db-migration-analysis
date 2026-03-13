@@ -1,3 +1,34 @@
+# 기존 마이그레이션 도구의 한계
+
+기존 도구는
+
+- 문법 변환
+- 데이터 복사
+
+까지만 지원하며
+
+성능 저하 원인 분석은 개발자의 수동 판단에 의존한다.
+
+문제점
+
+슬로우 쿼리 분석은
+
+EXPLAIN 결과 해석
+인덱스 구조 이해
+DB 엔진 특성 이해
+
+가 동시에 필요하여 자동화가 어렵다.
+
+해결 방법
+
+LLM 기반 분석기를 이용하여
+
+- 쿼리 패턴 인식
+- 실패 패턴 매칭
+- 최적화 규칙 적용
+
+을 자동화한다.
+
 # shoppingmall-db-migration-analysis
 Legacy shopping mall database analysis and performance tuning project
 shoppingmall-db-migration-analysis/
