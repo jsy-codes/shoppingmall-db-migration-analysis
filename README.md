@@ -31,7 +31,7 @@ LLM 기반 분석기를 이용하여
 
 # shoppingmall-db-migration-analysis project structure 구조 예시
 Legacy shopping mall database analysis and performance tuning project  
-shoppingmall-db-migration-analysis/
+shoppingmall-db-migration-analysis/  
 ├─ backend/           
 │   ├─ app.py          # FastAPI 백엔드 메인  
 │   ├─ models.py       # DB 모델 정의  
