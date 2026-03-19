@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 1,
+    "max_severity": "MEDIUM",
+    "severity_counts": {
+      "HIGH": 0,
+      "MEDIUM": 1,
+      "LOW": 0
+    },
+    "failure_types": [
+      "TYPE_MISMATCH_INDEX_BYPASS"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t1",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t1 (\n    id INT,\n    num INT,\n    INDEX idx_num (num)\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t1 VALUES\n(1, 123),\n(2, 456),\n(3, 789)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- implicit cast\nEXPLAIN SELECT * FROM t1 WHERE num = '123'",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P01"
+      ],
+      "failure_types": [
+        "TYPE_MISMATCH_INDEX_BYPASS"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 1,
+        "LOW": 0
+      },
+      "max_severity": "MEDIUM",
+      "matched_patterns": [
+        {
+          "id": "P01",
+          "name": "Implicit Type Cast",
+          "severity": "MEDIUM",
+          "failure_type": "TYPE_MISMATCH_INDEX_BYPASS",
+          "description": "Implicit type conversion may disable index usage",
+          "impact": "타입 암묵 변환으로 인덱스 사용이 무력화될 수 있음",
+          "quant_signal": "EXPLAIN에서 key=NULL 또는 rows 급증"
+        }
+      ],
+      "recommendations": [
+        "Use explicit CAST or align operand types"
+      ]
+    },
+    {
+      "statement": "-- correct\nEXPLAIN SELECT * FROM t1 WHERE num = 123",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}
