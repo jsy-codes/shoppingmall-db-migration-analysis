@@ -34,7 +34,7 @@ class QueryRequest(BaseModel):
 # [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest):
-    system_prompt = f"""
+    system_prompt = f"""`
     당신은 Oracle에서 MySQL로의 이관 전문가입니다. 
     다음 제공된 [이관 규칙 가이드라인]을 바탕으로 입력된 SQL을 분석하세요.
 
