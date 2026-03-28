@@ -40,6 +40,7 @@ class QueryRequest(BaseModel):
 # [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest):
+
     # 1. [Simulator] 규칙 기반 선행 분석 (빠르고 확실함)
     sim_result = evaluate_sql(req.sql, RULES)
     
@@ -54,6 +55,7 @@ async def diagnose(req: QueryRequest):
 
     # 4. [AI 엔진] Claude에게 전달할 시스템 프롬프트 설정
     system_prompt = f"""
+
     당신은 Oracle에서 MySQL로의 이관 전문가입니다. 
     제공된 [이관 규칙 가이드라인]를 바탕으로 [사전 분석 결과]에 명시된 패턴을 중점적으로 사용자의 SQL을 분석하여 최적의 솔루션을 제공하세요.
 
