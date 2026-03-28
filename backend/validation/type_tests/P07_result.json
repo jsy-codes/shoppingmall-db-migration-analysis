@@ -1,0 +1,90 @@
+{
+  "summary": {
+    "statement_count": 4,
+    "total_pattern_count": 1,
+    "max_severity": "LOW",
+    "severity_counts": {
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 1
+    },
+    "failure_types": [
+      "CHAR_PADDING_COMPARISON"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t7",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t7 (\n    c CHAR(5),\n    v VARCHAR(5)\n)",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P07"
+      ],
+      "failure_types": [
+        "CHAR_PADDING_COMPARISON"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 1
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [
+        {
+          "id": "P07",
+          "name": "CHAR Padding",
+          "severity": "LOW",
+          "failure_type": "CHAR_PADDING_COMPARISON",
+          "description": "Trailing spaces may affect comparisons",
+          "impact": "공백 패딩으로 비교 결과 왜곡",
+          "quant_signal": "= 비교 건수 차이, TRIM 적용 시 변화"
+        }
+      ],
+      "recommendations": [
+        "Use VARCHAR or TRIM in predicates"
+      ]
+    },
+    {
+      "statement": "INSERT INTO t7 VALUES\n('A', 'A')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "SELECT\nc = 'A',\nv = 'A'\nFROM t7",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}
