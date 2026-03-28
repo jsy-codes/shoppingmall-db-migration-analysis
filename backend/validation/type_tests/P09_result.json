@@ -1,0 +1,132 @@
+{
+  "summary": {
+    "statement_count": 7,
+    "total_pattern_count": 1,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "failure_types": [
+      "JOIN_FULL_SCAN"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS a",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "DROP TABLE IF EXISTS b",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE a (\n    id INT,\n    val INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE b (\n    id INT,\n    val INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO a VALUES (1,1),(2,2),(3,3)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO b VALUES (1,1),(2,2),(3,3)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "EXPLAIN\nSELECT *\nFROM a\nJOIN b ON a.id = b.id",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P09"
+      ],
+      "failure_types": [
+        "JOIN_FULL_SCAN"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P09",
+          "name": "JOIN Without Index",
+          "severity": "HIGH",
+          "failure_type": "JOIN_FULL_SCAN",
+          "description": "JOIN may degrade without join-key index",
+          "impact": "조인 시 풀스캔/대량 rows 탐색 발생",
+          "quant_signal": "EXPLAIN rows 급증, type=ALL"
+        }
+      ],
+      "recommendations": [
+        "Add index on join keys"
+      ]
+    }
+  ]
+}

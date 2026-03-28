@@ -1,0 +1,118 @@
+{
+  "summary": {
+    "statement_count": 6,
+    "total_pattern_count": 1,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "failure_types": [
+      "FUNCTION_INDEX_BYPASS"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t8",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t8 (\n    name VARCHAR(20)\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t8 VALUES\n('kim'),\n('lee'),\n('park')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE INDEX idx_name ON t8(name)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "EXPLAIN SELECT * FROM t8 WHERE name = 'kim'",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "EXPLAIN SELECT * FROM t8 WHERE UPPER(name) = 'KIM'",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P02"
+      ],
+      "failure_types": [
+        "FUNCTION_INDEX_BYPASS"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P02",
+          "name": "Function on Indexed Column",
+          "severity": "HIGH",
+          "failure_type": "FUNCTION_INDEX_BYPASS",
+          "description": "Function on indexed column may bypass index",
+          "impact": "함수 적용으로 인덱스 탐색 대신 스캔 가능성 증가",
+          "quant_signal": "EXPLAIN type=ALL 가능성 증가"
+        }
+      ],
+      "recommendations": [
+        "Use generated column + index or normalize stored values"
+      ]
+    }
+  ]
+}
