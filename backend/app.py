@@ -1,13 +1,29 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import anthropic
 import json
 import re
+import sys
+from pathlib import Path
+
+import anthropic
 import os
+
+# [팀원 모듈 임포트] 
+# 규칙 기반 시뮬레이터 / 위험도 계산 모델
+# 주의: backend/validation/__init__.py 파일이 있어야함
+sys.path.append(str(Path(__file__).parent))
+from validation.consistency_simulator import load_rules, evaluate_sql
+from model.risk_model import calculate_risk_score
+
+# 시뮬레이터 규칙 로드
+RULES_PATH = Path("validation/pattern_rules.json")
+RULES = load_rules(RULES_PATH)
+RULES_STR = json.dumps(RULES, ensure_ascii=False) # AI 주입용 문자열 변환
 
 app = FastAPI()
 
+# CORS 설정 (프론트엔드 연동용)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -15,92 +31,90 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# API Key는 반드시 보안 준수
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
-# 이관 실패 문제 패턴 정리된 규칙 파일 로드 함수
-def load_rules_once():
-    file_path = "validation/pattern_rules.json"
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-GLOBAL_RULES = load_rules_once()
-RULES_STR = json.dumps(GLOBAL_RULES, ensure_ascii=False, indent=2)
 
 class QueryRequest(BaseModel):
     sql: str
 
-# [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)
+# [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest):
+    # 1. [Simulator] 규칙 기반 선행 분석 (빠르고 확실함)
+    sim_result = evaluate_sql(req.sql, RULES)
+    
+    # 2. 결과 가공: 매칭된 ID 목록과 최고 위험도 추출
+    matched_ids = [p["id"] for detail in sim_result["details"] 
+                   for p in detail["matched_patterns"]]
+    max_severity = sim_result["summary"]["max_severity"]
+    severity_counts = sim_result["summary"]["severity_counts"]
+
+    # 3. [Risk Model] 정량적 위험 점수 계산 
+    risk_score = calculate_risk_score(severity_counts)
+
+    # 4. [AI 엔진] Claude에게 전달할 시스템 프롬프트 설정
     system_prompt = f"""
     당신은 Oracle에서 MySQL로의 이관 전문가입니다. 
-    다음 제공된 [이관 규칙 가이드라인]을 바탕으로 입력된 SQL을 분석하세요.
+    제공된 [이관 규칙 가이드라인]를 바탕으로 [사전 분석 결과]에 명시된 패턴을 중점적으로 사용자의 SQL을 분석하여 최적의 솔루션을 제공하세요.
 
     [이관 규칙 가이드라인]
     {RULES_STR}
-
-    [분석 프로세스]
-    1. SQL 구문 분석: 입력된 쿼리에서 Oracle 전용 함수나 구문(ROWNUM, NVL, TO_DATE 등)이 있는지 식별합니다.
-    2. 규칙 매칭: 가이드라인의 'pattern'과 일치하는 요소를 찾아 'id(P01~P21)'를 할당합니다.
-    3. 위험도 산정: 가이드라인의 'risk' 등급을 따르되, 실행 불가능한 구문은 반드시 'HIGH'로 분류하세요.
-    4. 해결책 생성: 가이드라인의 'fix' 내용을 바탕으로 MySQL 8.0에서 동작하는 최적의 SQL을 작성하세요.
+    
+    [분석 및 생성 원칙]
+    1. 스크립트 보존: 사용자가 입력한 모든 SQL 문장(INSERT 등)을 생략 없이 전체 보존하여 변환하세요.
+    2. 기술적 차이 명시: `reason` 항목에는 "Oracle은 [A] 방식을 쓰지만, MySQL은 [B] 방식으로 동작하므로 [C] 문제가 발생함"과 같이 아키텍처적 차이를 구체적으로 설명하세요.
+    3. 실행 즉시성: `recommended_ddl`에 제공되는 코드는 사용자가 복사하여 MySQL Workbench에서 즉시 실행했을 때, 테이블 생성부터 데이터 삽입, 조회까지 에러 없이 한 번에 성공해야 합니다.
+    4. 대표 규칙 선정: [사전 분석 결과]의 `matched_ids` 중 가장 위험도가 높거나(HIGH > MEDIUM > LOW) 핵심적인 패턴 ID 하나를 선택하여 `rule_id`에 할당하세요.
 
     [응답 지침]
-    1. 반드시 한국어로 응답할 것.
-    2. JSON 외에 어떠한 설명도 덧붙이지 말 것.
-    3. recommended_ddl에는 수정된 SQL문뿐만 아니라, 필요시 CREATE INDEX 등의 DDL도 포함하세요.
-    4. recommended_ddl은 바로 복사해서 실행 가능한 형태여야 함.
-    5. estimated_improvement에는 예상 성능 향상 수치(%)와 기술적 이유를 포함하세요.
-
+    1. 언어: 반드시 한국어로 응답할 것.
+    2. 형식: JSON 외의 서문이나 맺음말 등 어떠한 텍스트도 출력하지 말 것.
+    3. 성능 개선: `estimated_improvement`에는 예상되는 실행 시간 단축이나 자원 소모 감소량을 수치(%)로 포함하세요.
+    
     반드시 아래 JSON 형식으로만 응답하세요:
     {{
-      "risk_level": "HIGH/MEDIUM/LOW",
-      "rule_id": "매칭된 규칙 ID (예: P01)",
-      "reason": "위험 원인 (가이드라인의 reason 참고)",
-      "recommended_ddl": "MySQL용 수정 쿼리 또는 DDL (가이드라인의 fix 참고)",
-      "estimated_improvement": "예상 개선 효과"
+        "reason": "상세 원인 설명",
+        "recommended_ddl": "MySQL용 전체 수정 스크립트",
+        "estimated_improvement": "예상 성능 향상치(%)와 근거",
+        "rule_id": "가장 핵심적인 패턴 ID (예: P03)"
     }}
     """
+
+    # 5. Claude 호출: 시뮬레이터가 찾은 '이미 확정된 패턴'을 컨텍스트로 전달
+    user_context = f"""
+    [사전 분석 결과]
+    - 감지된 패턴 ID: {matched_ids}
+    - 최고 위험 등급: {max_severity}
+
+    [대상 SQL]
+    {req.sql}
+
+    위 분석 결과를 참고하여 상세 설명과 수정된 DDL을 작성하세요.
+    """
+
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1000,
+            model="claude-haiku-4-5-20251001", # 모델명 확인 필요
+            max_tokens=1500,
             system=system_prompt,
-            messages=[{"role": "user", "content": req.sql}]
-        )  
-        raw_text = message.content[0].text
-
-        match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
+            messages=[{"role": "user", "content": user_context}]
+        )
         
-        return {"error": "JSON 응답을 찾을 수 없습니다.", "raw": raw_text}
+        # AI 응답 파싱
+        raw_text = message.content[0].text
+        ai_json = json.loads(re.search(r'(\{.*\})', raw_text, re.DOTALL).group(1))
+
+        # 6. [최종 통합 결과] 모든 팀원의 산출물을 하나로 합쳐 반환
+        return {
+            "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"), # AI가 뽑은 대표 ID
+            "risk_level": max_severity,              # 시뮬레이터 결과
+            "risk_score": risk_score,                # 리스크 스코어
+            "matched_pattern_ids": matched_ids,      # 감지된 패턴 목록
+            "reason": ai_json["reason"],             # Claude: 논리적 이유
+            "recommended_ddl": ai_json["recommended_ddl"], # Claude: 수정 쿼리
+            "estimated_improvement": ai_json["estimated_improvement"], # Claude: 기대 효과
+            "simulator_detail": sim_result["details"] # 프론트엔드 상세 표시용
+        }
     
     except Exception as e:
         return {"error": str(e)}
-
-# # [엔드포인트 2] 변환 기능 (자동 쿼리 변환 API)
-# @app.post('/convert')
-# async def convert(req: QueryRequest):
-#     # 진단 없이 순수하게 MySQL 문법으로만 변환하도록 별도 요청
-#     system_prompt = "너는 SQL 변환기야. 입력된 Oracle SQL을 오직 MySQL 표준 문법으로 변환하여 SQL 문장만 출력해."
-#     try:
-#         message = client.messages.create(
-#             model="claude-haiku-4-5-20251001", # 비용 효율적인 하이쿠 모델 권장
-#             max_tokens=500,
-#             system=system_prompt,
-#             messages=[{"role": "user", "content": req.sql}]
-#         )
-#         return {"converted_sql": message.content[0].text.strip()}
-#     except Exception as e:
-#         return {"error": str(e)}
-
-# @app.post('/convert')
-# async def convert(req: QueryRequest):
-#     # 별도로 AI를 호출하지 않고, 이미 검증된 diagnose 로직의 결과값만 활용
-#     diag_result = await diagnose(req)
-#     if "error" in diag_result:
-#         return diag_result
-#     return {"converted_sql": diag_result.get('recommended_ddl')}
