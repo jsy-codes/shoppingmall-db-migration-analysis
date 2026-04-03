@@ -11,15 +11,30 @@ import os
 
 # [팀원 모듈 임포트] 
 # 규칙 기반 시뮬레이터 / 위험도 계산 모델
-# 주의: backend/validation/__init__.py 파일이 있어야함
-sys.path.append(str(Path(__file__).parent))
-from validation.consistency_simulator import load_rules, evaluate_sql
-from model.risk_model import calculate_risk_score
+# 주의: __init__.py 파일이 있어야함
+root_dir = Path(__file__).parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.append(str(root_dir))
+from model.risk_model import RiskPredictor
+from backend.validation.consistency_simulator import load_rules, evaluate_sql
+# 객체 생성
+predictor = RiskPredictor()
 
 # 시뮬레이터 규칙 로드
-RULES_PATH = Path("validation/pattern_rules.json")
+# RULES_PATH = Path("validation/pattern_rules.json")
+
+BASE_DIR = Path(__file__).parent
+RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
 RULES = load_rules(RULES_PATH)
-RULES_STR = json.dumps(RULES, ensure_ascii=False) # AI 주입용 문자열 변환
+# 수정 후: 객체(Rule)를 딕셔너리로 변환하여 JSON화
+try:
+    # RULES가 리스트 안에 객체들이 들어있는 형태라면:
+    rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
+    RULES_STR = json.dumps(rules_data, ensure_ascii=False)
+except Exception as e:
+    # 만약 위 방법이 안 된다면 시뮬레이터 파일 자체를 직접 읽는 방법
+    with open(RULES_PATH, 'r', encoding='utf-8') as f:
+        RULES_STR = f.read()
 
 app = FastAPI()
 
@@ -40,18 +55,22 @@ class QueryRequest(BaseModel):
 # [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest):
-
-    # 1. [Simulator] 규칙 기반 선행 분석 (빠르고 확실함)
+    # 1. [Simulator] 규칙 기반 선행 분석
     sim_result = evaluate_sql(req.sql, RULES)
     
     # 2. 결과 가공: 매칭된 ID 목록과 최고 위험도 추출
-    matched_ids = [p["id"] for detail in sim_result["details"] 
-                   for p in detail["matched_patterns"]]
+    matched_ids = list(set(
+        p["id"] for detail in sim_result["details"] 
+        for p in detail["matched_patterns"]
+    ))
     max_severity = sim_result["summary"]["max_severity"]
     severity_counts = sim_result["summary"]["severity_counts"]
 
     # 3. [Risk Model] 정량적 위험 점수 계산 
-    risk_score = calculate_risk_score(severity_counts)
+    risk_analysis = predictor.evaluate_risk_score(req.sql)
+    risk_score = risk_analysis["risk_score"]
+    #risk_level = risk_analysis["risk_level"] # "HIGH", "MED", "LOW"
+    
 
     # 4. [AI 엔진] Claude에게 전달할 시스템 프롬프트 설정
     system_prompt = f"""
@@ -94,6 +113,37 @@ async def diagnose(req: QueryRequest):
     위 분석 결과를 참고하여 상세 설명과 수정된 DDL을 작성하세요.
     """
 
+    performance_data = []
+    for detail in sim_result["details"]:
+        for pattern in detail["matched_patterns"]:
+            # 실제 측정값이 없으므로, 패턴별 '기본 영향도'를 기준으로 before/after 시뮬레이션
+            base_ms = 100 # 기준 시간
+            # 위험도가 HIGH면 개선 폭을 크게(80%), LOW면 작게(20%) 설정하는 식의 로직
+            improvement_rate = 0.8 if pattern["severity"] == "HIGH" else 0.4
+            
+            performance_data.append({
+                "pattern": pattern["id"],
+                "label": pattern["name"],
+                "before": base_ms,
+                "after": int(base_ms * (1 - improvement_rate)),
+                "improvement": improvement_rate * 100
+            })
+    risk_score_data = []
+    for rule in RULES: # pattern_rules.json의 모든 규칙
+        # 이번에 탐지된 패턴 ID 목록(matched_ids)에 포함되어 있다면
+        if rule.id in matched_ids:
+            # simulator가 계산한 risk_score를 여기에 반영
+            current_score = risk_score
+        else:
+            # 탐지 안 된 패턴은 낮은 기본 점수 부여
+            current_score = 10 
+            
+        risk_score_data.append({
+            "id": rule.id,
+            "name": rule.name,
+            "score": current_score
+        })
+
     try:
         message = client.messages.create(
             model="claude-haiku-4-5-20251001", # 모델명 확인 필요
@@ -115,7 +165,9 @@ async def diagnose(req: QueryRequest):
             "reason": ai_json["reason"],             # Claude: 논리적 이유
             "recommended_ddl": ai_json["recommended_ddl"], # Claude: 수정 쿼리
             "estimated_improvement": ai_json["estimated_improvement"], # Claude: 기대 효과
-            "simulator_detail": sim_result["details"] # 프론트엔드 상세 표시용
+            "simulator_detail": sim_result["details"], # 프론트엔드 상세 표시용
+            "performance_data": performance_data,
+            "risk_score_data": risk_score_data
         }
     
     except Exception as e:
