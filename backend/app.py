@@ -21,7 +21,10 @@ from backend.validation.consistency_simulator import load_rules, evaluate_sql
 predictor = RiskPredictor()
 
 # 시뮬레이터 규칙 로드
-RULES_PATH = Path("validation/pattern_rules.json")
+# RULES_PATH = Path("validation/pattern_rules.json")
+
+BASE_DIR = Path(__file__).parent
+RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
 RULES = load_rules(RULES_PATH)
 # 수정 후: 객체(Rule)를 딕셔너리로 변환하여 JSON화
 try:
