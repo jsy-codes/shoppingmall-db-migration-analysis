@@ -11,7 +11,7 @@ import os
 
 # [팀원 모듈 임포트] 
 # 규칙 기반 시뮬레이터 / 위험도 계산 모델
-# 주의: __init__.py 파일이 있어야함
+# 주의: backend/validation/__init__.py 파일이 있어야함
 root_dir = Path(__file__).parent.parent
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))

@@ -11,7 +11,7 @@ export async function fetchDiagnose(sql) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sql }),
-    signal: AbortSignal.timeout(5000), // 5초 타임아웃
+    signal: AbortSignal.timeout(30000), // 30초 타임아웃
   });
 
   if (!res.ok) throw new Error('서버 오류');
