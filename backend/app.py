@@ -21,7 +21,10 @@ from backend.validation.consistency_simulator import load_rules, evaluate_sql
 predictor = RiskPredictor()
 
 # 시뮬레이터 규칙 로드
-RULES_PATH = Path("validation/pattern_rules.json")
+# RULES_PATH = Path("validation/pattern_rules.json")
+
+BASE_DIR = Path(__file__).parent
+RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
 RULES = load_rules(RULES_PATH)
 # 수정 후: 객체(Rule)를 딕셔너리로 변환하여 JSON화
 try:
@@ -129,8 +132,11 @@ async def diagnose(req: QueryRequest):
     for rule in RULES: # pattern_rules.json의 모든 규칙
         # 이번에 탐지된 패턴 ID 목록(matched_ids)에 포함되어 있다면
         if rule.id in matched_ids:
-            # simulator가 계산한 risk_score를 여기에 반영
-            current_score = risk_score
+            if risk_score < 20:
+                # 시뮬레이터 결과에서 해당 패턴의 severity를 찾아 가중치 부여
+                current_score = 80 if max_severity == "HIGH" else 50
+            else:
+                current_score = risk_score
         else:
             # 탐지 안 된 패턴은 낮은 기본 점수 부여
             current_score = 10 
