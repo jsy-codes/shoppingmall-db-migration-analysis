@@ -51,7 +51,13 @@ client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 class QueryRequest(BaseModel):
     sql: str
-
+def adjust_score_by_level(score: int, level: str) -> int:
+    if level == "HIGH":
+        return max(score, 70)
+    elif level == "MEDIUM":
+        return max(score, 40)
+    else:
+        return max(score, 20)
 # [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest):
@@ -69,6 +75,9 @@ async def diagnose(req: QueryRequest):
     # 3. [Risk Model] 정량적 위험 점수 계산 
     risk_analysis = predictor.evaluate_risk_score(req.sql)
     risk_score = risk_analysis["risk_score"]
+
+
+    risk_score = adjust_score_by_level(risk_score, max_severity)
     #risk_level = risk_analysis["risk_level"] # "HIGH", "MED", "LOW"
     
 

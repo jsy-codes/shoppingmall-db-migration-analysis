@@ -1,0 +1,37 @@
+USE bucket_store;
+
+-- 1. MEMBERS 테이블 생성
+CREATE TABLE MEMBERS (
+    id VARCHAR(50) PRIMARY KEY, 
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP 
+);
+
+-- 2. ORDERS 테이블 생성
+CREATE TABLE ORDERS (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    total_amount DECIMAL(10, 4) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (member_id) REFERENCES MEMBERS(id)
+);
+
+-- (참고) 다른 테이블들도 미리 만들어두면 나중에 편합니다.
+CREATE TABLE CATEGORIES (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    parent_id INT, 
+    name VARCHAR(100) NOT NULL,
+    FOREIGN KEY (parent_id) REFERENCES CATEGORIES(id)
+);
+
+CREATE TABLE PRODUCTS (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    price DECIMAL(10, 4) NOT NULL, 
+    stock_quantity INT DEFAULT 0,
+    FOREIGN KEY (category_id) REFERENCES CATEGORIES(id)
+);

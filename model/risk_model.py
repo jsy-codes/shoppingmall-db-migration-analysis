@@ -5,10 +5,10 @@ class RiskPredictor:
     def __init__(self):
         # 4가지 위험 지표 가중치 정의 (총합 100점)
         self.risk_metrics = {
-            'PATTERN_A_FUNC_INDEX': 30,  # 함수 기반 필터 (Function-Based Index 미지원)
-            'PATTERN_B_COMPLEX_JOIN': 20, # 복잡한 조인 (5-Way 이상)
-            'PATTERN_C_IMPLICIT_CAST': 25, # 묵시적 형변환 (타입 불일치)
-            'PATTERN_D_ROWNUM': 25        # ROWNUM 기반 페이징
+            'PATTERN_A_FUNC_INDEX': 40,  # 함수 기반 필터 (Function-Based Index 미지원)
+            'PATTERN_B_COMPLEX_JOIN': 30, # 복잡한 조인 (5-Way 이상)
+            'PATTERN_C_IMPLICIT_CAST': 35, # 묵시적 형변환 (타입 불일치)
+            'PATTERN_D_ROWNUM': 35        # ROWNUM 기반 페이징
         }
 
     def evaluate_risk_score(self, query: str) -> dict:
