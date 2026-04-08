@@ -5,33 +5,26 @@ import {
   BarChart2, Zap, X
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import rules from '../../backend/validation/pattern_rules.json';
 
-// ─── 외부 의존성 import (기존 유지) ─────────────────────────────
-// import rules from '../../backend/validation/pattern_rules.json';
-// import mockData from './data/mock_diagnose_result.json';
-// import { fetchDiagnose } from './api/diagnose';
-
-// ─── 개발용 더미 (실제 프로젝트에서는 위 import로 교체) ──────────
-const rules = [
-  { id: 'P01', name: 'ROWNUM 사용', risk: 'HIGH', failure_type: '문법 오류', description: 'Oracle 전용 ROWNUM은 MySQL에서 지원되지 않습니다.', impact: '쿼리 실행 실패', fix: 'LIMIT / ROW_NUMBER() OVER() 로 변환', type: 'regex', pattern: 'ROWNUM' },
-  { id: 'P02', name: 'SYSDATE 사용', risk: 'MEDIUM', failure_type: '함수 불일치', description: 'SYSDATE()는 MySQL에서 동작 방식이 다릅니다.', impact: '날짜 데이터 불일치', fix: 'NOW() 또는 CURRENT_TIMESTAMP() 로 변환', type: 'regex', pattern: 'SYSDATE' },
-  { id: 'P03', name: 'NVL 사용', risk: 'MEDIUM', failure_type: '함수 불일치', description: 'NVL은 Oracle 전용 NULL 처리 함수입니다.', impact: '쿼리 실행 실패', fix: 'IFNULL() 또는 COALESCE() 로 변환', type: 'regex', pattern: '\\bNVL\\b' },
-  { id: 'P04', name: 'SELECT *', risk: 'LOW', failure_type: '성능 위험', description: '모든 컬럼을 조회하면 불필요한 데이터 전송이 발생합니다.', impact: '쿼리 성능 저하', fix: '필요한 컬럼만 명시적으로 선택', type: 'regex', pattern: 'SELECT\\s+\\*' },
-  { id: 'P05', name: 'CONNECT BY', risk: 'HIGH', failure_type: '문법 오류', description: '계층 쿼리 Oracle 전용 문법입니다.', impact: '쿼리 실행 불가', fix: 'WITH RECURSIVE CTE로 변환', type: 'regex', pattern: 'CONNECT BY' },
-  { id: 'P06', name: 'JOIN without INDEX', risk: 'HIGH', failure_type: '성능 위험', description: '인덱스 없는 JOIN은 풀스캔을 유발합니다.', impact: '쿼리 성능 심각 저하', fix: 'JOIN 컬럼에 인덱스 생성', type: 'heuristic', heuristic: 'join_without_index' },
-  { id: 'P07', name: 'Nested Subquery', risk: 'MEDIUM', failure_type: '성능 위험', description: '중첩 서브쿼리는 반복 실행으로 성능 저하를 유발합니다.', impact: '실행시간 증가', fix: 'JOIN 또는 WITH CTE로 리팩토링', type: 'heuristic', heuristic: 'nested_subquery' },
-  { id: 'P08', name: 'Implicit Cast', risk: 'MEDIUM', failure_type: '타입 불일치', description: '암묵적 형변환은 인덱스를 무력화합니다.', impact: '인덱스 미사용, 성능 저하', fix: '명시적 CAST() 사용', type: 'heuristic', heuristic: 'implicit_cast' },
-];
-
+// ─── Mock 설정 ─────────────────────────────────────────────────
+// .env에서 VITE_MOCK=true 설정 시 실제 API 호출 없이 mockData 반환
 const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
 
+// mockData는 Mock 모드일 때만 동적으로 로드 (번들 최적화)
+let mockData = null;
+if (IS_MOCK) {
+  mockData = (await import('./data/mock_diagnose_result.json')).default;
+}
+
+// ─── 위험도 설정 ───────────────────────────────────────────────
 const riskConfig = {
   HIGH:   { label: 'HIGH',   bg: 'bg-red-500/20',    border: 'border-red-500/40',    text: 'text-red-400',    icon: <AlertTriangle size={14} />, bar: '#ef4444' },
   MEDIUM: { label: 'MEDIUM', bg: 'bg-yellow-500/20', border: 'border-yellow-500/40', text: 'text-yellow-400', icon: <Shield size={14} />,        bar: '#eab308' },
   LOW:    { label: 'LOW',    bg: 'bg-green-500/20',  border: 'border-green-500/40',  text: 'text-green-400',  icon: <Info size={14} />,           bar: '#22c55e' },
 };
 
-// ─── 로컬 패턴 매칭 (fallback) ────────────────────────────────
+// ─── 로컬 패턴 매칭 (API 실패 시 fallback) ────────────────────
 function matchPatterns(sql) {
   const matched = [];
   for (const rule of rules) {
@@ -57,26 +50,78 @@ function calcRiskScore(matched) {
   return Math.min(100, raw);
 }
 
+// ─── SQL 분리 ─────────────────────────────────────────────────
 function splitSQLs(raw) {
   return raw.split(';').map(s => s.trim()).filter(s => s.length > 5);
 }
 
+// ─── 로컬 분석 (fallback) ────────────────────────────────────
 function analyzeSQL(sql, index) {
   const matched = matchPatterns(sql);
   const score = calcRiskScore(matched);
   const top = matched.length > 0 ? getHighestRisk(matched) : null;
-  return { index, sql, matched, top, score, risk: top?.risk || 'LOW', recommended_ddl: null, reason: null, estimated_improvement: null };
+  return {
+    index, sql, matched, top, score,
+    risk: top?.risk || 'LOW',
+    recommended_ddl: null, reason: null, estimated_improvement: null,
+  };
 }
 
+// ─── 배치 요약 계산 ───────────────────────────────────────────
 function calcSummary(results) {
   const counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
   results.forEach(r => counts[r.risk]++);
-  const avgScore = results.length ? Math.round(results.reduce((s, r) => s + r.score, 0) / results.length) : 0;
+  const avgScore = results.length
+    ? Math.round(results.reduce((s, r) => s + r.score, 0) / results.length)
+    : 0;
   const maxScore = results.length ? Math.max(...results.map(r => r.score)) : 0;
   return { counts, avgScore, maxScore, total: results.length };
 }
 
-// ─── 타이핑 애니메이션 컴포넌트 ──────────────────────────────────
+// ─── API 응답 → 결과 객체 변환 ───────────────────────────────
+function processApiResult(data, sql, index) {
+  const simulatorMatched = data.simulator_detail?.[0]?.matched_patterns || [];
+
+  const matchedRules = simulatorMatched.length > 0
+    ? simulatorMatched.map(p => ({
+        id: p.id,
+        name: p.name,
+        risk: p.severity,
+        failure_type: p.failure_type,
+        description: p.description,
+        impact: p.impact,
+        fix: data.simulator_detail?.[0]?.recommendations?.[0] || null,
+      }))
+    : matchPatterns(sql);
+
+  const top = matchedRules.length > 0
+    ? matchedRules.reduce((prev, curr) => {
+        const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+        return (rank[curr.risk] || 0) > (rank[prev.risk] || 0) ? curr : prev;
+      })
+    : null;
+
+  const matchedIds = data.matched_pattern_ids || [];
+  const scoreFromData = data.risk_score_data
+    ? Math.max(0, ...matchedIds.map(id => {
+        const d = data.risk_score_data.find(r => r.id === id);
+        return d ? d.score : 0;
+      }))
+    : 0;
+
+  return {
+    index, sql,
+    matched: matchedRules,
+    top,
+    score: data.risk_score || scoreFromData || { HIGH: 70, MEDIUM: 40, LOW: 10 }[data.risk_level] || 0,
+    risk: data.risk_level || 'LOW',
+    recommended_ddl: data.recommended_ddl || null,
+    reason: data.reason || null,
+    estimated_improvement: data.estimated_improvement || null,
+  };
+}
+
+// ─── 타이핑 애니메이션 컴포넌트 ──────────────────────────────
 function TypewriterText({ text, speed = 8, className = '' }) {
   const [displayed, setDisplayed] = useState('');
   const [done, setDone] = useState(false);
@@ -89,10 +134,7 @@ function TypewriterText({ text, speed = 8, className = '' }) {
     const interval = setInterval(() => {
       i++;
       setDisplayed(text.slice(0, i));
-      if (i >= text.length) {
-        clearInterval(interval);
-        setDone(true);
-      }
+      if (i >= text.length) { clearInterval(interval); setDone(true); }
     }, speed);
     return () => clearInterval(interval);
   }, [text, speed]);
@@ -105,8 +147,7 @@ function TypewriterText({ text, speed = 8, className = '' }) {
   );
 }
 
-// ─── 컴포넌트 ─────────────────────────────────────────────────
-
+// ─── 공통 컴포넌트 ────────────────────────────────────────────
 function RiskBadge({ risk, score }) {
   const cfg = riskConfig[risk] || riskConfig.LOW;
   return (
@@ -127,13 +168,12 @@ function SummaryBar({ counts, total }) {
   );
 }
 
-// ─── 아코디언 아이템 ─────────────────────────────────────────
+// ─── 아코디언 아이템 ──────────────────────────────────────────
 function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   const [visible, setVisible] = useState(false);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // 카드 순차 등장 + HIGH 자동 펼침
   useEffect(() => {
     const t = setTimeout(() => {
       setVisible(true);
@@ -160,11 +200,9 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   const shortSQL = result.sql.length > 40 ? result.sql.slice(0, 40) + '…' : result.sql;
 
   return (
-    <div
-      className={`rounded-2xl border ${theme.card} overflow-hidden transition-all duration-500 ${
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-      }`}
-    >
+    <div className={`rounded-2xl border ${theme.card} overflow-hidden transition-all duration-500 ${
+      visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+    }`}>
       {/* 헤더 */}
       <button
         onClick={() => setOpen(!open)}
@@ -198,7 +236,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
             </pre>
           </div>
 
-          {/* 문제 설명 - 타이핑 애니메이션 */}
+          {/* 문제 설명 */}
           {result.reason && (
             <div className={`px-5 py-4 border-t ${theme.divider}`}>
               <p className={`text-xs font-bold mb-2 ${theme.subText}`}>문제 설명</p>
@@ -241,7 +279,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
             </div>
           )}
 
-          {/* 권고 DDL - 타이핑 애니메이션 */}
+          {/* 권고 DDL */}
           <div className={`border-t ${theme.divider} overflow-hidden`}>
             <div className={`flex items-center justify-between px-5 py-3 border-b ${theme.divider}`}>
               <div className="flex items-center gap-2">
@@ -269,7 +307,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
             </pre>
           </div>
 
-          {/* 예상 개선 효과 - 타이핑 애니메이션 */}
+          {/* 예상 개선 효과 */}
           {result.estimated_improvement && (
             <div className={`px-5 py-4 border-t ${theme.divider}`}>
               <p className={`text-xs font-bold mb-1 ${theme.subText}`}>예상 개선 효과</p>
@@ -317,6 +355,7 @@ function BatchSummary({ summary, results, isDarkMode }) {
       </div>
 
       <div className="p-6 flex flex-col gap-5">
+        {/* 위험도 분포 */}
         <div>
           <div className="flex justify-between mb-2">
             <span className={`text-xs font-bold ${theme.subText}`}>위험도 분포</span>
@@ -329,6 +368,7 @@ function BatchSummary({ summary, results, isDarkMode }) {
           <SummaryBar counts={summary.counts} total={summary.total} />
         </div>
 
+        {/* 수치 카드 */}
         <div className="grid grid-cols-3 gap-3">
           <div className={`rounded-xl p-4 ${theme.inner}`}>
             <p className={`text-xs mb-1 ${theme.subText}`}>평균 Risk Score</p>
@@ -350,6 +390,7 @@ function BatchSummary({ summary, results, isDarkMode }) {
           </div>
         </div>
 
+        {/* 쿼리별 스코어 차트 */}
         {results.length > 1 && (
           <ResponsiveContainer width="100%" height={120}>
             <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -381,28 +422,29 @@ function BatchSummary({ summary, results, isDarkMode }) {
   );
 }
 
-// ─── 메인 App ────────────────────────────────────────────────
+// ─── 메인 App ─────────────────────────────────────────────────
 export default function App() {
-  const [isDarkMode, setIsDarkMode]   = useState(true);
-  const [loading, setLoading]         = useState(false);
-  const [query, setQuery]             = useState('');
-  const [results, setResults]         = useState([]);
-  const [summary, setSummary]         = useState(null);
-  const [hasResult, setHasResult]     = useState(false);
-  const [isApiConnected, setIsApiConnected] = useState(false);
-  const [fileName, setFileName]       = useState(null);
-  const [dragOver, setDragOver]       = useState(false);
+  const [isDarkMode, setIsDarkMode]         = useState(true);
+  const [loading, setLoading]               = useState(false);
+  const [query, setQuery]                   = useState('');
+  const [results, setResults]               = useState([]);
+  const [summary, setSummary]               = useState(null);
+  const [hasResult, setHasResult]           = useState(false);
+  const [apiStatus, setApiStatus]           = useState('idle'); // 'idle' | 'connected' | 'local' | 'mock'
+  const [fileName, setFileName]             = useState(null);
+  const [dragOver, setDragOver]             = useState(false);
   const fileInputRef = useRef(null);
 
   const theme = {
-    bg:      isDarkMode ? 'bg-[#121212]' : 'bg-zinc-200',
-    card:    isDarkMode ? 'bg-[#1e1e1e] border-zinc-800' : 'bg-white border-zinc-200',
-    text:    isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
-    subText: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    button:  isDarkMode ? 'bg-zinc-100 text-zinc-900 hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700',
+    bg:       isDarkMode ? 'bg-[#121212]'  : 'bg-zinc-200',
+    card:     isDarkMode ? 'bg-[#1e1e1e] border-zinc-800' : 'bg-white border-zinc-200',
+    text:     isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
+    subText:  isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
+    button:   isDarkMode ? 'bg-zinc-100 text-zinc-900 hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700',
     textarea: isDarkMode ? 'bg-[#1e1e1e] text-zinc-100 placeholder:text-zinc-600' : 'bg-white text-zinc-800 placeholder:text-zinc-400',
   };
 
+  // 파일 업로드
   const handleFile = useCallback((file) => {
     if (!file) return;
     if (!file.name.endsWith('.sql') && !file.name.endsWith('.txt')) {
@@ -426,43 +468,7 @@ export default function App() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // ─── API 응답 → 결과 객체 변환 ──────────────────────────────
-  const processApiResult = (data, sql, index) => {
-    const simulatorMatched = data.simulator_detail?.[0]?.matched_patterns || [];
-    const matchedRules = simulatorMatched.length > 0
-      ? simulatorMatched.map(p => ({
-          id: p.id, name: p.name, risk: p.severity,
-          failure_type: p.failure_type, description: p.description, impact: p.impact,
-          fix: data.simulator_detail?.[0]?.recommendations?.[0] || null,
-        }))
-      : matchPatterns(sql);
-
-    const top = matchedRules.length > 0
-      ? matchedRules.reduce((prev, curr) => {
-          const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-          return (rank[curr.risk] || 0) > (rank[prev.risk] || 0) ? curr : prev;
-        })
-      : null;
-
-    const matchedIds = data.matched_pattern_ids || [];
-    const scoreFromData = data.risk_score_data
-      ? Math.max(0, ...matchedIds.map(id => {
-          const d = data.risk_score_data.find(r => r.id === id);
-          return d ? d.score : 0;
-        }))
-      : 0;
-
-    return {
-      index, sql, matched: matchedRules, top,
-      score: data.risk_score || scoreFromData || { HIGH: 70, MEDIUM: 40, LOW: 10 }[data.risk_level] || 0,
-      risk: data.risk_level || 'LOW',
-      recommended_ddl: data.recommended_ddl || null,
-      reason: data.reason || null,
-      estimated_improvement: data.estimated_improvement || null,
-    };
-  };
-
-  // ─── 진단 실행 ────────────────────────────────────────────
+  // ─── 진단 실행 ──────────────────────────────────────────────
   const runDiagnose = async () => {
     const sqls = splitSQLs(query);
     if (sqls.length === 0) return;
@@ -471,30 +477,53 @@ export default function App() {
     setHasResult(true);
     setResults([]);
     setSummary(null);
+    setApiStatus('idle');
 
     await new Promise(r => setTimeout(r, 700));
 
     const analysisResults = [];
-    let apiSuccess = false;
+    let successCount = 0;
+
     for (let i = 0; i < sqls.length; i++) {
+      // ── Mock 모드 ──────────────────────────────────────────
       if (IS_MOCK) {
-        analysisResults.push(analyzeSQL(sqls[i], i));
-      } else {
-        try {
-          const { fetchDiagnose } = await import('./api/diagnose');
-          const data = await fetchDiagnose(sqls[i]);
-          analysisResults.push(processApiResult(data, sqls[i], i));
-          apiSuccess = true;
-        } catch (e) {
-          console.error(`[API ERROR] Query #${i + 1}:`, e.message);
+        const mockResult = mockData?.results?.[i] ?? mockData?.results?.[0];
+        if (mockResult) {
+          analysisResults.push(processApiResult(mockResult, sqls[i], i));
+        } else {
+          // mockData.results가 없으면 로컬 분석으로 fallback
           analysisResults.push(analyzeSQL(sqls[i], i));
         }
+        continue;
+      }
+
+      // ── 실제 API 호출 ──────────────────────────────────────
+      try {
+        const { fetchDiagnose } = await import('./api/diagnose');
+        const data = await fetchDiagnose(sqls[i]);
+        analysisResults.push(processApiResult(data, sqls[i], i));
+        successCount++;
+      } catch (e) {
+        console.error(`[API ERROR] Query #${i + 1}:`, e.message);
+        analysisResults.push(analyzeSQL(sqls[i], i));
       }
     }
-    setIsApiConnected(apiSuccess);
 
+    // 연결 상태 업데이트
+    if (IS_MOCK) {
+      setApiStatus('mock');
+    } else if (successCount === sqls.length) {
+      setApiStatus('connected');
+    } else if (successCount > 0) {
+      setApiStatus('connected'); // 일부 성공도 connected로 표시
+    } else {
+      setApiStatus('local');
+    }
+
+    // HIGH 위험도 순 정렬
     const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
     analysisResults.sort((a, b) => (rank[b.risk] || 0) - (rank[a.risk] || 0));
+
     setResults(analysisResults);
     setSummary(calcSummary(analysisResults));
     setLoading(false);
@@ -502,22 +531,30 @@ export default function App() {
 
   const sqlCount = splitSQLs(query).length;
 
+  // 상단 배지 설정
+  const statusBadge = {
+    connected: { cls: 'bg-green-500/20 text-green-400', dot: 'bg-green-400', label: 'AI 연결됨' },
+    local:     { cls: 'bg-blue-500/20 text-blue-400',   dot: 'bg-blue-400',  label: '로컬 분석' },
+    mock:      { cls: 'bg-zinc-800 text-zinc-500',       dot: 'bg-zinc-600',  label: '오프라인(mock)' },
+  }[apiStatus] ?? null;
+
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700`}>
 
+      {/* 우측 상단 고정 */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
-        {hasResult && (
-          <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full ${
-            isApiConnected ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
-          }`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${isApiConnected ? 'bg-green-400' : 'bg-blue-400'}`} />
-            {isApiConnected ? 'AI 연결됨' : '로컬 분석'}
+        {hasResult && statusBadge && (
+          <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full ${statusBadge.cls}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
+            {statusBadge.label}
           </div>
         )}
-        <button onClick={() => setIsDarkMode(!isDarkMode)}
+        <button
+          onClick={() => setIsDarkMode(!isDarkMode)}
           className={`p-2 rounded-full transition-all hover:scale-110 ${
             isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-300 hover:bg-zinc-400'
-          }`}>
+          }`}
+        >
           {isDarkMode ? <Sun size={18} /> : <Moon size={18} className="text-zinc-600" />}
         </button>
       </div>
@@ -529,7 +566,8 @@ export default function App() {
             <div className="mb-8 text-center">
               <h1 className="text-3xl font-bold mb-2">AI 쿼리 진단</h1>
               <p className={`text-sm ${theme.subText}`}>
-                Oracle SQL을 입력하면 이관 위험도를 즉시 분석합니다 · 여러 쿼리는 <code className="font-mono text-xs bg-zinc-800 px-1 rounded">;</code>으로 구분
+                Oracle SQL을 입력하면 이관 위험도를 즉시 분석합니다 · 여러 쿼리는{' '}
+                <code className="font-mono text-xs bg-zinc-800 px-1 rounded">;</code>으로 구분
               </p>
             </div>
             <InputArea
@@ -549,7 +587,8 @@ export default function App() {
           <div className="mb-6">
             <h1 className="text-3xl font-bold mb-2">AI 쿼리 진단</h1>
             <p className={`text-sm ${theme.subText}`}>
-              Oracle SQL을 입력하면 이관 위험도를 즉시 분석합니다 · 여러 쿼리는 <code className="font-mono text-xs bg-zinc-800 px-1 rounded">;</code>으로 구분
+              Oracle SQL을 입력하면 이관 위험도를 즉시 분석합니다 · 여러 쿼리는{' '}
+              <code className="font-mono text-xs bg-zinc-800 px-1 rounded">;</code>으로 구분
             </p>
           </div>
 
@@ -561,6 +600,7 @@ export default function App() {
             isDarkMode={isDarkMode} theme={theme} compact={true}
           />
 
+          {/* 로딩 */}
           {loading && (
             <div className={`rounded-2xl border ${theme.card} p-12 flex flex-col items-center gap-4`}>
               <div className="w-8 h-8 border-2 border-zinc-600 border-t-zinc-200 rounded-full animate-spin" />
@@ -570,8 +610,10 @@ export default function App() {
             </div>
           )}
 
+          {/* 결과 */}
           {!loading && results.length > 0 && (
             <div className="flex flex-col gap-4">
+              {/* 배치 요약 (2개 이상) */}
               {results.length > 1 && summary && (
                 <BatchSummary summary={summary} results={results} isDarkMode={isDarkMode} />
               )}
@@ -583,7 +625,7 @@ export default function App() {
                   </span>
                 </div>
               )}
-              {/* 150ms 간격 순차 등장 */}
+              {/* 아코디언 목록 - 150ms 간격 순차 등장 */}
               {results.map((r, i) => (
                 <QueryAccordion
                   key={i}
@@ -601,7 +643,7 @@ export default function App() {
   );
 }
 
-// ─── 입력 영역 ───────────────────────────────────────────────
+// ─── 입력 영역 (초기/결과 화면 공유) ─────────────────────────
 function InputArea({
   query, setQuery, fileName, sqlCount, loading, runDiagnose,
   handleDrop, handleFile, dragOver, setDragOver, clearFile,
@@ -609,36 +651,46 @@ function InputArea({
 }) {
   return (
     <div className="mb-6">
+      {/* 파일 업로드 드롭존 */}
       <div
         onDrop={handleDrop}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onClick={() => !fileName && fileInputRef.current?.click()}
         className={`mb-3 rounded-xl border-2 border-dashed px-4 py-3 flex items-center gap-3 cursor-pointer transition-all ${
-          dragOver ? 'border-zinc-400 bg-zinc-700/30'
-            : isDarkMode ? 'border-zinc-700 hover:border-zinc-500 bg-zinc-800/30'
-            : 'border-zinc-300 hover:border-zinc-400 bg-zinc-50'
+          dragOver
+            ? 'border-zinc-400 bg-zinc-700/30'
+            : isDarkMode
+              ? 'border-zinc-700 hover:border-zinc-500 bg-zinc-800/30'
+              : 'border-zinc-300 hover:border-zinc-400 bg-zinc-50'
         }`}
       >
-        <input ref={fileInputRef} type="file" accept=".sql,.txt" className="hidden"
-          onChange={e => handleFile(e.target.files[0])} />
+        <input
+          ref={fileInputRef} type="file" accept=".sql,.txt" className="hidden"
+          onChange={e => handleFile(e.target.files[0])}
+        />
         {fileName ? (
           <>
             <FileText size={15} className="text-green-400 shrink-0" />
             <span className="text-sm text-green-400 font-mono flex-1 truncate">{fileName}</span>
-            <button onClick={(e) => { e.stopPropagation(); clearFile(); }}
-              className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            <button
+              onClick={(e) => { e.stopPropagation(); clearFile(); }}
+              className="text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
               <X size={14} />
             </button>
           </>
         ) : (
           <>
             <Upload size={15} className={`${theme.subText} shrink-0`} />
-            <span className={`text-xs ${theme.subText}`}>.sql 파일 드래그 앤 드롭 또는 클릭하여 업로드</span>
+            <span className={`text-xs ${theme.subText}`}>
+              .sql 파일 드래그 앤 드롭 또는 클릭하여 업로드
+            </span>
           </>
         )}
       </div>
 
+      {/* 텍스트 입력창 */}
       <div className={`rounded-2xl border ${theme.card} overflow-hidden`}>
         <textarea
           value={query}
