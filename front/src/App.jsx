@@ -90,6 +90,8 @@ export default function App() {
   const [hasResult, setHasResult] = useState(false);       // 결과 유무 (화면 전환용)
   const [isApiConnected, setIsApiConnected] = useState(false); // 백엔드 연결 여부
   const [matchedPatternIds, setMatchedPatternIds] = useState([]); // 히트맵 강조용 ID 목록
+  const [performanceData, setPerformanceData] = useState([]);
+  const [riskScoreData, setRiskScoreData] = useState([]);
 
   const theme = {
     bg:      isDarkMode ? 'bg-[#121212]' : 'bg-zinc-200',
@@ -106,6 +108,8 @@ export default function App() {
   //   rule_id, risk_level, reason, recommended_ddl,
   //   estimated_improvement, risk_score, matched_pattern_ids
   const processApiData = (data) => {
+    if (data.performance_data) setPerformanceData(data.performance_data);
+    if (data.risk_score_data) setRiskScoreData(data.risk_score_data);
     const found = rules.find(r => r.id === data.rule_id);
     setMatchedPatternIds(data.matched_pattern_ids || []);
     setTopRule(found ? {
@@ -222,13 +226,13 @@ export default function App() {
         {hasResult && (
           <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full ${
             IS_MOCK
-              ? 'bg-yellow-500/20 text-yellow-400'    // Mock 모드
+               ? 'bg-zinc-800 text-zinc-500'         // 오프라인 
               : isApiConnected
                 ? 'bg-green-500/20 text-green-400'    // 백엔드 연결됨
-                : 'bg-zinc-800 text-zinc-500'         // 로컬 분석
+                : 'bg-blue-500/20 text-blue-400'         // 로컬 분석
           }`}>
             <div className={`w-1.5 h-1.5 rounded-full ${
-              IS_MOCK ? 'bg-yellow-400' : isApiConnected ? 'bg-green-400' : 'bg-zinc-500'
+              IS_MOCK ? 'bg-zinc-600' : isApiConnected ? 'bg-green-400' : 'bg-blue-400'
             }`} />
             {IS_MOCK ? '오프라인(mock)' : isApiConnected ? 'AI 연결됨' : '로컬 분석'}
           </div>
@@ -439,7 +443,7 @@ export default function App() {
                   <p className="text-sm font-bold">성능 비교</p>
                   <p className={`text-xs mt-1 ${theme.subText}`}>패턴별 이관 전/후 실행시간 (ms)</p>
                 </div>
-                {IS_MOCK ? (
+                {performanceData.length > 0 ? (
                   <div className="p-6">
                     {/* 요약 수치 3개 */}
                     <div className="grid grid-cols-3 gap-4 mb-6">
@@ -494,7 +498,7 @@ export default function App() {
                     )}
                   </p>
                 </div>
-                {IS_MOCK ? (
+                {riskScoreData.length > 0 ? (
                   <div className="p-6">
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                       {riskScoreData.map(d => {

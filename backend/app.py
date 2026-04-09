@@ -11,7 +11,7 @@ import os
 
 # [팀원 모듈 임포트] 
 # 규칙 기반 시뮬레이터 / 위험도 계산 모델
-# 주의: __init__.py 파일이 있어야함
+# 주의: backend/validation/__init__.py 파일이 있어야함
 root_dir = Path(__file__).parent.parent
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
@@ -21,7 +21,10 @@ from backend.validation.consistency_simulator import load_rules, evaluate_sql
 predictor = RiskPredictor()
 
 # 시뮬레이터 규칙 로드
-RULES_PATH = Path("validation/pattern_rules.json")
+# RULES_PATH = Path("validation/pattern_rules.json")
+
+BASE_DIR = Path(__file__).parent
+RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
 RULES = load_rules(RULES_PATH)
 # 수정 후: 객체(Rule)를 딕셔너리로 변환하여 JSON화
 try:
@@ -48,7 +51,13 @@ client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 class QueryRequest(BaseModel):
     sql: str
-
+def adjust_score_by_level(score: int, level: str) -> int:
+    if level == "HIGH":
+        return max(score, 70)
+    elif level == "MEDIUM":
+        return max(score, 40)
+    else:
+        return max(score, 20)
 # [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest):
@@ -66,6 +75,9 @@ async def diagnose(req: QueryRequest):
     # 3. [Risk Model] 정량적 위험 점수 계산 
     risk_analysis = predictor.evaluate_risk_score(req.sql)
     risk_score = risk_analysis["risk_score"]
+
+
+    risk_score = adjust_score_by_level(risk_score, max_severity)
     #risk_level = risk_analysis["risk_level"] # "HIGH", "MED", "LOW"
     
 
@@ -129,8 +141,11 @@ async def diagnose(req: QueryRequest):
     for rule in RULES: # pattern_rules.json의 모든 규칙
         # 이번에 탐지된 패턴 ID 목록(matched_ids)에 포함되어 있다면
         if rule.id in matched_ids:
-            # simulator가 계산한 risk_score를 여기에 반영
-            current_score = risk_score
+            if risk_score < 20:
+                # 시뮬레이터 결과에서 해당 패턴의 severity를 찾아 가중치 부여
+                current_score = 80 if max_severity == "HIGH" else 50
+            else:
+                current_score = risk_score
         else:
             # 탐지 안 된 패턴은 낮은 기본 점수 부여
             current_score = 10 
