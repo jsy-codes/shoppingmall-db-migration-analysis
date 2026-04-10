@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'; // ← 이 부분이 바뀌었어요 (useMemo 추가)
 import {
   Search, Copy, Check, AlertTriangle, Shield, Info,
-  Sun, Moon, ChevronDown, ChevronUp, Upload, FileText,
-  BarChart2, Zap, X, HelpCircle, BookOpen,
+  Sun, Moon, ChevronDown, Upload, FileText,
+  BarChart2, Zap, X, HelpCircle, BookOpen, Database,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import rules from '../../backend/validation/pattern_rules.json';
@@ -15,7 +15,7 @@ const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
 const riskConfig = {
   HIGH:   { label: 'HIGH',   bg: 'bg-red-500/20',    border: 'border-red-500/40',    text: 'text-red-400',    icon: <AlertTriangle size={14} />, bar: '#ef4444' },
   MEDIUM: { label: 'MEDIUM', bg: 'bg-yellow-500/20', border: 'border-yellow-500/40', text: 'text-yellow-400', icon: <Shield size={14} />,        bar: '#eab308' },
-  LOW:    { label: 'LOW',    bg: 'bg-green-500/20',  border: 'border-green-500/40',  text: 'text-green-400',  icon: <Info size={14} />,           bar: '#22c55e' },
+  LOW:    { label: 'LOW',    bg: 'bg-emerald-500/20',  border: 'border-emerald-500/40',  text: 'text-emerald-400',  icon: <Info size={14} />,           bar: '#10b981' },
 };
 
 // ─── 패턴 카탈로그 데이터 (P01~P22) ───────────────────────────
@@ -639,10 +639,10 @@ function RiskBadge({ risk, score }) {
 function SummaryBar({ counts, total }) {
   const pct = (n) => total ? Math.round((n / total) * 100) : 0;
   return (
-    <div className="flex rounded-full overflow-hidden h-2 w-full">
-      <div className="bg-red-500 transition-all" style={{ width: `${pct(counts.HIGH)}%` }} />
-      <div className="bg-yellow-500 transition-all" style={{ width: `${pct(counts.MEDIUM)}%` }} />
-      <div className="bg-green-500 transition-all" style={{ width: `${pct(counts.LOW)}%` }} />
+    <div className="flex rounded-full overflow-hidden h-3 w-full gap-px">
+      {counts.HIGH   > 0 && <div className="bg-red-500     transition-all duration-700" style={{ width: `${pct(counts.HIGH)}%` }} />}
+      {counts.MEDIUM > 0 && <div className="bg-yellow-500  transition-all duration-700" style={{ width: `${pct(counts.MEDIUM)}%` }} />}
+      {counts.LOW    > 0 && <div className="bg-emerald-500 transition-all duration-700" style={{ width: `${pct(counts.LOW)}%` }} />}
     </div>
   );
 }
@@ -662,12 +662,19 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   }, [delay, result.risk]);
 
   const theme = {
-    card:    isDarkMode ? 'bg-[#1e1e1e] border-zinc-800' : 'bg-white border-zinc-200',
+    card:    isDarkMode ? 'bg-[#1a1a1a] border-zinc-800/80' : 'bg-white border-zinc-200',
     subText: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    inner:   isDarkMode ? 'bg-zinc-900/50' : 'bg-zinc-50',
-    divider: isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
+    inner:   isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-50',
+    divider: isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200',
   };
   const cfg = riskConfig[result.risk] || riskConfig.LOW;
+
+  // 위험도별 왼쪽 세로줄 + 배경 그라디언트 색상
+  const accentStyle = {
+    HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/8 to-transparent'    : 'from-red-50 to-transparent' },
+    MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/8 to-transparent' : 'from-yellow-50 to-transparent' },
+    LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/5 to-transparent' : 'from-emerald-50/50 to-transparent' },
+  }[result.risk] || { bar: 'bg-zinc-500', glow: 'from-transparent to-transparent' };
 
   const copyDdl = async () => {                          // ← 이 부분이 바뀌었어요 (기다리는 함수로 변경)
     if (!result.recommended_ddl) return;
@@ -690,54 +697,65 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   const shortSQL = result.sql.length > 40 ? result.sql.slice(0, 40) + '…' : result.sql;
 
   return (
-    <div className={`rounded-2xl border ${theme.card} overflow-hidden transition-all duration-500 ${
-      visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-    }`}>
-      {/* ← 이 부분이 바뀌었어요: aria-expanded, aria-controls 추가 */}
+    <div className={`group relative rounded-2xl border ${theme.card} overflow-hidden transition-all duration-500 hover:-translate-y-0.5 hover:shadow-lg ${
+      isDarkMode ? 'hover:shadow-black/30' : 'hover:shadow-zinc-200'
+    } ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+
+      {/* 위험도별 왼쪽 세로 컬러줄 */}
+      <div className={`absolute left-0 top-0 bottom-0 w-0.75 ${accentStyle.bar}`} />
+
+      {/* 헤더 버튼 — 위험도 색상 미세 그라디언트 배경 */}
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={`query-detail-${result.index}`}
-        className={`w-full flex items-center gap-3 px-5 py-4 text-left transition-colors ${cfg.bg} hover:opacity-90`}
+        className={`w-full flex items-center gap-3 pl-6 pr-5 py-4 text-left transition-all bg-linear-to-r ${accentStyle.glow}`}
       >
         <span className={`text-xs font-mono font-bold ${theme.subText} shrink-0`}>
           #{String(index + 1).padStart(2, '0')}
         </span>
         <RiskBadge risk={result.risk} score={result.score} />
         {result.top && (
-          <span className={`text-xs font-mono px-2 py-0.5 rounded ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600'}`}>
+          <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${isDarkMode ? 'bg-zinc-800/80 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'}`}>
             {result.top.id}
           </span>
         )}
-        <span className="text-sm font-medium truncate flex-1">{result.top?.name || '패턴 없음'}</span>
-        <span className={`text-xs ${theme.subText} font-mono shrink-0 hidden md:block max-w-50 truncate`}>{shortSQL}</span>
-        <span className={`shrink-0 ${cfg.text}`}>
-          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <span className={`text-sm font-medium truncate flex-1 ${isDarkMode ? 'text-zinc-100' : 'text-zinc-800'}`}>
+          {result.top?.name || '패턴 없음'}
+        </span>
+        <span className={`text-xs ${theme.subText} font-mono shrink-0 hidden md:block max-w-48 truncate`}>{shortSQL}</span>
+        <span className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''} ${cfg.text}`}>
+          <ChevronDown size={16} />
         </span>
       </button>
 
       {open && (
-        <div id={`query-detail-${result.index}`} className="flex flex-col gap-0">{/* ← 이 부분이 바뀌었어요 */}
-          <div className={`px-5 py-4 border-t ${theme.divider}`}>
-            <p className={`text-xs font-bold mb-2 ${theme.subText}`}>SQL 원문</p>
-            <pre className={`text-xs font-mono p-3 rounded-xl overflow-x-auto ${theme.inner} text-zinc-300`}>
+        <div id={`query-detail-${result.index}`} className="flex flex-col">
+          {/* SQL 원문 */}
+          <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${theme.subText}`}>SQL 원문</p>
+            <pre className={`text-xs font-mono p-4 rounded-xl overflow-x-auto leading-relaxed ${
+              isDarkMode ? 'bg-zinc-950/80 text-zinc-300 border border-zinc-800' : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
+            }`}>
               {result.sql}
             </pre>
           </div>
 
+          {/* 문제 설명 */}
           {result.reason && (
-            <div className={`px-5 py-4 border-t ${theme.divider}`}>
-              <p className={`text-xs font-bold mb-2 ${theme.subText}`}>문제 설명</p>
-              <p className="text-sm leading-relaxed">
+            <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${theme.subText}`}>문제 설명</p>
+              <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>
                 <TypewriterText text={result.reason} speed={15} />
               </p>
             </div>
           )}
 
+          {/* 감지된 패턴 */}
           {result.matched.length > 0 && (
-            <div className={`px-5 py-4 border-t ${theme.divider}`}>
-              <p className={`text-xs font-bold mb-3 ${theme.subText}`}>
-                감지된 패턴 ({result.matched.length}개)
+            <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${theme.subText}`}>
+                감지된 패턴 <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-500'}`}>{result.matched.length}</span>
               </p>
               <div className="flex flex-col gap-2">
                 {result.matched.map(m => {
@@ -748,7 +766,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
                       <div className="flex-1 min-w-0">
                         <p className={`text-xs font-bold ${mc.text}`}>{m.name}</p>
                         <p className={`text-xs mt-0.5 ${theme.subText}`}>{m.description}</p>
-                        {m.fix && <p className="text-xs mt-1 text-green-400 font-mono">→ {m.fix}</p>}
+                        {m.fix && <p className="text-xs mt-1.5 text-emerald-400 font-mono">→ {m.fix}</p>}
                       </div>
                       <RiskBadge risk={m.risk} />
                     </div>
@@ -758,23 +776,32 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
             </div>
           )}
 
+          {/* 패턴 없음 */}
           {result.matched.length === 0 && (
-            <div className={`px-5 py-4 border-t ${theme.divider}`}>
-              <p className="text-sm text-green-400">✓ 감지된 위험 패턴 없음</p>
+            <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
+              <div className="flex items-center gap-2 text-emerald-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <p className="text-sm font-medium">감지된 위험 패턴 없음</p>
+              </div>
             </div>
           )}
 
+          {/* 권고 DDL */}
           <div className={`border-t ${theme.divider} overflow-hidden`}>
-            <div className={`flex items-center justify-between px-5 py-3 border-b ${theme.divider}`}>
+            <div className={`flex items-center justify-between pl-6 pr-5 py-3 border-b ${theme.divider}`}>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold">권고 DDL</span>
-                {result.recommended_ddl && <span className="text-xs text-green-400 opacity-60">AI 생성</span>}
+                <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>권고 DDL</p>
+                {result.recommended_ddl && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">AI 생성</span>
+                )}
               </div>
               <button
                 onClick={copyDdl}
                 disabled={!result.recommended_ddl}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg transition-all disabled:opacity-30 ${
-                  isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-30 ${
+                  isDarkMode
+                    ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                    : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-zinc-300'
                 }`}
               >
                 {copied ? <Check size={11} /> : <Copy size={11} />}
@@ -811,7 +838,8 @@ function BatchSummary({ summary, results, isDarkMode }) {
   const theme = {
     card:    isDarkMode ? 'bg-[#1e1e1e] border-zinc-800' : 'bg-white border-zinc-200',
     subText: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    inner:   isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-50',
+    inner:   isDarkMode ? 'bg-zinc-900/60 border-zinc-800' : 'bg-zinc-50 border-zinc-200',
+    divider: isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
   };
 
   const chartData = results.map((r, i) => ({
@@ -820,63 +848,91 @@ function BatchSummary({ summary, results, isDarkMode }) {
     risk: r.risk,
   }));
 
+  const stats = [
+    {
+      label: '평균 Risk Score',
+      val: summary.avgScore,
+      accent: Number(summary.avgScore) >= 70 ? 'text-red-400' : Number(summary.avgScore) >= 40 ? 'text-yellow-400' : 'text-emerald-400',
+      bar:    Number(summary.avgScore) >= 70 ? 'bg-red-500'   : Number(summary.avgScore) >= 40 ? 'bg-yellow-500'   : 'bg-emerald-500',
+    },
+    {
+      label: '최고 Risk Score',
+      val: summary.maxScore,
+      accent: Number(summary.maxScore) >= 70 ? 'text-red-400' : Number(summary.maxScore) >= 40 ? 'text-yellow-400' : 'text-emerald-400',
+      bar:    Number(summary.maxScore) >= 70 ? 'bg-red-500'   : Number(summary.maxScore) >= 40 ? 'bg-yellow-500'   : 'bg-emerald-500',
+    },
+    {
+      label: 'HIGH 위험 쿼리',
+      val: `${summary.counts.HIGH}개`,
+      accent: summary.counts.HIGH > 0 ? 'text-red-400' : 'text-emerald-400',
+      bar:    summary.counts.HIGH > 0 ? 'bg-red-500'   : 'bg-emerald-500',
+    },
+  ];
+
   return (
-    <div className={`rounded-2xl border ${theme.card} overflow-hidden mb-4 transition-all duration-500 ${
+    <div className={`rounded-2xl border ${theme.card} overflow-hidden transition-all duration-500 ${
       visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
     }`}>
-      <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'} flex items-center gap-2`}>
-        <BarChart2 size={15} className="text-zinc-400" />
+      {/* 헤더 */}
+      <div className={`px-6 py-4 border-b ${theme.divider} flex items-center gap-3`}>
+        <div className="w-7 h-7 rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
+          <BarChart2 size={13} className="text-white" />
+        </div>
         <span className="text-sm font-bold">배치 분석 요약</span>
-        <span className={`text-xs ${theme.subText} ml-auto`}>총 {summary.total}개 쿼리</span>
+        <div className={`ml-auto flex items-center gap-1 text-xs ${theme.subText}`}>
+          <span>총</span>
+          <span className={`font-bold ${isDarkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{summary.total}개</span>
+          <span>쿼리</span>
+        </div>
       </div>
-      <div className="p-6 flex flex-col gap-5">
+
+      <div className="p-6 flex flex-col gap-6">
+        {/* 스탯 카드 3개 */}
+        <div className="grid grid-cols-3 gap-3">
+          {stats.map(({ label, val, accent, bar }) => (
+            <div key={label} className={`rounded-xl border ${theme.inner} p-4 flex flex-col gap-2 relative overflow-hidden`}>
+              <div className={`absolute top-0 left-0 right-0 h-0.75 ${bar}`} />
+              <p className={`text-xs ${theme.subText}`}>{label}</p>
+              <p className={`text-3xl font-bold tracking-tight ${accent}`}>{val}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* 위험도 분포 바 */}
         <div>
-          <div className="flex justify-between mb-2">
-            <span className={`text-xs font-bold ${theme.subText}`}>위험도 분포</span>
+          <div className="flex justify-between items-center mb-2.5">
+            <span className={`text-xs font-semibold ${theme.subText}`}>위험도 분포</span>
             <div className="flex gap-3">
               <span className="text-xs text-red-400 font-bold">HIGH {summary.counts.HIGH}</span>
-              <span className="text-xs text-yellow-400 font-bold">MEDIUM {summary.counts.MEDIUM}</span>
-              <span className="text-xs text-green-400 font-bold">LOW {summary.counts.LOW}</span>
+              <span className="text-xs text-yellow-400 font-bold">MED {summary.counts.MEDIUM}</span>
+              <span className="text-xs text-emerald-400 font-bold">LOW {summary.counts.LOW}</span>
             </div>
           </div>
           <SummaryBar counts={summary.counts} total={summary.total} />
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: '평균 Risk Score', val: summary.avgScore },
-            { label: '최고 Risk Score', val: summary.maxScore },
-            { label: 'HIGH 위험 쿼리',  val: `${summary.counts.HIGH}개`, forceRed: true },
-          ].map(({ label, val, forceRed }) => (
-            <div key={label} className={`rounded-xl p-4 ${theme.inner}`}>
-              <p className={`text-xs mb-1 ${theme.subText}`}>{label}</p>
-              <p className={`text-2xl font-bold ${
-                forceRed ? 'text-red-400' :
-                Number(val) >= 70 ? 'text-red-400' :
-                Number(val) >= 40 ? 'text-yellow-400' : 'text-green-400'
-              }`}>{val}</p>
-            </div>
-          ))}
-        </div>
+
+        {/* 쿼리별 점수 차트 */}
         {results.length > 1 && (
-          <ResponsiveContainer width="100%" height={120}>
+          <ResponsiveContainer width="100%" height={130}>
             <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#3f3f46' : '#e4e4e7'} />
-              <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#a1a1aa' : '#52525b', fontSize: 10 }} />
-              <YAxis domain={[0, 100]} tick={{ fill: isDarkMode ? '#a1a1aa' : '#52525b', fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} vertical={false} />
+              <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#71717a' : '#a1a1aa', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fill: isDarkMode ? '#71717a' : '#a1a1aa', fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{
                   background: isDarkMode ? '#18181b' : '#fff',
                   border: `1px solid ${isDarkMode ? '#3f3f46' : '#e4e4e7'}`,
-                  borderRadius: 8, fontSize: 12,
+                  borderRadius: 10, fontSize: 12,
                   color: isDarkMode ? '#f4f4f5' : '#18181b',
                 }}
-                labelStyle={{ color: isDarkMode ? '#f4f4f5' : '#18181b', fontWeight: 'bold' }}
+                labelStyle={{ color: isDarkMode ? '#f4f4f5' : '#18181b', fontWeight: 700, marginBottom: 2 }}
                 itemStyle={{ color: isDarkMode ? '#d4d4d8' : '#3f3f46' }}
                 formatter={(v, _, props) => [`${v}점`, `Risk Score (${props.payload.risk})`]}
+                cursor={{ fill: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}
               />
-              <Bar dataKey="score" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="score" radius={[5, 5, 0, 0]} maxBarSize={40}>
                 {chartData.map((d, i) => (
-                  <Cell key={i} fill={riskConfig[d.risk]?.bar || '#22c55e'} />
+                  <Cell key={i} fill={riskConfig[d.risk]?.bar || '#10b981'} />
                 ))}
               </Bar>
             </BarChart>
@@ -1009,58 +1065,103 @@ export default function App() {
   }[apiStatus] ?? null;
 
   return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700`}>
+    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700 ${isDarkMode ? 'bg-grid-dark' : 'bg-grid-light'}`}>
 
       {/* 모달 */}
       {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}  {/* ← 이 부분이 바뀌었어요 */}
       {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}  {/* ← 이 부분이 바뀌었어요 */}
 
       {/* 우측 상단 고정 */}
-      <div className="fixed top-4 right-4 z-40 flex items-center gap-3">
+      <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
         {hasResult && statusBadge && (
-          <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full ${statusBadge.cls}`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
+          <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium ${statusBadge.cls} ${isDarkMode ? 'border-zinc-700' : 'border-zinc-300'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${statusBadge.dot}`} />
             {statusBadge.label}
           </div>
         )}
-        <button
-          onClick={() => setShowHelp(true)}
-          title="사용 가이드"
-          className={`p-2 rounded-full transition-all hover:scale-110 ${
-            isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400' : 'bg-zinc-300 hover:bg-zinc-400 text-zinc-600'
-          }`}
-        >
-          <HelpCircle size={18} />
-        </button>
-        <button
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          className={`p-2 rounded-full transition-all hover:scale-110 ${
-            isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-300 hover:bg-zinc-400'
-          }`}
-        >
-          {isDarkMode ? <Sun size={18} /> : <Moon size={18} className="text-zinc-600" />}
-        </button>
+        <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white/80 border-zinc-200'} backdrop-blur-sm`}>
+          <button
+            onClick={() => setShowHelp(true)}
+            title="사용 가이드"
+            className={`p-1.5 rounded-lg transition-all hover:scale-105 ${
+              isDarkMode ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700'
+            }`}
+          >
+            <HelpCircle size={16} />
+          </button>
+          <div className={`w-px h-4 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className={`p-1.5 rounded-lg transition-all hover:scale-105 ${
+              isDarkMode ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700'
+            }`}
+          >
+            {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </div>
       </div>
 
       {/* ── 초기 화면 ── */}
       {!hasResult && (
         <div className="min-h-screen flex flex-col items-center justify-center px-6">
-          <div className="w-full max-w-3xl">
-            <div className="mb-8 text-center">
-              <h1 className="text-3xl font-bold mb-2">AI 쿼리 진단</h1>
-              <p className={`text-sm ${theme.subText}`}>
-                Oracle SQL을 입력하면 이관 위험도를 즉시 분석합니다 · 여러 쿼리는{' '}
-                <code className="font-mono text-xs bg-zinc-800 px-1 rounded">;</code>으로 구분
+          {/* 중앙 radial glow */}
+          <div
+            className="pointer-events-none fixed inset-0 z-0"
+            style={{ background: isDarkMode
+              ? 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.08) 0%, transparent 70%)'
+              : 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 70%)'
+            }}
+          />
+          <div className="relative z-10 w-full max-w-2xl">
+            <div className="mb-10 text-center">
+
+              {/* 브랜드 로고 아이콘 */}
+              <div className="flex justify-center mb-6">
+                <div className="animate-float relative">
+                  <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-violet-500/30">
+                    <Database size={28} className="text-white" />
+                  </div>
+                  <div className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 ${isDarkMode ? 'border-[#121212]' : 'border-zinc-100'}`} />
+                </div>
+              </div>
+
+              {/* 메인 타이틀 */}
+              <h1 className={`text-5xl font-bold tracking-tight mb-3 bg-linear-to-b bg-clip-text text-transparent ${
+                isDarkMode
+                  ? 'from-white via-zinc-100 to-zinc-500'
+                  : 'from-zinc-900 via-zinc-700 to-zinc-500'
+              }`}>
+                AI 쿼리 진단
+              </h1>
+
+              {/* 서브타이틀 */}
+              <p className={`text-base mb-5 ${theme.subText}`}>
+                Oracle SQL의 MySQL 이관 위험도를 즉시 분석합니다
               </p>
+
+              {/* 배지 행 */}
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${
+                  isDarkMode ? 'bg-zinc-900 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'
+                }`}>Oracle</span>
+                <span className={`text-xs ${theme.subText}`}>→</span>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${
+                  isDarkMode ? 'bg-zinc-900 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'
+                }`}>MySQL</span>
+                <span className={`text-xs ${theme.subText}`}>·</span>
+                <span className={`text-xs ${theme.subText}`}>P01~P22 패턴 자동 탐지</span>
+              </div>
+
+              {/* 패턴 카탈로그 버튼 */}
               <button
                 onClick={() => setShowCatalog(true)}
-                className={`mt-4 inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full border transition-all hover:scale-105 ${
+                className={`inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full border transition-all hover:scale-105 ${
                   isDarkMode
-                    ? 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'
-                    : 'border-zinc-300 text-zinc-500 hover:border-zinc-400 hover:text-zinc-700'
+                    ? 'border-zinc-700 text-zinc-400 hover:border-violet-500/50 hover:text-violet-400 hover:bg-violet-500/5'
+                    : 'border-zinc-300 text-zinc-500 hover:border-violet-400/50 hover:text-violet-600 hover:bg-violet-50'
                 }`}
               >
-                <span>🔎</span>
+                <Search size={11} />
                 이관 실패 패턴 카탈로그 보기
               </button>
             </div>
@@ -1079,12 +1180,16 @@ export default function App() {
       {/* ── 결과 화면 ── */}
       {hasResult && (
         <div className="max-w-3xl mx-auto px-6 py-10">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold mb-2">AI 쿼리 진단</h1>
-            <p className={`text-sm ${theme.subText}`}>
-              Oracle SQL을 입력하면 이관 위험도를 즉시 분석합니다 · 여러 쿼리는{' '}
-              <code className="font-mono text-xs bg-zinc-800 px-1 rounded">;</code>으로 구분
-            </p>
+          <div className="mb-6 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
+              <Database size={16} className="text-white" />
+            </div>
+            <div>
+              <h1 className={`text-xl font-bold bg-linear-to-r bg-clip-text text-transparent ${
+                isDarkMode ? 'from-white to-zinc-400' : 'from-zinc-900 to-zinc-500'
+              }`}>AI 쿼리 진단</h1>
+              <p className={`text-xs ${theme.subText}`}>Oracle → MySQL 이관 위험도 분석</p>
+            </div>
           </div>
 
           <InputArea
@@ -1095,12 +1200,16 @@ export default function App() {
             isDarkMode={isDarkMode} theme={theme} compact={true}
           />
 
-          {/* 최초 로딩 스피너 — 첫 결과 나오기 전까지만 표시 */}
+          {/* 최초 로딩 — 첫 결과 나오기 전까지만 표시 */}
           {loading && results.length === 0 && (
-            <div className={`rounded-2xl border ${theme.card} p-12 flex flex-col items-center gap-4`}>
-              <div className="w-8 h-8 border-2 border-zinc-600 border-t-zinc-200 rounded-full animate-spin" />
-              <p className={`text-sm ${theme.subText}`}>
-                {totalCount > 1 ? `${totalCount}개 쿼리 분석 중...` : 'Analyzing...'}
+            <div className={`rounded-2xl border ${theme.card} p-12 flex flex-col items-center gap-6`}>
+              <div className="flex items-end gap-1.5">
+                <span className={`dot-1 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+                <span className={`dot-2 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+                <span className={`dot-3 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+              </div>
+              <p className={`text-sm font-medium ${theme.subText}`}>
+                {totalCount > 1 ? `${totalCount}개 쿼리 분석 중...` : '쿼리 분석 중...'}
               </p>
             </div>
           )}
@@ -1114,8 +1223,12 @@ export default function App() {
 
               {/* 스트리밍 진행 표시 */}
               {loading && (
-                <div className="flex items-center gap-2 px-1">
-                  <div className="w-3 h-3 border border-zinc-500 border-t-zinc-300 rounded-full animate-spin shrink-0" />
+                <div className="flex items-center gap-3 px-1">
+                  <div className="flex items-end gap-1">
+                    <span className={`dot-1 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+                    <span className={`dot-2 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+                    <span className={`dot-3 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+                  </div>
                   <span className={`text-xs ${theme.subText}`}>
                     {results.length} / {totalCount}개 완료 · 분석 중...
                   </span>
@@ -1151,15 +1264,17 @@ function InputArea({
 }) {
   return (
     <div className="mb-6">
-      <div className={`rounded-2xl border ${theme.card} overflow-hidden`}>
+      {/* 포커스 시 보라 글로우가 생기는 입력 패널 */}
+      <div className={`input-panel rounded-2xl border overflow-hidden transition-all duration-300 ${theme.card}`}>
+
         {/* 파일명 표시 */}
         {fileName && (
           <div className={`flex items-center gap-2 px-4 py-2 border-b ${
-            isDarkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-zinc-200 bg-zinc-50'
+            isDarkMode ? 'border-zinc-800 bg-violet-500/5' : 'border-zinc-200 bg-violet-50'
           }`}>
-            <FileText size={13} className="text-green-400 shrink-0" />
-            <span className="text-xs text-green-400 font-mono flex-1 truncate">{fileName}</span>
-            <button onClick={clearFile} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            <FileText size={13} className="text-violet-400 shrink-0" />
+            <span className="text-xs text-violet-400 font-mono flex-1 truncate">{fileName}</span>
+            <button onClick={clearFile} className={`transition-colors ${isDarkMode ? 'text-zinc-500 hover:text-zinc-200' : 'text-zinc-400 hover:text-zinc-600'}`}>
               <X size={13} />
             </button>
           </div>
@@ -1170,20 +1285,18 @@ function InputArea({
           onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
-          className={`relative transition-all ${dragOver ? isDarkMode ? 'bg-zinc-800/60' : 'bg-zinc-100' : ''}`}
+          className={`relative transition-all ${dragOver ? isDarkMode ? 'bg-violet-500/5' : 'bg-violet-50/50' : ''}`}
         >
           <textarea
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.ctrlKey && e.key === 'Enter') runDiagnose(); }}
-            placeholder={`분석할 Oracle SQL을 입력...\n\nEx)  SELECT * FROM orders WHERE ROWNUM <= 10;\n     SELECT NVL(name,'') FROM users;`}
-            className={`w-full ${compact ? 'h-28' : 'h-48'} p-5 outline-none font-mono text-sm resize-none transition-all ${theme.textarea} bg-transparent`}
+            placeholder={`분석할 Oracle SQL을 입력하세요...\n\n예)  SELECT * FROM orders WHERE ROWNUM <= 10;\n     SELECT NVL(name,'') FROM users;`}
+            className={`w-full ${compact ? 'h-28' : 'h-52'} px-5 pt-5 pb-3 outline-none font-mono text-sm leading-relaxed resize-none transition-all ${theme.textarea} bg-transparent`}
           />
           {dragOver && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full ${
-                isDarkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-zinc-200 text-zinc-600'
-              }`}>
+              <div className="flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300 backdrop-blur-sm">
                 <Upload size={13} />
                 파일을 놓으면 업로드됩니다
               </div>
@@ -1192,33 +1305,35 @@ function InputArea({
         </div>
 
         {/* 하단 바 */}
-        <div className={`flex items-center justify-between px-5 py-3 border-t ${
-          isDarkMode ? 'border-zinc-800 bg-[#1a1a1a]' : 'border-zinc-200 bg-zinc-50'
+        <div className={`flex items-center justify-between px-4 py-2.5 border-t ${
+          isDarkMode ? 'border-zinc-800 bg-zinc-900/60' : 'border-zinc-200 bg-zinc-50/80'
         }`}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className={`flex items-center gap-1.5 text-xs transition-colors ${
-                isDarkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all ${
+                isDarkMode
+                  ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800'
+                  : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200'
               }`}
             >
-              <Upload size={14} />
-              .sql 파일 또는 .txt 파일 업로드
+              <Upload size={13} />
+              파일 업로드
             </button>
             <input ref={fileInputRef} type="file" accept=".sql,.txt" className="hidden"
               onChange={e => handleFile(e.target.files[0])} />
             {sqlCount > 0 && (
-              <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-                isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600'
-              }`}>
+              <span className="text-xs px-2.5 py-1 rounded-full font-mono font-medium bg-violet-500/15 text-violet-400 border border-violet-500/20">
                 {sqlCount}개 쿼리
               </span>
             )}
           </div>
+
+          {/* Run 버튼 — 그라디언트 */}
           <button
             onClick={runDiagnose}
             disabled={loading || sqlCount === 0}
-            className={`flex items-center gap-2 px-5 py-2 rounded-full font-bold text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${theme.button}`}
+            className="relative flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 text-white bg-linear-to-r from-violet-500 to-indigo-500 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:from-violet-400 hover:to-indigo-400"
           >
             <Search size={13} />
             {loading ? 'Analyzing...' : sqlCount > 1 ? `Run Batch (${sqlCount})` : 'Run Diagnose'}
