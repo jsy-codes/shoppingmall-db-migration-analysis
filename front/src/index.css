@@ -45,7 +45,11 @@
 .dot-3 { animation: bounce-dot 1.2s ease-in-out infinite 0.4s; }
 
 /* ── 입력 패널 포커스 글로우 ─────────────────────────── */
+/* ── 스크롤바 숨김 (예제 버튼 가로 스크롤) ──────────────── */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
 .input-panel:focus-within {
-  border-color: rgba(139, 92, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08), 0 0 20px rgba(139, 92, 246, 0.06);
+  border-color: rgba(161, 161, 170, 0.4);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04), 0 0 20px rgba(0, 0, 0, 0.04);
 }

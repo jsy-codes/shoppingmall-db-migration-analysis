@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'; // ← 이 부분이 바뀌었어요 (useMemo 추가)
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Search, Copy, Check, AlertTriangle, Shield, Info,
   Sun, Moon, ChevronDown, Upload, FileText,
@@ -9,7 +9,6 @@ import rules from '../../backend/validation/pattern_rules.json';
 
 // ─── Mock 설정 ─────────────────────────────────────────────────
 const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
-// ← 이 부분이 바뀌었어요 (앱 시작을 막던 await import 제거 → runDiagnose 안으로 이동)
 
 // ─── 위험도 설정 ───────────────────────────────────────────────
 const riskConfig = {
@@ -230,8 +229,7 @@ const HELP_SECTIONS = [
 // ─── 패턴 카탈로그 모달 (2열 그리드) ─────────────────────────
 function PatternCatalogModal({ onClose, isDarkMode }) {
   const [filter, setFilter] = useState('ALL');
-  const modalRef = useRef(null);  // ← 이 부분이 바뀌었어요
-
+  const modalRef = useRef(null);  
   const theme = {
     bg:      isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white',
     text:    isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
@@ -243,12 +241,11 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
   };
 
   useEffect(() => {
-    modalRef.current?.focus(); // ← 이 부분이 바뀌었어요 (모달 열릴 때 자동 포커스 이동)
+    modalRef.current?.focus(); 
 
     const handler = (e) => {
       if (e.key === 'Escape') { onClose(); return; }
 
-      // ← 이 부분이 바뀌었어요 (Tab 키로 모달 밖 탈출 방지)
       if (e.key === 'Tab' && modalRef.current) {
         const focusable = modalRef.current.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -283,8 +280,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
       style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div ref={modalRef} tabIndex={-1} className={`relative w-full max-w-5xl max-h-[90vh] rounded-2xl overflow-hidden flex flex-col ${theme.bg} shadow-2xl outline-none`}>{/* ← 이 부분이 바뀌었어요 */}
-
+      <div ref={modalRef} tabIndex={-1} className={`relative w-full max-w-5xl max-h-[90vh] rounded-2xl overflow-hidden flex flex-col ${theme.bg} shadow-2xl outline-none`}>
         {/* 헤더 */}
         <div className={`px-6 py-4 border-b ${theme.divider} shrink-0`}>
           <div className="flex items-center gap-3 mb-3">
@@ -384,7 +380,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
 
 // ─── 도움말 모달 ───────────────────────────────────────────────
 function HelpModal({ onClose, isDarkMode }) {
-  const modalRef = useRef(null);  // ← 이 부분이 바뀌었어요
+  const modalRef = useRef(null); 
 
   const theme = {
     bg:      isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white',
@@ -397,12 +393,11 @@ function HelpModal({ onClose, isDarkMode }) {
   };
 
   useEffect(() => {
-    modalRef.current?.focus(); // ← 이 부분이 바뀌었어요 (모달 열릴 때 자동 포커스 이동)
+    modalRef.current?.focus(); 
 
     const handler = (e) => {
       if (e.key === 'Escape') { onClose(); return; }
 
-      // ← 이 부분이 바뀌었어요 (Tab 키로 모달 밖 탈출 방지)
       if (e.key === 'Tab' && modalRef.current) {
         const focusable = modalRef.current.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -427,8 +422,7 @@ function HelpModal({ onClose, isDarkMode }) {
       style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div ref={modalRef} tabIndex={-1} className={`relative w-full max-w-2xl max-h-[85vh] rounded-2xl overflow-hidden flex flex-col ${theme.bg} shadow-2xl outline-none`}>{/* ← 이 부분이 바뀌었어요 */}
-
+      <div ref={modalRef} tabIndex={-1} className={`relative w-full max-w-2xl max-h-[85vh] rounded-2xl overflow-hidden flex flex-col ${theme.bg} shadow-2xl outline-none`}>
         <div className={`flex items-center gap-3 px-6 py-5 border-b ${theme.divider} shrink-0`}>
           <BookOpen size={18} className="text-zinc-400" />
           <div>
@@ -509,7 +503,6 @@ function HelpModal({ onClose, isDarkMode }) {
 
 // ─── 로컬 패턴 매칭 (API 실패 시 fallback) ────────────────────
 
-// ← 이 부분이 바뀌었어요: 앱 시작 시 딱 한 번만 정규식을 컴파일해서 보관
 const COMPILED_RULES = rules.map(rule => ({
   ...rule,
   _regex: rule.type === 'regex' && rule.pattern
@@ -519,8 +512,8 @@ const COMPILED_RULES = rules.map(rule => ({
 
 function matchPatterns(sql) {
   const matched = [];
-  for (const rule of COMPILED_RULES) {  // ← 이 부분이 바뀌었어요: rules → COMPILED_RULES
-    if (rule._regex) {                  // ← 이 부분이 바뀌었어요: 미리 만든 정규식 재사용
+  for (const rule of COMPILED_RULES) { 
+    if (rule._regex) {                  
       if (rule._regex.test(sql)) matched.push(rule);
     } else if (rule.type === 'heuristic') {
       if (rule.heuristic === 'implicit_cast' && /\b[A-Z_][A-Z0-9_]*\s*=\s*'\d+'/i.test(sql)) matched.push(rule);
@@ -532,7 +525,7 @@ function matchPatterns(sql) {
 }
 
 function getHighestRisk(matched) {
-  if (matched.length === 0) return null;  // ← 이 부분이 바뀌었어요 (빈 배열 방어)
+  if (matched.length === 0) return null;  
   const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
   return matched.reduce((prev, curr) => (rank[curr.risk] || 0) > (rank[prev.risk] || 0) ? curr : prev);
 }
@@ -669,19 +662,17 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   };
   const cfg = riskConfig[result.risk] || riskConfig.LOW;
 
-  // 위험도별 왼쪽 세로줄 + 배경 그라디언트 색상
   const accentStyle = {
     HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/8 to-transparent'    : 'from-red-50 to-transparent' },
     MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/8 to-transparent' : 'from-yellow-50 to-transparent' },
     LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/5 to-transparent' : 'from-emerald-50/50 to-transparent' },
   }[result.risk] || { bar: 'bg-zinc-500', glow: 'from-transparent to-transparent' };
 
-  const copyDdl = async () => {                          // ← 이 부분이 바뀌었어요 (기다리는 함수로 변경)
+  const copyDdl = async () => {   
     if (!result.recommended_ddl) return;
     try {
-      await navigator.clipboard.writeText(result.recommended_ddl); // ← 이 부분이 바뀌었어요 (복사 완료를 기다림)
+      await navigator.clipboard.writeText(result.recommended_ddl); 
     } catch {
-      // ← 이 부분이 바뀌었어요 (HTTPS가 아닐 때 쓰는 옛날 방식 복사)
       const el = document.createElement('textarea');
       el.value = result.recommended_ddl;
       el.style.cssText = 'position:fixed;opacity:0';
@@ -734,7 +725,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
           {/* SQL 원문 */}
           <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
             <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${theme.subText}`}>SQL 원문</p>
-            <pre className={`text-xs font-mono p-4 rounded-xl overflow-x-auto leading-relaxed ${
+            <pre className={`text-xs font-sans p-4 rounded-xl overflow-x-auto leading-relaxed ${
               isDarkMode ? 'bg-zinc-950/80 text-zinc-300 border border-zinc-800' : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
             }`}>
               {result.sql}
@@ -875,7 +866,7 @@ function BatchSummary({ summary, results, isDarkMode }) {
     }`}>
       {/* 헤더 */}
       <div className={`px-6 py-4 border-b ${theme.divider} flex items-center gap-3`}>
-        <div className="w-7 h-7 rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-800'}`}>
           <BarChart2 size={13} className="text-white" />
         </div>
         <span className="text-sm font-bold">배치 분석 요약</span>
@@ -943,6 +934,16 @@ function BatchSummary({ summary, results, isDarkMode }) {
   );
 }
 
+// ─── 예제 쿼리 ────────────────────────────────────────────────
+const EXAMPLE_QUERIES = [
+  { label: 'ROWNUM 페이징',  sql: 'SELECT * FROM orders WHERE ROWNUM <= 10' },
+  { label: 'NVL 널 처리',    sql: "SELECT NVL(username, '익명') FROM users" },
+  { label: 'SYSDATE 날짜',   sql: 'SELECT SYSDATE FROM DUAL' },
+  { label: 'SEQUENCE 채번',  sql: 'SELECT seq_order.NEXTVAL FROM DUAL' },
+  { label: 'DECODE 분기',    sql: "SELECT DECODE(status, 'Y', '활성', '비활성') FROM members" },
+  { label: '묵시적 형변환',  sql: "SELECT * FROM products WHERE product_id = '100'" },
+];
+
 // ─── 메인 App ─────────────────────────────────────────────────
 export default function App() {
   const [isDarkMode, setIsDarkMode]   = useState(true);
@@ -957,14 +958,12 @@ export default function App() {
   const [dragOver, setDragOver]       = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
-  const [fileError, setFileError]     = useState(null);  // ← 이 부분이 바뀌었어요 (인라인 에러 상태 추가)
+  const [fileError, setFileError]     = useState(null);  
   const fileInputRef = useRef(null);
 
-  // ← 이 부분이 바뀌었어요 (onClose 함수를 한 번만 만들고 재사용)
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
   const handleCloseCatalog = useCallback(() => setShowCatalog(false), []);
 
-  // ← 이 부분이 바뀌었어요 (isDarkMode가 바뀔 때만 theme 재계산)
   const theme = useMemo(() => ({
     bg:       isDarkMode ? 'bg-[#121212]' : 'bg-zinc-200',
     card:     isDarkMode ? 'bg-[#1e1e1e] border-zinc-800' : 'bg-white border-zinc-200',
@@ -977,10 +976,10 @@ export default function App() {
   const handleFile = useCallback((file) => {
     if (!file) return;
     if (!file.name.endsWith('.sql') && !file.name.endsWith('.txt')) {
-      setFileError('.sql 또는 .txt 파일만 지원합니다');  // ← 이 부분이 바뀌었어요 (alert → 인라인 에러)
+      setFileError('.sql 또는 .txt 파일만 지원합니다');  
       return;
     }
-    setFileError(null);  // ← 이 부분이 바뀌었어요 (올바른 파일이면 에러 초기화)
+    setFileError(null); 
     const reader = new FileReader();
     reader.onload = (e) => { setQuery(e.target.result); setFileName(file.name); };
     reader.readAsText(file);
@@ -989,7 +988,7 @@ export default function App() {
   const clearFile = () => {
     setFileName(null);
     setQuery('');
-    setFileError(null);  // ← 이 부분이 바뀌었어요 (파일 제거 시 에러도 함께 초기화)
+    setFileError(null); 
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -1011,7 +1010,6 @@ export default function App() {
     let successCount = 0;
     const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
-    // ← 이 부분이 바뀌었어요 (mock 데이터를 실제로 필요한 시점에 로드)
     let mockData = null;
     if (IS_MOCK) {
       const mod = await import('./data/mock_diagnose_result.json');
@@ -1039,12 +1037,10 @@ export default function App() {
       analysisResults.push(result);
 
       // ─── 쿼리 하나 완료마다 즉시 화면 반영 ───────────────────
-      // ← 이 부분이 바뀌었어요: 정렬 없이 바로 표시 (스트리밍 효과 유지)
       setResults([...analysisResults]);
       setSummary(calcSummary(analysisResults));
     }
 
-    // ← 이 부분이 바뀌었어요: 모든 쿼리 완료 후 딱 한 번만 정렬
     setResults(prev => [...prev].sort(
       (a, b) => (rank[b.risk] || 0) - (rank[a.risk] || 0)
     ));
@@ -1068,8 +1064,15 @@ export default function App() {
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700 ${isDarkMode ? 'bg-grid-dark' : 'bg-grid-light'}`}>
 
       {/* 모달 */}
-      {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}  {/* ← 이 부분이 바뀌었어요 */}
-      {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}  {/* ← 이 부분이 바뀌었어요 */}
+      {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}        {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}  
+      {/* 좌측 상단 로고 */}
+      <div className="fixed top-4 left-4 z-40 flex items-center gap-2.5">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-900'}`}>
+          <Database size={15} className="text-white" />
+        </div>
+        <span className={`text-sm font-bold tracking-tight ${isDarkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
+        </span>
+      </div>
 
       {/* 우측 상단 고정 */}
       <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
@@ -1104,67 +1107,23 @@ export default function App() {
       {/* ── 초기 화면 ── */}
       {!hasResult && (
         <div className="min-h-screen flex flex-col items-center justify-center px-6">
-          {/* 중앙 radial glow */}
-          <div
-            className="pointer-events-none fixed inset-0 z-0"
-            style={{ background: isDarkMode
-              ? 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.08) 0%, transparent 70%)'
-              : 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 70%)'
-            }}
-          />
-          <div className="relative z-10 w-full max-w-2xl">
-            <div className="mb-10 text-center">
+          <div className="relative z-10 w-full max-w-3xl">
 
-              {/* 브랜드 로고 아이콘 */}
-              <div className="flex justify-center mb-6">
-                <div className="animate-float relative">
-                  <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-violet-500/30">
-                    <Database size={28} className="text-white" />
-                  </div>
-                  <div className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 ${isDarkMode ? 'border-[#121212]' : 'border-zinc-100'}`} />
-                </div>
-              </div>
-
-              {/* 메인 타이틀 */}
-              <h1 className={`text-5xl font-bold tracking-tight mb-3 bg-linear-to-b bg-clip-text text-transparent ${
+            {/* 타이틀 영역 */}
+            <div className="mb-7 text-center">
+              <h1 className={`text-4xl font-bold tracking-tight mb-2.5 bg-linear-to-b bg-clip-text text-transparent ${
                 isDarkMode
                   ? 'from-white via-zinc-100 to-zinc-500'
                   : 'from-zinc-900 via-zinc-700 to-zinc-500'
               }`}>
                 AI 쿼리 진단
               </h1>
-
-              {/* 서브타이틀 */}
-              <p className={`text-base mb-5 ${theme.subText}`}>
+              <p className={`text-sm ${theme.subText}`}>
                 Oracle SQL의 MySQL 이관 위험도를 즉시 분석합니다
               </p>
-
-              {/* 배지 행 */}
-              <div className="flex items-center justify-center gap-2 mb-6">
-                <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${
-                  isDarkMode ? 'bg-zinc-900 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'
-                }`}>Oracle</span>
-                <span className={`text-xs ${theme.subText}`}>→</span>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${
-                  isDarkMode ? 'bg-zinc-900 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'
-                }`}>MySQL</span>
-                <span className={`text-xs ${theme.subText}`}>·</span>
-                <span className={`text-xs ${theme.subText}`}>P01~P22 패턴 자동 탐지</span>
-              </div>
-
-              {/* 패턴 카탈로그 버튼 */}
-              <button
-                onClick={() => setShowCatalog(true)}
-                className={`inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full border transition-all hover:scale-105 ${
-                  isDarkMode
-                    ? 'border-zinc-700 text-zinc-400 hover:border-violet-500/50 hover:text-violet-400 hover:bg-violet-500/5'
-                    : 'border-zinc-300 text-zinc-500 hover:border-violet-400/50 hover:text-violet-600 hover:bg-violet-50'
-                }`}
-              >
-                <Search size={11} />
-                이관 실패 패턴 카탈로그 보기
-              </button>
             </div>
+
+            {/* 입력 영역 */}
             <InputArea
               query={query} setQuery={setQuery} fileName={fileName} sqlCount={sqlCount}
               loading={loading} runDiagnose={runDiagnose}
@@ -1173,6 +1132,39 @@ export default function App() {
               isDarkMode={isDarkMode} theme={theme} compact={false}
               fileError={fileError}
             />
+
+            {/* 예제 쿼리 — 가로 스크롤 한 줄 */}
+            <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <span className={`text-xs shrink-0 ${theme.subText}`}>예제:</span>
+              {EXAMPLE_QUERIES.map(({ label, sql }) => (
+                <button
+                  key={label}
+                  onClick={() => setQuery(sql)}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition-all hover:scale-105 active:scale-95 shrink-0 ${
+                    isDarkMode
+                      ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 hover:border-zinc-600'
+                      : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 hover:border-zinc-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* 카탈로그 링크 — 예제 아래 */}
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={() => setShowCatalog(true)}
+                className={`inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full border transition-all hover:scale-105 ${
+                  isDarkMode
+                    ? 'border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/50'
+                    : 'border-zinc-200 text-zinc-400 hover:border-zinc-300 hover:text-zinc-600 hover:bg-zinc-100'
+                }`}
+              >
+                <Search size={11} />
+                이관 실패 패턴 카탈로그 보기
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1180,16 +1172,11 @@ export default function App() {
       {/* ── 결과 화면 ── */}
       {hasResult && (
         <div className="max-w-3xl mx-auto px-6 py-10">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
-              <Database size={16} className="text-white" />
-            </div>
-            <div>
-              <h1 className={`text-xl font-bold bg-linear-to-r bg-clip-text text-transparent ${
-                isDarkMode ? 'from-white to-zinc-400' : 'from-zinc-900 to-zinc-500'
-              }`}>AI 쿼리 진단</h1>
-              <p className={`text-xs ${theme.subText}`}>Oracle → MySQL 이관 위험도 분석</p>
-            </div>
+          <div className="mb-6">
+            <h1 className={`text-xl font-bold bg-linear-to-r bg-clip-text text-transparent ${
+              isDarkMode ? 'from-white to-zinc-400' : 'from-zinc-900 to-zinc-500'
+            }`}>AI 쿼리 진단</h1>
+            <p className={`text-xs ${theme.subText}`}>Oracle → MySQL 이관 위험도 분석</p>
           </div>
 
           <InputArea
@@ -1204,9 +1191,9 @@ export default function App() {
           {loading && results.length === 0 && (
             <div className={`rounded-2xl border ${theme.card} p-12 flex flex-col items-center gap-6`}>
               <div className="flex items-end gap-1.5">
-                <span className={`dot-1 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
-                <span className={`dot-2 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
-                <span className={`dot-3 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+                <span className={`dot-1 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
+                <span className={`dot-2 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
+                <span className={`dot-3 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
               </div>
               <p className={`text-sm font-medium ${theme.subText}`}>
                 {totalCount > 1 ? `${totalCount}개 쿼리 분석 중...` : '쿼리 분석 중...'}
@@ -1225,9 +1212,9 @@ export default function App() {
               {loading && (
                 <div className="flex items-center gap-3 px-1">
                   <div className="flex items-end gap-1">
-                    <span className={`dot-1 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
-                    <span className={`dot-2 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
-                    <span className={`dot-3 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-violet-400' : 'bg-violet-500'}`} />
+                    <span className={`dot-1 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
+                    <span className={`dot-2 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
+                    <span className={`dot-3 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
                   </div>
                   <span className={`text-xs ${theme.subText}`}>
                     {results.length} / {totalCount}개 완료 · 분석 중...
@@ -1260,7 +1247,7 @@ function InputArea({
   query, setQuery, fileName, sqlCount, loading, runDiagnose,
   handleFile, dragOver, setDragOver, clearFile,
   fileInputRef, isDarkMode, theme, compact,
-  fileError,  // ← 이 부분이 바뀌었어요 (에러 메시지 prop 추가)
+  fileError, 
 }) {
   return (
     <div className="mb-6">
@@ -1270,10 +1257,10 @@ function InputArea({
         {/* 파일명 표시 */}
         {fileName && (
           <div className={`flex items-center gap-2 px-4 py-2 border-b ${
-            isDarkMode ? 'border-zinc-800 bg-violet-500/5' : 'border-zinc-200 bg-violet-50'
+            isDarkMode ? 'border-zinc-800 bg-zinc-800/40' : 'border-zinc-200 bg-zinc-100'
           }`}>
-            <FileText size={13} className="text-violet-400 shrink-0" />
-            <span className="text-xs text-violet-400 font-mono flex-1 truncate">{fileName}</span>
+            <FileText size={13} className={`shrink-0 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`} />
+            <span className={`text-xs font-mono flex-1 truncate ${isDarkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>{fileName}</span>
             <button onClick={clearFile} className={`transition-colors ${isDarkMode ? 'text-zinc-500 hover:text-zinc-200' : 'text-zinc-400 hover:text-zinc-600'}`}>
               <X size={13} />
             </button>
@@ -1285,18 +1272,18 @@ function InputArea({
           onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
-          className={`relative transition-all ${dragOver ? isDarkMode ? 'bg-violet-500/5' : 'bg-violet-50/50' : ''}`}
+          className={`relative transition-all ${dragOver ? isDarkMode ? 'bg-zinc-800/40' : 'bg-zinc-100/60' : ''}`}
         >
           <textarea
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.ctrlKey && e.key === 'Enter') runDiagnose(); }}
             placeholder={`분석할 Oracle SQL을 입력하세요...\n\n예)  SELECT * FROM orders WHERE ROWNUM <= 10;\n     SELECT NVL(name,'') FROM users;`}
-            className={`w-full ${compact ? 'h-28' : 'h-52'} px-5 pt-5 pb-3 outline-none font-mono text-sm leading-relaxed resize-none transition-all ${theme.textarea} bg-transparent`}
+            className={`w-full ${compact ? 'h-28' : 'h-52'} px-5 pt-5 pb-3 outline-none font-sans text-sm leading-relaxed resize-none transition-all ${theme.textarea} bg-transparent`}
           />
           {dragOver && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300 backdrop-blur-sm">
+              <div className={`flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border backdrop-blur-sm ${isDarkMode ? 'bg-zinc-800/70 border-zinc-600 text-zinc-200' : 'bg-white/80 border-zinc-300 text-zinc-700'}`}>
                 <Upload size={13} />
                 파일을 놓으면 업로드됩니다
               </div>
@@ -1323,7 +1310,7 @@ function InputArea({
             <input ref={fileInputRef} type="file" accept=".sql,.txt" className="hidden"
               onChange={e => handleFile(e.target.files[0])} />
             {sqlCount > 0 && (
-              <span className="text-xs px-2.5 py-1 rounded-full font-mono font-medium bg-violet-500/15 text-violet-400 border border-violet-500/20">
+              <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${isDarkMode ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-300'}`}>
                 {sqlCount}개 쿼리
               </span>
             )}
@@ -1333,15 +1320,18 @@ function InputArea({
           <button
             onClick={runDiagnose}
             disabled={loading || sqlCount === 0}
-            className="relative flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 text-white bg-linear-to-r from-violet-500 to-indigo-500 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:from-violet-400 hover:to-indigo-400"
+            className={`relative flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg ${
+              isDarkMode
+                ? 'bg-zinc-100 text-zinc-900 hover:bg-white shadow-zinc-900/30'
+                : 'bg-zinc-900 text-white hover:bg-zinc-700 shadow-zinc-900/20'
+            }`}
           >
             <Search size={13} />
             {loading ? 'Analyzing...' : sqlCount > 1 ? `Run Batch (${sqlCount})` : 'Run Diagnose'}
           </button>
         </div>
       </div>
-      {/* ← 이 부분이 바뀌었어요: alert() 대신 카드 아래 인라인 에러 메시지 표시 */}
-      {fileError && (
+            {fileError && (
         <p className="text-xs text-red-400 mt-2 px-1">{fileError}</p>
       )}
     </div>
