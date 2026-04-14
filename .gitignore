@@ -213,3 +213,11 @@ __marimo__/
 # 혹시 모를 임시 파일들도 제외
 *.db-journal
 *.db-wal
+
+# SQLite 데이터베이스 파일 제외
+*.db
+*.sqlite3
+
+# 혹시 모를 임시 파일들도 제외
+*.db-journal
+*.db-wal
