@@ -1,8 +1,9 @@
 import subprocess
 import time
+import sys
 # backend 실행
 backend = subprocess.Popen(
-    ["uvicorn", "backend.app:app", "--reload"],
+    [sys.executable, "-m", "uvicorn", "backend.app:app", "--reload"],
     shell=True
 )
 time.sleep(3)
