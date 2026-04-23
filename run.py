@@ -1,12 +1,14 @@
 import subprocess
 import time
 import sys
+
 # backend 실행
 backend = subprocess.Popen(
-    [sys.executable, "-m", "uvicorn", "backend.app:app", "--reload"],
-    shell=True
+    [sys.executable, "-m", "uvicorn", "backend.app:app", "--reload"]
 )
+
 time.sleep(3)
+
 # frontend 실행
 frontend = subprocess.Popen(
     ["npm", "run", "dev"],
