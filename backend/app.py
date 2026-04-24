@@ -196,12 +196,11 @@ async def diagnose(req: QueryRequest, request: Request):
     #severity_counts = sim_result["summary"]["severity_counts"]
 
     # 3. [Risk Model] 정량적 위험 점수 계산 
-    risk_analysis = predictor.evaluate_risk_score(req.sql)
+    risk_analysis = predictor.evaluate_risk_score(sim_result)
     risk_score = risk_analysis["risk_score"]
 
-
     risk_score = adjust_score_by_level(risk_score, max_severity)
-    #risk_level = risk_analysis["risk_level"] # "HIGH", "MED", "LOW"
+    risk_level = risk_analysis["risk_level"] # "HIGH", "MED", "LOW"
     
 
     # 4. [AI 엔진] Claude에게 전달할 시스템 프롬프트 설정
@@ -294,7 +293,7 @@ async def diagnose(req: QueryRequest, request: Request):
         # 6. [최종 통합 결과] 모든 팀원의 산출물을 하나로 합쳐 반환
         final_result = {
             "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"), # AI가 뽑은 대표 ID
-            "risk_level": max_severity,              # 시뮬레이터 결과
+            "risk_level": risk_level,              # 시뮬레이터 결과
             "risk_score": risk_score,                # 리스크 스코어
             "matched_pattern_ids": matched_ids,      # 감지된 패턴 목록
             "reason": ai_json["reason"],             # Claude: 논리적 이유
