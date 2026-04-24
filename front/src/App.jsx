@@ -10,12 +10,15 @@ import rules from '../../backend/validation/pattern_rules.json';
 // ─── Mock 설정 ─────────────────────────────────────────────────
 const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
 
+// ─── 위험도 순위 (공통 상수) ───────────────────────────────────
+const RISK_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+
 // ─── 위험도 설정 ───────────────────────────────────────────────
-const riskConfig = {
-  HIGH:   { label: 'HIGH',   bg: 'bg-red-500/20',    border: 'border-red-500/40',    text: 'text-red-400',    icon: <AlertTriangle size={14} />, bar: '#ef4444' },
-  MEDIUM: { label: 'MEDIUM', bg: 'bg-yellow-500/20', border: 'border-yellow-500/40', text: 'text-yellow-400', icon: <Shield size={14} />,        bar: '#eab308' },
-  LOW:    { label: 'LOW',    bg: 'bg-emerald-500/20',  border: 'border-emerald-500/40',  text: 'text-emerald-400',  icon: <Info size={14} />,           bar: '#10b981' },
-};
+const getRiskConfig = (isDarkMode = true) => ({
+  HIGH:   { label: 'HIGH',   bg: isDarkMode ? 'bg-red-500/20'     : 'bg-red-200',     border: isDarkMode ? 'border-red-500/40'     : 'border-red-400',     text: isDarkMode ? 'text-red-400'     : 'text-red-700',     icon: <AlertTriangle size={14} />, bar: '#ef4444' },
+  MEDIUM: { label: 'MEDIUM', bg: isDarkMode ? 'bg-yellow-500/20'  : 'bg-yellow-200',  border: isDarkMode ? 'border-yellow-500/40'  : 'border-yellow-400',  text: isDarkMode ? 'text-yellow-400'  : 'text-yellow-800',  icon: <Shield size={14} />,        bar: '#eab308' },
+  LOW:    { label: 'LOW',    bg: isDarkMode ? 'bg-emerald-500/20' : 'bg-emerald-200', border: isDarkMode ? 'border-emerald-500/40' : 'border-emerald-400', text: isDarkMode ? 'text-emerald-400' : 'text-emerald-700', icon: <Info size={14} />,           bar: '#10b981' },
+});
 
 // ─── 패턴 카탈로그 데이터 (P01~P22) ───────────────────────────
 const PATTERN_CATALOG = [
@@ -221,10 +224,34 @@ const HELP_SECTIONS = [
     levels: [
       { risk: 'HIGH',   score: '70점 이상', desc: '이관 시 즉시 오류 발생 가능. 반드시 수정 필요', color: 'text-red-400' },
       { risk: 'MEDIUM', score: '40~69점',   desc: '성능 저하 또는 결과 불일치 발생 가능',          color: 'text-yellow-400' },
-      { risk: 'LOW',    score: '40점 미만', desc: '이관 가능하나 최적화 권장',                     color: 'text-green-400' },
+      { risk: 'LOW',    score: '40점 미만', desc: '이관 가능하나 최적화 권장',                     color: 'text-emerald-400' },
     ],
   },
 ];
+
+// ─── 모달 키보드 훅 (Escape 닫기 + Tab focus trap) ────────────
+function useModalKeyboard(ref, onClose) {
+  useEffect(() => {
+    ref.current?.focus();
+    const handler = (e) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'Tab' && ref.current) {
+        const focusable = ref.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last  = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [ref, onClose]);
+}
 
 // ─── 패턴 카탈로그 모달 (2열 그리드) ─────────────────────────
 function PatternCatalogModal({ onClose, isDarkMode }) {
@@ -240,29 +267,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
     fix:     isDarkMode ? 'bg-zinc-900 text-green-400' : 'bg-green-50 text-green-700',
   };
 
-  useEffect(() => {
-    modalRef.current?.focus(); 
-
-    const handler = (e) => {
-      if (e.key === 'Escape') { onClose(); return; }
-
-      if (e.key === 'Tab' && modalRef.current) {
-        const focusable = modalRef.current.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const first = focusable[0];
-        const last  = focusable[focusable.length - 1];
-        if (e.shiftKey) {
-          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-        } else {
-          if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  useModalKeyboard(modalRef, onClose);
 
   const filtered = filter === 'ALL'
     ? PATTERN_CATALOG
@@ -304,7 +309,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
               { key: 'ALL',    label: `전체 ${PATTERN_CATALOG.length}`, cls: '' },
               { key: 'HIGH',   label: `HIGH ${counts.HIGH}`,            cls: 'text-red-400' },
               { key: 'MEDIUM', label: `MEDIUM ${counts.MEDIUM}`,        cls: 'text-yellow-400' },
-              { key: 'LOW',    label: `LOW ${counts.LOW}`,              cls: 'text-green-400' },
+              { key: 'LOW',    label: `LOW ${counts.LOW}`,              cls: 'text-emerald-400' },
             ].map(({ key, label, cls }) => (
               <button key={key} onClick={() => setFilter(key)}
                 className={`text-xs px-3 py-1.5 rounded-full font-bold transition-all ${
@@ -326,7 +331,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
         <div className="overflow-y-auto flex-1 px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {filtered.map((p) => {
-              const cfg = riskConfig[p.severity] || riskConfig.LOW;
+              const cfg = getRiskConfig(isDarkMode)[p.severity] || getRiskConfig(isDarkMode).LOW;
               return (
                 <div key={p.id} className={`rounded-xl border ${theme.card} overflow-hidden`}>
                   <div className={`flex items-center gap-2 px-4 py-3 border-b ${theme.divider} ${cfg.bg}`}>
@@ -392,29 +397,7 @@ function HelpModal({ onClose, isDarkMode }) {
     badge:   isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-600',
   };
 
-  useEffect(() => {
-    modalRef.current?.focus(); 
-
-    const handler = (e) => {
-      if (e.key === 'Escape') { onClose(); return; }
-
-      if (e.key === 'Tab' && modalRef.current) {
-        const focusable = modalRef.current.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const first = focusable[0];
-        const last  = focusable[focusable.length - 1];
-        if (e.shiftKey) {
-          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-        } else {
-          if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  useModalKeyboard(modalRef, onClose);
 
   return (
     <div
@@ -525,9 +508,8 @@ function matchPatterns(sql) {
 }
 
 function getHighestRisk(matched) {
-  if (matched.length === 0) return null;  
-  const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-  return matched.reduce((prev, curr) => (rank[curr.risk] || 0) > (rank[prev.risk] || 0) ? curr : prev);
+  if (matched.length === 0) return null;
+  return matched.reduce((prev, curr) => (RISK_RANK[curr.risk] || 0) > (RISK_RANK[prev.risk] || 0) ? curr : prev);
 }
 
 function calcRiskScore(matched) {
@@ -570,10 +552,7 @@ function processApiResult(data, sql, index) {
     : matchPatterns(sql);
 
   const top = matchedRules.length > 0
-    ? matchedRules.reduce((prev, curr) => {
-        const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-        return (rank[curr.risk] || 0) > (rank[prev.risk] || 0) ? curr : prev;
-      })
+    ? matchedRules.reduce((prev, curr) => (RISK_RANK[curr.risk] || 0) > (RISK_RANK[prev.risk] || 0) ? curr : prev)
     : null;
 
   const matchedIds = data.matched_pattern_ids || [];
@@ -620,8 +599,8 @@ function TypewriterText({ text, speed, className = '' }) {
 }
 
 // ─── 공통 컴포넌트 ────────────────────────────────────────────
-function RiskBadge({ risk, score }) {
-  const cfg = riskConfig[risk] || riskConfig.LOW;
+function RiskBadge({ risk, score, isDarkMode = true }) {
+  const cfg = getRiskConfig(isDarkMode)[risk] || getRiskConfig(isDarkMode).LOW;
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
       {cfg.icon} {cfg.label} {score != null ? `· ${score}` : ''}
@@ -660,12 +639,12 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
     inner:   isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-50',
     divider: isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200',
   };
-  const cfg = riskConfig[result.risk] || riskConfig.LOW;
+  const cfg = getRiskConfig(isDarkMode)[result.risk] || getRiskConfig(isDarkMode).LOW;
 
   const accentStyle = {
-    HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/8 to-transparent'    : 'from-red-50 to-transparent' },
-    MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/8 to-transparent' : 'from-yellow-50 to-transparent' },
-    LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/5 to-transparent' : 'from-emerald-50/50 to-transparent' },
+    HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/8 to-transparent'    : 'from-red-100 to-transparent' },
+    MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/8 to-transparent' : 'from-yellow-100 to-transparent' },
+    LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/5 to-transparent' : 'from-emerald-100 to-transparent' },
   }[result.risk] || { bar: 'bg-zinc-500', glow: 'from-transparent to-transparent' };
 
   const copyDdl = async () => {   
@@ -705,7 +684,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
         <span className={`text-xs font-mono font-bold ${theme.subText} shrink-0`}>
           #{String(index + 1).padStart(2, '0')}
         </span>
-        <RiskBadge risk={result.risk} score={result.score} />
+        <RiskBadge risk={result.risk} score={result.score} isDarkMode={isDarkMode} />
         {result.top && (
           <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${isDarkMode ? 'bg-zinc-800/80 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'}`}>
             {result.top.id}
@@ -750,7 +729,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
               </p>
               <div className="flex flex-col gap-2">
                 {result.matched.map(m => {
-                  const mc = riskConfig[m.risk] || riskConfig.LOW;
+                  const mc = getRiskConfig(isDarkMode)[m.risk] || getRiskConfig(isDarkMode).LOW;
                   return (
                     <div key={m.id} className={`flex items-start gap-3 p-3 rounded-xl border ${mc.bg} ${mc.border}`}>
                       <span className={`text-xs font-mono font-bold shrink-0 mt-0.5 ${mc.text}`}>{m.id}</span>
@@ -759,7 +738,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
                         <p className={`text-xs mt-0.5 ${theme.subText}`}>{m.description}</p>
                         {m.fix && <p className="text-xs mt-1.5 text-emerald-400 font-mono">→ {m.fix}</p>}
                       </div>
-                      <RiskBadge risk={m.risk} />
+                      <RiskBadge risk={m.risk} isDarkMode={isDarkMode} />
                     </div>
                   );
                 })}
@@ -923,7 +902,7 @@ function BatchSummary({ summary, results, isDarkMode }) {
               />
               <Bar dataKey="score" radius={[5, 5, 0, 0]} maxBarSize={40}>
                 {chartData.map((d, i) => (
-                  <Cell key={i} fill={riskConfig[d.risk]?.bar || '#10b981'} />
+                  <Cell key={i} fill={getRiskConfig(isDarkMode)[d.risk]?.bar || '#10b981'} />
                 ))}
               </Bar>
             </BarChart>
@@ -982,20 +961,24 @@ export default function App() {
     setFileError(null); 
     const reader = new FileReader();
     reader.onload = (e) => { setQuery(e.target.result); setFileName(file.name); };
+    reader.onerror = () => setFileError('파일을 읽을 수 없습니다. 다시 시도해주세요.');
     reader.readAsText(file);
   }, []);
 
-  const clearFile = () => {
+  const clearFile = useCallback(() => {
     setFileName(null);
     setQuery('');
-    setFileError(null); 
+    setFileError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  }, []);
 
   // ─── 진단 실행 (스트리밍) ────────────────────────────────────
   const runDiagnose = async () => {
-    const sqls = splitSQLs(query);
     if (sqls.length === 0) return;
+    if (sqls.length > 50) {
+      alert('최대 50개 쿼리까지 분석 가능합니다. 쿼리 수를 줄여주세요.');
+      return;
+    }
 
     setLoading(true);
     setHasResult(true);
@@ -1008,13 +991,14 @@ export default function App() {
 
     const analysisResults = [];
     let successCount = 0;
-    const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
     let mockData = null;
     if (IS_MOCK) {
       const mod = await import('./data/mock_diagnose_result.json');
       mockData = mod.default;
     }
+
+    const { fetchDiagnose } = IS_MOCK ? {} : await import('./api/diagnose');
 
     for (let i = 0; i < sqls.length; i++) {
       let result;
@@ -1024,7 +1008,6 @@ export default function App() {
         result = mockResult ? processApiResult(mockResult, sqls[i], i) : analyzeSQL(sqls[i], i);
       } else {
         try {
-          const { fetchDiagnose } = await import('./api/diagnose');
           const data = await fetchDiagnose(sqls[i]);
           result = processApiResult(data, sqls[i], i);
           successCount++;
@@ -1042,7 +1025,7 @@ export default function App() {
     }
 
     setResults(prev => [...prev].sort(
-      (a, b) => (rank[b.risk] || 0) - (rank[a.risk] || 0)
+      (a, b) => (RISK_RANK[b.risk] || 0) - (RISK_RANK[a.risk] || 0)
     ));
 
     if (IS_MOCK) setApiStatus('mock');
@@ -1052,7 +1035,8 @@ export default function App() {
     setLoading(false);
   };
 
-  const sqlCount = splitSQLs(query).length;
+  const sqls = useMemo(() => splitSQLs(query), [query]);
+  const sqlCount = sqls.length;
 
   const statusBadge = {
     connected: { cls: 'bg-green-500/20 text-green-400', dot: 'bg-green-400', label: 'AI 연결됨' },
@@ -1066,12 +1050,10 @@ export default function App() {
       {/* 모달 */}
       {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}        {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}  
       {/* 좌측 상단 로고 */}
-      <div className="fixed top-4 left-4 z-40 flex items-center gap-2.5">
+      <div className="fixed top-4 left-4 z-40">
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-900'}`}>
           <Database size={15} className="text-white" />
         </div>
-        <span className={`text-sm font-bold tracking-tight ${isDarkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
-        </span>
       </div>
 
       {/* 우측 상단 고정 */}
@@ -1279,6 +1261,7 @@ function InputArea({
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.ctrlKey && e.key === 'Enter') runDiagnose(); }}
             placeholder={`분석할 Oracle SQL을 입력하세요...\n\n예)  SELECT * FROM orders WHERE ROWNUM <= 10;\n     SELECT NVL(name,'') FROM users;`}
+            maxLength={50000}
             className={`w-full ${compact ? 'h-28' : 'h-52'} px-5 pt-5 pb-3 outline-none font-sans text-sm leading-relaxed resize-none transition-all ${theme.textarea} bg-transparent`}
           />
           {dragOver && (
