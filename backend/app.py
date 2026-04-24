@@ -1,39 +1,35 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from authlib.integrations.starlette_client import OAuth
+from starlette.middleware.sessions import SessionMiddleware
+from pydantic import BaseModel
+from pathlib import Path
 import json
 import re
 import sys
-from pathlib import Path
-
 import anthropic
 import os
+from dotenv import load_dotenv
+from sqlalchemy import desc
 
-# [팀원 모듈 임포트] 
-# 규칙 기반 시뮬레이터 / 위험도 계산 모델
-# 주의: backend/validation/__init__.py 파일이 있어야함
-root_dir = Path(__file__).parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.append(str(root_dir))
-from model.risk_model import RiskPredictor
-from backend.validation.consistency_simulator import load_rules, evaluate_sql
-# 객체 생성
-predictor = RiskPredictor()
-
-# 시뮬레이터 규칙 로드
-RULES_PATH = Path("validation/pattern_rules.json")
-RULES = load_rules(RULES_PATH)
-# 수정 후: 객체(Rule)를 딕셔너리로 변환하여 JSON화
-try:
-    # RULES가 리스트 안에 객체들이 들어있는 형태라면:
-    rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
-    RULES_STR = json.dumps(rules_data, ensure_ascii=False)
-except Exception as e:
-    # 만약 위 방법이 안 된다면 시뮬레이터 파일 자체를 직접 읽는 방법
-    with open(RULES_PATH, 'r', encoding='utf-8') as f:
-        RULES_STR = f.read()
+# .env 파일 불러옴
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 app = FastAPI()
+
+secret_key = os.getenv("SESSION_SECRET_KEY")
+if not secret_key:
+    raise ValueError("SESSION_SECRET_KEY가 설정되지 않았습니다!")
+app.add_middleware(SessionMiddleware, secret_key=secret_key)
+
+# Anthropic 클라이언트 설정
+# API Key가 없으면 서버 시작 시 에러를 내도록 설정하는 것이 디버깅에 좋습니다.
+anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+if not anthropic_key:
+    raise ValueError("ANTHROPIC_API_KEY가 .env 파일에 없습니다.")
+
+client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 # CORS 설정 (프론트엔드 연동용)
 app.add_middleware(
@@ -43,15 +39,151 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API Key는 반드시 보안 준수
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+oauth = OAuth()
+oauth.register(
+    name='google',
+    # 구글 클라이언트_ID
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    # 비밀번호
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+# 경로 문제 대비(파이썬 경로에 추가)
+ROOT_DIR = Path(__file__).parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+BASE_DIR = Path(__file__).parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.append(str(BASE_DIR))
+
+# db관련
+from database import init_db, SessionLocal, DiagnoseLog
+
+# [팀원 모듈 임포트] 
+# 규칙 기반 시뮬레이터 / 위험도 계산 모델
+from model.risk_model import RiskPredictor
+from backend.validation.consistency_simulator import load_rules, evaluate_sql
+
+# 객체 생성
+predictor = RiskPredictor()
+
+# 시뮬레이터 규칙 로드
+RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
+RULES = load_rules(RULES_PATH)
+try:
+    # RULES가 리스트 안에 객체들이 들어있는 형태라면:
+    rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
+    RULES_STR = json.dumps(rules_data, ensure_ascii=False)
+except Exception as e:
+    # 만약 위 방법이 안 된다면 시뮬레이터 파일 자체를 직접 읽는 방법
+    with open(RULES_PATH, 'r', encoding='utf-8') as f:
+        RULES_STR = f.read()
 
 class QueryRequest(BaseModel):
     sql: str
 
+def adjust_score_by_level(score: int, level: str) -> int:
+    if level == "HIGH":
+        return max(score, 70)
+    elif level == "MEDIUM":
+        return max(score, 40)
+    else:
+        return max(score, 20)
+
+# 서버 시작 시 테이블 생성
+init_db()
+
+# DB 세션을 가져오는 함수 (FastAPI 의존성 주입용)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+#                   ------[ 로그인관련 ]------
+@app.get("/login")
+async def login(request: Request):
+    # 구글 로그인 페이지로 리다이렉트
+    redirect_uri = "http://localhost:8000/auth/callback"
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@app.get("/auth/callback")
+async def auth_callback(request: Request):
+    # 구글로부터 인증 토큰을 받아옴
+    token = await oauth.google.authorize_access_token(request)
+    user_info = token.get('userinfo') # 여기에 이메일, 이름 등이 들어있음
+    
+    # 세션에 유저 이메일 저장 (로그인 유지)
+    request.session['user'] = user_info['email']
+
+    # [히스토리 연동 포인트]
+    # user_info['email']을 기반으로 DB에서 이 유저의 이전 기록을 조회하면 됩니다.
+    return {
+        "message": "로그인 성공!",
+        "user_email": user_info['email']
+    }
+
+#                   ------[ db관련 ]------
+# 테스트용
+@app.get("/db-test")
+async def test_db():
+    try:
+        db = SessionLocal()
+        # 1. 테스트용 데이터 생성
+        test_log = DiagnoseLog(
+            user_email="test@gmail.com",
+            query_sql="SELECT * FROM oracle_table;",
+            ai_response={
+                "reason": "테스트 데이터입니다.",
+                "recommended_ddl": "CREATE TABLE mysql_table (id INT);",
+                "estimated_improvement": "50%"
+            }
+        )
+        # 2. DB에 추가 및 커밋
+        db.add(test_log)
+        db.commit()
+        
+        # 3. 잘 들어갔는지 다시 한번 조회해보기
+        saved_data = db.query(DiagnoseLog).filter(DiagnoseLog.user_email == "test@gmail.com").first()
+        db.close()
+        
+        return {
+            "message": "DB 연결 및 데이터 저장 성공!",
+            "saved_id": saved_data.id,
+            "saved_email": saved_data.user_email
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+# [엔드포인트] 왼쪽 사이드바용 히스토리 목록
+# limit : 개수 , offset : 건너뛸 개수
+@app.get("/history")
+async def get_history(request: Request, limit: int = 20, offset: int = 0):
+    user_email = request.session.get('user') or "test@gmail.com"
+    if not user_email:
+        return [] # 로그인 안되어있으면 빈 리스트
+
+    db = SessionLocal()
+    # limit과 offset을 사용하여 필요한 만큼만 끊어서 가져옴
+    history = db.query(DiagnoseLog)\
+                .filter(DiagnoseLog.user_email == user_email)\
+                .order_by(desc(DiagnoseLog.created_at))\
+                .offset(offset)\
+                .limit(limit)\
+                .all()
+    db.close()
+    return history
+
+#                   ------[ (AI)진단 관련 ]------
 # [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
 @app.post("/diagnose")
-async def diagnose(req: QueryRequest):
+async def diagnose(req: QueryRequest, request: Request):
+    #user_email = request.session.get('user')
+    user_email = request.session.get('user') or "test@gmail.com"
+
     # 1. [Simulator] 규칙 기반 선행 분석
     sim_result = evaluate_sql(req.sql, RULES)
     
@@ -61,11 +193,14 @@ async def diagnose(req: QueryRequest):
         for p in detail["matched_patterns"]
     ))
     max_severity = sim_result["summary"]["max_severity"]
-    severity_counts = sim_result["summary"]["severity_counts"]
+    #severity_counts = sim_result["summary"]["severity_counts"]
 
     # 3. [Risk Model] 정량적 위험 점수 계산 
     risk_analysis = predictor.evaluate_risk_score(req.sql)
     risk_score = risk_analysis["risk_score"]
+
+
+    risk_score = adjust_score_by_level(risk_score, max_severity)
     #risk_level = risk_analysis["risk_level"] # "HIGH", "MED", "LOW"
     
 
@@ -129,8 +264,11 @@ async def diagnose(req: QueryRequest):
     for rule in RULES: # pattern_rules.json의 모든 규칙
         # 이번에 탐지된 패턴 ID 목록(matched_ids)에 포함되어 있다면
         if rule.id in matched_ids:
-            # simulator가 계산한 risk_score를 여기에 반영
-            current_score = risk_score
+            if risk_score < 20:
+                # 시뮬레이터 결과에서 해당 패턴의 severity를 찾아 가중치 부여
+                current_score = 80 if max_severity == "HIGH" else 50
+            else:
+                current_score = risk_score
         else:
             # 탐지 안 된 패턴은 낮은 기본 점수 부여
             current_score = 10 
@@ -154,7 +292,7 @@ async def diagnose(req: QueryRequest):
         ai_json = json.loads(re.search(r'(\{.*\})', raw_text, re.DOTALL).group(1))
 
         # 6. [최종 통합 결과] 모든 팀원의 산출물을 하나로 합쳐 반환
-        return {
+        final_result = {
             "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"), # AI가 뽑은 대표 ID
             "risk_level": max_severity,              # 시뮬레이터 결과
             "risk_score": risk_score,                # 리스크 스코어
@@ -166,6 +304,28 @@ async def diagnose(req: QueryRequest):
             "performance_data": performance_data,
             "risk_score_data": risk_score_data
         }
+
+        if user_email:
+            # 터미널 로그 확인용
+            print(f"DEBUG: {user_email} 계정으로 저장을 시도합니다.")
+            db = SessionLocal()
+            try:
+                # 상세 진단 결과(DiagnoseLog) 저장
+                new_log = DiagnoseLog(
+                    user_email=user_email,
+                    query_sql=req.sql,
+                    ai_response=final_result # JSON 형태로 통째로 저장
+                )
+                db.add(new_log)
+                db.commit()
+                print(f"DEBUG: {user_email}의 진단 결과 저장 완료")
+            except Exception as db_err:
+                print(f"DB 저장 오류: {db_err}")
+                db.rollback()
+            finally:
+                db.close()
+
+        return final_result
     
     except Exception as e:
         return {"error": str(e)}
