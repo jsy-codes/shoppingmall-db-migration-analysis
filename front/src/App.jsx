@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   Search, Copy, Check, AlertTriangle, Shield, Info,
   Sun, Moon, ChevronDown, Upload, FileText,
-  BarChart2, Zap, X, HelpCircle, BookOpen, Database,
+  BarChart2, Zap, X, HelpCircle, BookOpen, Database, Plus, LogIn, LogOut, Clock, PanelLeft, Trash2,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import rules from '../../backend/validation/pattern_rules.json';
@@ -923,17 +923,172 @@ const EXAMPLE_QUERIES = [
   { label: '묵시적 형변환',  sql: "SELECT * FROM products WHERE product_id = '100'" },
 ];
 
+// ─── 사이드바 ─────────────────────────────────────────────────
+function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHistory, onNewAnalysis, onLogout, onDeleteHistory }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
+
+  const filtered = searchQuery.trim()
+    ? historyItems.filter(item => item.query_sql?.toLowerCase().includes(searchQuery.toLowerCase()))
+    : historyItems;
+
+  const handleSearchClick = () => {
+    if (!isOpen) {
+      onToggle();
+      setTimeout(() => searchInputRef.current?.focus(), 320);
+    } else {
+      searchInputRef.current?.focus();
+    }
+  };
+
+  const t = {
+    bg:        isDarkMode ? 'bg-[#111111]' : 'bg-zinc-100',
+    border:    isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
+    text:      isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
+    subText:   isDarkMode ? 'text-zinc-500' : 'text-zinc-400',
+    iconBtn:   isDarkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
+    itemHover: isDarkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
+    inputBg:   isDarkMode ? 'bg-zinc-800/60 border-zinc-700 text-zinc-300 placeholder:text-zinc-600' : 'bg-zinc-200/60 border-zinc-300 text-zinc-600 placeholder:text-zinc-400',
+  };
+
+  const miniVisible = !isOpen;
+
+  return (
+    <div className={`fixed top-0 left-0 h-full z-30 border-r transition-all duration-300 overflow-hidden ${t.bg} ${t.border} ${isOpen ? 'w-64' : 'w-12'}`}>
+
+      {/* ── 미니 레이어 (아이콘만) ── */}
+      <div className={`absolute inset-0 w-12 flex flex-col items-center py-3 gap-1 transition-opacity duration-150 ${miniVisible ? 'opacity-100 delay-150' : 'opacity-0 pointer-events-none'}`}>
+        <button onClick={onToggle} className={`p-1.5 rounded-lg transition-all ${t.iconBtn}`}>
+          <PanelLeft size={18} />
+        </button>
+        <button onClick={onNewAnalysis} title="새 분석" className={`p-2 rounded-lg transition-all ${t.iconBtn}`}>
+          <Plus size={16} />
+        </button>
+        <button onClick={handleSearchClick} title="기록 검색" className={`p-2 rounded-lg transition-all ${t.iconBtn}`}>
+          <Search size={16} />
+        </button>
+        <div className="flex-1" />
+        {user ? (
+          <button onClick={onLogout} title="로그아웃" className={`p-1.5 rounded-lg transition-all ${t.iconBtn}`}>
+            <LogOut size={15} />
+          </button>
+        ) : (
+          <a href="http://localhost:8000/login" title="Google로 로그인"
+            className={`p-2 rounded-lg transition-all flex items-center justify-center ${t.iconBtn}`}>
+            <LogIn size={16} />
+          </a>
+        )}
+      </div>
+
+      {/* ── 풀 레이어 (텍스트 포함) ── */}
+      <div className={`absolute inset-0 w-64 flex flex-col transition-opacity duration-150 ${isOpen ? 'opacity-100 delay-150' : 'opacity-0 pointer-events-none'}`}>
+
+        {/* 헤더 */}
+        <div className="flex items-center gap-2.5 px-3 py-3 shrink-0">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-800'}`}>
+            <Database size={15} className="text-white" />
+          </div>
+          <span className={`text-sm font-bold flex-1 whitespace-nowrap ${t.text}`}>AI 쿼리 진단</span>
+          <button onClick={onToggle} className={`p-1.5 rounded-lg transition-all ${t.iconBtn}`}>
+            <PanelLeft size={16} />
+          </button>
+        </div>
+
+        {/* 액션 버튼 */}
+        <div className="px-2 pb-2 flex flex-col gap-1.5 shrink-0">
+          <button onClick={onNewAnalysis} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all border ${
+            isDarkMode ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+          }`}>
+            <Plus size={13} /> 새 분석
+          </button>
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${t.inputBg}`}>
+            <Search size={13} className="shrink-0 opacity-60" />
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="기록 검색..."
+              className="flex-1 bg-transparent outline-none text-xs"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="opacity-60 hover:opacity-100">
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className={`mx-3 border-t ${t.border} mb-1 shrink-0`} />
+
+        {/* 히스토리 목록 */}
+        <div className="flex-1 overflow-y-auto px-2 scrollbar-none">
+          <p className={`px-2 py-1 text-xs font-semibold uppercase tracking-wider ${t.subText}`}>최근 분석</p>
+          {filtered.length === 0 ? (
+            <p className={`px-3 py-3 text-xs ${t.subText}`}>
+              {searchQuery ? '검색 결과가 없습니다' : '분석 후 기록이 여기에 표시됩니다'}
+            </p>
+          ) : (
+            filtered.map((item, i) => (
+              <div key={item.id || i}
+                className={`group relative flex items-center rounded-lg mb-0.5 transition-all ${t.itemHover}`}>
+                <button onClick={() => onSelectHistory(item)}
+                  className="flex-1 text-left px-3 py-2.5 text-xs min-w-0">
+                  <p className="truncate font-medium">{item.query_sql?.slice(0, 35) ?? '—'}</p>
+                  <p className={`text-xs mt-0.5 flex items-center gap-1 ${t.subText}`}>
+                    <Clock size={10} /> {item.created_at?.slice(0, 10) ?? ''}
+                  </p>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteHistory(item.id); }}
+                  className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded transition-all shrink-0 hover:text-red-400 ${t.subText}`}>
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 하단 유저 영역 */}
+        <div className={`py-3 border-t ${t.border} shrink-0 px-3`}>
+          {user ? (
+            <div className="flex items-center gap-2 w-full">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${isDarkMode ? 'bg-zinc-600' : 'bg-zinc-700'}`}>
+                {user.email?.[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-medium truncate ${t.text}`}>{user.email}</p>
+                <p className={`text-xs ${t.subText}`}>로그인됨</p>
+              </div>
+              <button onClick={onLogout} title="로그아웃" className={`p-1.5 rounded-lg transition-all shrink-0 ${t.iconBtn}`}>
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <a href="http://localhost:8000/login"
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all w-full ${t.iconBtn}`}>
+              <LogIn size={13} /> Google로 로그인
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 메인 App ─────────────────────────────────────────────────
 export default function App() {
   const [isDarkMode, setIsDarkMode]   = useState(true);
   const [loading, setLoading]         = useState(false);
-  const [totalCount, setTotalCount]   = useState(0);   // 전체 쿼리 수 (스트리밍 진행 표시용)
+  const [totalCount, setTotalCount]   = useState(0);
   const [query, setQuery]             = useState('');
   const [results, setResults]         = useState([]);
   const [summary, setSummary]         = useState(null);
   const [hasResult, setHasResult]     = useState(false);
   const [apiStatus, setApiStatus]     = useState('idle');
   const [fileName, setFileName]       = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [user, setUser]               = useState(null);
   const [dragOver, setDragOver]       = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -942,6 +1097,118 @@ export default function App() {
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
   const handleCloseCatalog = useCallback(() => setShowCatalog(false), []);
+
+  // ─── 히스토리 갱신 함수 (초기 로딩 + 진단 완료 후 재사용) ───
+  const refreshHistory = useCallback(async () => {
+    try {
+      const res = await fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryItems(data);
+      }
+    } catch { /* 백엔드 오프라인 시 무시 */ }
+  }, []);
+
+  // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
+  const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
+    try {
+      const resultsWithSql = allResults.map((r, i) => ({ ...r, query_sql: sqlList[i] ?? '' }));
+      await fetch('http://localhost:8000/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ query_sql: originalQuery, results: resultsWithSql }),
+      });
+    } catch { /* 무시 */ }
+    await refreshHistory();
+  }, [refreshHistory]);
+
+  // ─── 히스토리 + 유저 로딩 ───────────────────────────────────
+  useEffect(() => {
+    const loadAll = async () => {
+      try {
+        const [meRes, histRes] = await Promise.all([
+          fetch('http://localhost:8000/me', { credentials: 'include' }),
+          fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' }),
+        ]);
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          setUser(meData.email ? { email: meData.email } : null);
+        }
+        if (histRes.ok) {
+          const histData = await histRes.json();
+          setHistoryItems(histData);
+        }
+      } catch { /* 백엔드 오프라인 시 무시 */ }
+    };
+    loadAll();
+  }, []);
+
+  // ─── 브라우저 뒤로가기 지원 ─────────────────────────────────
+  useEffect(() => {
+    const onPop = () => {
+      setHasResult(false);
+      setResults([]);
+      setSummary(null);
+      setApiStatus('idle');
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const handleNewAnalysis = useCallback(() => {
+    window.history.pushState(null, '');
+    setHasResult(false);
+    setResults([]);
+    setSummary(null);
+    setQuery('');
+    setApiStatus('idle');
+  }, []);
+
+  const handleDeleteHistory = useCallback(async (id) => {
+    try {
+      await fetch(`http://localhost:8000/history/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      setHistoryItems(prev => prev.filter(item => item.id !== id));
+    } catch { /* 무시 */ }
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('http://localhost:8000/logout', { credentials: 'include' });
+    } catch { /* 무시 */ }
+    setUser(null);
+    setHistoryItems([]);
+  }, []);
+
+  const handleSelectHistory = useCallback((item) => {
+    try {
+      const aiResponse = typeof item.ai_response === 'string'
+        ? JSON.parse(item.ai_response)
+        : item.ai_response;
+
+      // 새 배치 형식(배열): saveSession이 저장한 처리 완료된 결과 → 직접 사용
+      // 구 형식(단일 객체): 원시 API 응답 → processApiResult로 변환
+      const loaded = Array.isArray(aiResponse)
+        ? aiResponse.map((res, i) => ({
+            ...res,
+            index: i,
+            sql: res.sql || res.query_sql || item.query_sql,
+          }))
+        : [processApiResult(aiResponse, item.query_sql, 0)];
+
+      setResults(loaded);
+      setSummary(calcSummary(loaded));
+      setQuery(item.query_sql);
+      window.history.pushState({ view: 'result' }, '');
+      setHasResult(true);
+      setApiStatus('connected');
+    } catch (e) {
+      console.error('히스토리 로드 실패:', e);
+    }
+  }, []);
 
   const theme = useMemo(() => ({
     bg:       isDarkMode ? 'bg-[#121212]' : 'bg-zinc-200',
@@ -980,6 +1247,7 @@ export default function App() {
       return;
     }
 
+    window.history.pushState({ view: 'result' }, '');
     setLoading(true);
     setHasResult(true);
     setResults([]);
@@ -1033,6 +1301,8 @@ export default function App() {
     else setApiStatus('local');
 
     setLoading(false);
+
+    if (!IS_MOCK && successCount > 0) saveSession(analysisResults, query, sqls);
   };
 
   const sqls = useMemo(() => splitSQLs(query), [query]);
@@ -1048,13 +1318,24 @@ export default function App() {
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700 ${isDarkMode ? 'bg-grid-dark' : 'bg-grid-light'}`}>
 
       {/* 모달 */}
-      {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}        {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}  
-      {/* 좌측 상단 로고 */}
-      <div className="fixed top-4 left-4 z-40">
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-900'}`}>
-          <Database size={15} className="text-white" />
-        </div>
-      </div>
+      {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}
+      {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}
+
+      {/* 사이드바 */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(v => !v)}
+        historyItems={historyItems}
+        user={user}
+        isDarkMode={isDarkMode}
+        onSelectHistory={handleSelectHistory}
+        onNewAnalysis={handleNewAnalysis}
+        onLogout={handleLogout}
+        onDeleteHistory={handleDeleteHistory}
+      />
+
+      {/* 컨텐츠 영역 — 사이드바 너비만큼 밀기 */}
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-12'}`}>
 
       {/* 우측 상단 고정 */}
       <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
@@ -1220,6 +1501,7 @@ export default function App() {
           )}
         </div>
       )}
+      </div> {/* 컨텐츠 래퍼 끝 */}
     </div>
   );
 }

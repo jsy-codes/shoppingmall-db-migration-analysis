@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
@@ -7,6 +8,7 @@ from pathlib import Path
 import json
 import re
 import sys
+import uuid
 import anthropic
 import os
 from dotenv import load_dotenv
@@ -21,7 +23,7 @@ app = FastAPI()
 secret_key = os.getenv("SESSION_SECRET_KEY")
 if not secret_key:
     raise ValueError("SESSION_SECRET_KEY가 설정되지 않았습니다!")
-app.add_middleware(SessionMiddleware, secret_key=secret_key)
+app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="lax", https_only=False)
 
 # Anthropic 클라이언트 설정
 # API Key가 없으면 서버 시작 시 에러를 내도록 설정하는 것이 디버깅에 좋습니다.
@@ -34,7 +36,8 @@ client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 # CORS 설정 (프론트엔드 연동용)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -84,6 +87,21 @@ except Exception as e:
 class QueryRequest(BaseModel):
     sql: str
 
+class SessionRequest(BaseModel):
+    query_sql: str
+    results: list
+
+def get_user_id(request: Request) -> str:
+    """로그인 유저는 이메일, 비로그인 유저는 세션에 저장된 익명 ID를 반환."""
+    email = request.session.get('user')
+    if email:
+        return email
+    anon_id = request.session.get('anon_id')
+    if not anon_id:
+        anon_id = f"anon_{uuid.uuid4().hex[:12]}"
+        request.session['anon_id'] = anon_id
+    return anon_id
+
 def adjust_score_by_level(score: int, level: str) -> int:
     if level == "HIGH":
         return max(score, 70)
@@ -119,12 +137,7 @@ async def auth_callback(request: Request):
     # 세션에 유저 이메일 저장 (로그인 유지)
     request.session['user'] = user_info['email']
 
-    # [히스토리 연동 포인트]
-    # user_info['email']을 기반으로 DB에서 이 유저의 이전 기록을 조회하면 됩니다.
-    return {
-        "message": "로그인 성공!",
-        "user_email": user_info['email']
-    }
+    return RedirectResponse(url="http://localhost:5173")
 
 #                   ------[ db관련 ]------
 # 테스트용
@@ -160,11 +173,31 @@ async def test_db():
 
 # [엔드포인트] 왼쪽 사이드바용 히스토리 목록
 # limit : 개수 , offset : 건너뛸 개수
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return {"ok": True}
+
+@app.delete("/history/{log_id}")
+async def delete_history(log_id: str, request: Request):
+    user_email = get_user_id(request)
+    db = SessionLocal()
+    try:
+        log = db.query(DiagnoseLog).filter(
+            DiagnoseLog.id == log_id,
+            DiagnoseLog.user_email == user_email
+        ).first()
+        if not log:
+            return {"ok": False}
+        db.delete(log)
+        db.commit()
+        return {"ok": True}
+    finally:
+        db.close()
+
 @app.get("/history")
 async def get_history(request: Request, limit: int = 20, offset: int = 0):
-    user_email = request.session.get('user') or "test@gmail.com"
-    if not user_email:
-        return [] # 로그인 안되어있으면 빈 리스트
+    user_email = get_user_id(request)
 
     db = SessionLocal()
     # limit과 offset을 사용하여 필요한 만큼만 끊어서 가져옴
@@ -177,12 +210,17 @@ async def get_history(request: Request, limit: int = 20, offset: int = 0):
     db.close()
     return history
 
+# [엔드포인트] 현재 로그인된 유저 정보
+@app.get("/me")
+async def me(request: Request):
+    email = request.session.get('user')
+    return {"email": email}
+
 #                   ------[ (AI)진단 관련 ]------
 # [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest, request: Request):
-    #user_email = request.session.get('user')
-    user_email = request.session.get('user') or "test@gmail.com"
+    user_email = get_user_id(request)
 
     # 1. [Simulator] 규칙 기반 선행 분석
     sim_result = evaluate_sql(req.sql, RULES)
@@ -304,27 +342,26 @@ async def diagnose(req: QueryRequest, request: Request):
             "risk_score_data": risk_score_data
         }
 
-        if user_email:
-            # 터미널 로그 확인용
-            print(f"DEBUG: {user_email} 계정으로 저장을 시도합니다.")
-            db = SessionLocal()
-            try:
-                # 상세 진단 결과(DiagnoseLog) 저장
-                new_log = DiagnoseLog(
-                    user_email=user_email,
-                    query_sql=req.sql,
-                    ai_response=final_result # JSON 형태로 통째로 저장
-                )
-                db.add(new_log)
-                db.commit()
-                print(f"DEBUG: {user_email}의 진단 결과 저장 완료")
-            except Exception as db_err:
-                print(f"DB 저장 오류: {db_err}")
-                db.rollback()
-            finally:
-                db.close()
-
         return final_result
-    
+
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/session")
+async def save_session(body: SessionRequest, request: Request):
+    user_email = get_user_id(request)
+    db = SessionLocal()
+    try:
+        new_log = DiagnoseLog(
+            user_email=user_email,
+            query_sql=body.query_sql,
+            ai_response=body.results
+        )
+        db.add(new_log)
+        db.commit()
+        return {"ok": True}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
