@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   Search, Copy, Check, AlertTriangle, Shield, Info,
   Sun, Moon, ChevronDown, Upload, FileText,
-  BarChart2, Zap, X, HelpCircle, BookOpen, Database,
+  BarChart2, Zap, X, HelpCircle, BookOpen, Database, Plus, LogIn, LogOut, Clock, PanelLeft, Trash2,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import rules from '../../backend/validation/pattern_rules.json';
@@ -10,12 +10,15 @@ import rules from '../../backend/validation/pattern_rules.json';
 // ─── Mock 설정 ─────────────────────────────────────────────────
 const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
 
+// ─── 위험도 순위 (공통 상수) ───────────────────────────────────
+const RISK_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+
 // ─── 위험도 설정 ───────────────────────────────────────────────
-const riskConfig = {
-  HIGH:   { label: 'HIGH',   bg: 'bg-red-500/20',    border: 'border-red-500/40',    text: 'text-red-400',    icon: <AlertTriangle size={14} />, bar: '#ef4444' },
-  MEDIUM: { label: 'MEDIUM', bg: 'bg-yellow-500/20', border: 'border-yellow-500/40', text: 'text-yellow-400', icon: <Shield size={14} />,        bar: '#eab308' },
-  LOW:    { label: 'LOW',    bg: 'bg-emerald-500/20',  border: 'border-emerald-500/40',  text: 'text-emerald-400',  icon: <Info size={14} />,           bar: '#10b981' },
-};
+const getRiskConfig = (isDarkMode = true) => ({
+  HIGH:   { label: 'HIGH',   bg: isDarkMode ? 'bg-red-500/20'     : 'bg-red-200',     border: isDarkMode ? 'border-red-500/40'     : 'border-red-400',     text: isDarkMode ? 'text-red-400'     : 'text-red-700',     icon: <AlertTriangle size={14} />, bar: '#ef4444' },
+  MEDIUM: { label: 'MEDIUM', bg: isDarkMode ? 'bg-yellow-500/20'  : 'bg-yellow-200',  border: isDarkMode ? 'border-yellow-500/40'  : 'border-yellow-400',  text: isDarkMode ? 'text-yellow-400'  : 'text-yellow-800',  icon: <Shield size={14} />,        bar: '#eab308' },
+  LOW:    { label: 'LOW',    bg: isDarkMode ? 'bg-emerald-500/20' : 'bg-emerald-200', border: isDarkMode ? 'border-emerald-500/40' : 'border-emerald-400', text: isDarkMode ? 'text-emerald-400' : 'text-emerald-700', icon: <Info size={14} />,           bar: '#10b981' },
+});
 
 // ─── 패턴 카탈로그 데이터 (P01~P22) ───────────────────────────
 const PATTERN_CATALOG = [
@@ -221,10 +224,34 @@ const HELP_SECTIONS = [
     levels: [
       { risk: 'HIGH',   score: '70점 이상', desc: '이관 시 즉시 오류 발생 가능. 반드시 수정 필요', color: 'text-red-400' },
       { risk: 'MEDIUM', score: '40~69점',   desc: '성능 저하 또는 결과 불일치 발생 가능',          color: 'text-yellow-400' },
-      { risk: 'LOW',    score: '40점 미만', desc: '이관 가능하나 최적화 권장',                     color: 'text-green-400' },
+      { risk: 'LOW',    score: '40점 미만', desc: '이관 가능하나 최적화 권장',                     color: 'text-emerald-400' },
     ],
   },
 ];
+
+// ─── 모달 키보드 훅 (Escape 닫기 + Tab focus trap) ────────────
+function useModalKeyboard(ref, onClose) {
+  useEffect(() => {
+    ref.current?.focus();
+    const handler = (e) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'Tab' && ref.current) {
+        const focusable = ref.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last  = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [ref, onClose]);
+}
 
 // ─── 패턴 카탈로그 모달 (2열 그리드) ─────────────────────────
 function PatternCatalogModal({ onClose, isDarkMode }) {
@@ -240,29 +267,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
     fix:     isDarkMode ? 'bg-zinc-900 text-green-400' : 'bg-green-50 text-green-700',
   };
 
-  useEffect(() => {
-    modalRef.current?.focus(); 
-
-    const handler = (e) => {
-      if (e.key === 'Escape') { onClose(); return; }
-
-      if (e.key === 'Tab' && modalRef.current) {
-        const focusable = modalRef.current.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const first = focusable[0];
-        const last  = focusable[focusable.length - 1];
-        if (e.shiftKey) {
-          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-        } else {
-          if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  useModalKeyboard(modalRef, onClose);
 
   const filtered = filter === 'ALL'
     ? PATTERN_CATALOG
@@ -304,7 +309,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
               { key: 'ALL',    label: `전체 ${PATTERN_CATALOG.length}`, cls: '' },
               { key: 'HIGH',   label: `HIGH ${counts.HIGH}`,            cls: 'text-red-400' },
               { key: 'MEDIUM', label: `MEDIUM ${counts.MEDIUM}`,        cls: 'text-yellow-400' },
-              { key: 'LOW',    label: `LOW ${counts.LOW}`,              cls: 'text-green-400' },
+              { key: 'LOW',    label: `LOW ${counts.LOW}`,              cls: 'text-emerald-400' },
             ].map(({ key, label, cls }) => (
               <button key={key} onClick={() => setFilter(key)}
                 className={`text-xs px-3 py-1.5 rounded-full font-bold transition-all ${
@@ -326,7 +331,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
         <div className="overflow-y-auto flex-1 px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {filtered.map((p) => {
-              const cfg = riskConfig[p.severity] || riskConfig.LOW;
+              const cfg = getRiskConfig(isDarkMode)[p.severity] || getRiskConfig(isDarkMode).LOW;
               return (
                 <div key={p.id} className={`rounded-xl border ${theme.card} overflow-hidden`}>
                   <div className={`flex items-center gap-2 px-4 py-3 border-b ${theme.divider} ${cfg.bg}`}>
@@ -392,29 +397,7 @@ function HelpModal({ onClose, isDarkMode }) {
     badge:   isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-600',
   };
 
-  useEffect(() => {
-    modalRef.current?.focus(); 
-
-    const handler = (e) => {
-      if (e.key === 'Escape') { onClose(); return; }
-
-      if (e.key === 'Tab' && modalRef.current) {
-        const focusable = modalRef.current.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const first = focusable[0];
-        const last  = focusable[focusable.length - 1];
-        if (e.shiftKey) {
-          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-        } else {
-          if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  useModalKeyboard(modalRef, onClose);
 
   return (
     <div
@@ -525,9 +508,8 @@ function matchPatterns(sql) {
 }
 
 function getHighestRisk(matched) {
-  if (matched.length === 0) return null;  
-  const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-  return matched.reduce((prev, curr) => (rank[curr.risk] || 0) > (rank[prev.risk] || 0) ? curr : prev);
+  if (matched.length === 0) return null;
+  return matched.reduce((prev, curr) => (RISK_RANK[curr.risk] || 0) > (RISK_RANK[prev.risk] || 0) ? curr : prev);
 }
 
 function calcRiskScore(matched) {
@@ -570,10 +552,7 @@ function processApiResult(data, sql, index) {
     : matchPatterns(sql);
 
   const top = matchedRules.length > 0
-    ? matchedRules.reduce((prev, curr) => {
-        const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-        return (rank[curr.risk] || 0) > (rank[prev.risk] || 0) ? curr : prev;
-      })
+    ? matchedRules.reduce((prev, curr) => (RISK_RANK[curr.risk] || 0) > (RISK_RANK[prev.risk] || 0) ? curr : prev)
     : null;
 
   const matchedIds = data.matched_pattern_ids || [];
@@ -620,8 +599,8 @@ function TypewriterText({ text, speed, className = '' }) {
 }
 
 // ─── 공통 컴포넌트 ────────────────────────────────────────────
-function RiskBadge({ risk, score }) {
-  const cfg = riskConfig[risk] || riskConfig.LOW;
+function RiskBadge({ risk, score, isDarkMode = true }) {
+  const cfg = getRiskConfig(isDarkMode)[risk] || getRiskConfig(isDarkMode).LOW;
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
       {cfg.icon} {cfg.label} {score != null ? `· ${score}` : ''}
@@ -660,12 +639,12 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
     inner:   isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-50',
     divider: isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200',
   };
-  const cfg = riskConfig[result.risk] || riskConfig.LOW;
+  const cfg = getRiskConfig(isDarkMode)[result.risk] || getRiskConfig(isDarkMode).LOW;
 
   const accentStyle = {
-    HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/8 to-transparent'    : 'from-red-50 to-transparent' },
-    MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/8 to-transparent' : 'from-yellow-50 to-transparent' },
-    LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/5 to-transparent' : 'from-emerald-50/50 to-transparent' },
+    HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/8 to-transparent'    : 'from-red-100 to-transparent' },
+    MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/8 to-transparent' : 'from-yellow-100 to-transparent' },
+    LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/5 to-transparent' : 'from-emerald-100 to-transparent' },
   }[result.risk] || { bar: 'bg-zinc-500', glow: 'from-transparent to-transparent' };
 
   const copyDdl = async () => {   
@@ -705,7 +684,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
         <span className={`text-xs font-mono font-bold ${theme.subText} shrink-0`}>
           #{String(index + 1).padStart(2, '0')}
         </span>
-        <RiskBadge risk={result.risk} score={result.score} />
+        <RiskBadge risk={result.risk} score={result.score} isDarkMode={isDarkMode} />
         {result.top && (
           <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${isDarkMode ? 'bg-zinc-800/80 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'}`}>
             {result.top.id}
@@ -750,7 +729,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
               </p>
               <div className="flex flex-col gap-2">
                 {result.matched.map(m => {
-                  const mc = riskConfig[m.risk] || riskConfig.LOW;
+                  const mc = getRiskConfig(isDarkMode)[m.risk] || getRiskConfig(isDarkMode).LOW;
                   return (
                     <div key={m.id} className={`flex items-start gap-3 p-3 rounded-xl border ${mc.bg} ${mc.border}`}>
                       <span className={`text-xs font-mono font-bold shrink-0 mt-0.5 ${mc.text}`}>{m.id}</span>
@@ -759,7 +738,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
                         <p className={`text-xs mt-0.5 ${theme.subText}`}>{m.description}</p>
                         {m.fix && <p className="text-xs mt-1.5 text-emerald-400 font-mono">→ {m.fix}</p>}
                       </div>
-                      <RiskBadge risk={m.risk} />
+                      <RiskBadge risk={m.risk} isDarkMode={isDarkMode} />
                     </div>
                   );
                 })}
@@ -923,7 +902,7 @@ function BatchSummary({ summary, results, isDarkMode }) {
               />
               <Bar dataKey="score" radius={[5, 5, 0, 0]} maxBarSize={40}>
                 {chartData.map((d, i) => (
-                  <Cell key={i} fill={riskConfig[d.risk]?.bar || '#10b981'} />
+                  <Cell key={i} fill={getRiskConfig(isDarkMode)[d.risk]?.bar || '#10b981'} />
                 ))}
               </Bar>
             </BarChart>
@@ -944,17 +923,172 @@ const EXAMPLE_QUERIES = [
   { label: '묵시적 형변환',  sql: "SELECT * FROM products WHERE product_id = '100'" },
 ];
 
+// ─── 사이드바 ─────────────────────────────────────────────────
+function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHistory, onNewAnalysis, onLogout, onDeleteHistory }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
+
+  const filtered = searchQuery.trim()
+    ? historyItems.filter(item => item.query_sql?.toLowerCase().includes(searchQuery.toLowerCase()))
+    : historyItems;
+
+  const handleSearchClick = () => {
+    if (!isOpen) {
+      onToggle();
+      setTimeout(() => searchInputRef.current?.focus(), 320);
+    } else {
+      searchInputRef.current?.focus();
+    }
+  };
+
+  const t = {
+    bg:        isDarkMode ? 'bg-[#111111]' : 'bg-zinc-100',
+    border:    isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
+    text:      isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
+    subText:   isDarkMode ? 'text-zinc-500' : 'text-zinc-400',
+    iconBtn:   isDarkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
+    itemHover: isDarkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
+    inputBg:   isDarkMode ? 'bg-zinc-800/60 border-zinc-700 text-zinc-300 placeholder:text-zinc-600' : 'bg-zinc-200/60 border-zinc-300 text-zinc-600 placeholder:text-zinc-400',
+  };
+
+  const miniVisible = !isOpen;
+
+  return (
+    <div className={`fixed top-0 left-0 h-full z-30 border-r transition-all duration-300 overflow-hidden ${t.bg} ${t.border} ${isOpen ? 'w-64' : 'w-12'}`}>
+
+      {/* ── 미니 레이어 (아이콘만) ── */}
+      <div className={`absolute inset-0 w-12 flex flex-col items-center py-3 gap-1 transition-opacity duration-150 ${miniVisible ? 'opacity-100 delay-150' : 'opacity-0 pointer-events-none'}`}>
+        <button onClick={onToggle} className={`p-1.5 rounded-lg transition-all ${t.iconBtn}`}>
+          <PanelLeft size={18} />
+        </button>
+        <button onClick={onNewAnalysis} title="새 분석" className={`p-2 rounded-lg transition-all ${t.iconBtn}`}>
+          <Plus size={16} />
+        </button>
+        <button onClick={handleSearchClick} title="기록 검색" className={`p-2 rounded-lg transition-all ${t.iconBtn}`}>
+          <Search size={16} />
+        </button>
+        <div className="flex-1" />
+        {user ? (
+          <button onClick={onLogout} title="로그아웃" className={`p-1.5 rounded-lg transition-all ${t.iconBtn}`}>
+            <LogOut size={15} />
+          </button>
+        ) : (
+          <a href="http://localhost:8000/login" title="Google로 로그인"
+            className={`p-2 rounded-lg transition-all flex items-center justify-center ${t.iconBtn}`}>
+            <LogIn size={16} />
+          </a>
+        )}
+      </div>
+
+      {/* ── 풀 레이어 (텍스트 포함) ── */}
+      <div className={`absolute inset-0 w-64 flex flex-col transition-opacity duration-150 ${isOpen ? 'opacity-100 delay-150' : 'opacity-0 pointer-events-none'}`}>
+
+        {/* 헤더 */}
+        <div className="flex items-center gap-2.5 px-3 py-3 shrink-0">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-800'}`}>
+            <Database size={15} className="text-white" />
+          </div>
+          <span className={`text-sm font-bold flex-1 whitespace-nowrap ${t.text}`}>AI 쿼리 진단</span>
+          <button onClick={onToggle} className={`p-1.5 rounded-lg transition-all ${t.iconBtn}`}>
+            <PanelLeft size={16} />
+          </button>
+        </div>
+
+        {/* 액션 버튼 */}
+        <div className="px-2 pb-2 flex flex-col gap-1.5 shrink-0">
+          <button onClick={onNewAnalysis} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all border ${
+            isDarkMode ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+          }`}>
+            <Plus size={13} /> 새 분석
+          </button>
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${t.inputBg}`}>
+            <Search size={13} className="shrink-0 opacity-60" />
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="기록 검색..."
+              className="flex-1 bg-transparent outline-none text-xs"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="opacity-60 hover:opacity-100">
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className={`mx-3 border-t ${t.border} mb-1 shrink-0`} />
+
+        {/* 히스토리 목록 */}
+        <div className="flex-1 overflow-y-auto px-2 scrollbar-none">
+          <p className={`px-2 py-1 text-xs font-semibold uppercase tracking-wider ${t.subText}`}>최근 분석</p>
+          {filtered.length === 0 ? (
+            <p className={`px-3 py-3 text-xs ${t.subText}`}>
+              {searchQuery ? '검색 결과가 없습니다' : '분석 후 기록이 여기에 표시됩니다'}
+            </p>
+          ) : (
+            filtered.map((item, i) => (
+              <div key={item.id || i}
+                className={`group relative flex items-center rounded-lg mb-0.5 transition-all ${t.itemHover}`}>
+                <button onClick={() => onSelectHistory(item)}
+                  className="flex-1 text-left px-3 py-2.5 text-xs min-w-0">
+                  <p className="truncate font-medium">{item.query_sql?.slice(0, 35) ?? '—'}</p>
+                  <p className={`text-xs mt-0.5 flex items-center gap-1 ${t.subText}`}>
+                    <Clock size={10} /> {item.created_at?.slice(0, 10) ?? ''}
+                  </p>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteHistory(item.id); }}
+                  className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded transition-all shrink-0 hover:text-red-400 ${t.subText}`}>
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 하단 유저 영역 */}
+        <div className={`py-3 border-t ${t.border} shrink-0 px-3`}>
+          {user ? (
+            <div className="flex items-center gap-2 w-full">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${isDarkMode ? 'bg-zinc-600' : 'bg-zinc-700'}`}>
+                {user.email?.[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-medium truncate ${t.text}`}>{user.email}</p>
+                <p className={`text-xs ${t.subText}`}>로그인됨</p>
+              </div>
+              <button onClick={onLogout} title="로그아웃" className={`p-1.5 rounded-lg transition-all shrink-0 ${t.iconBtn}`}>
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <a href="http://localhost:8000/login"
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all w-full ${t.iconBtn}`}>
+              <LogIn size={13} /> Google로 로그인
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 메인 App ─────────────────────────────────────────────────
 export default function App() {
   const [isDarkMode, setIsDarkMode]   = useState(true);
   const [loading, setLoading]         = useState(false);
-  const [totalCount, setTotalCount]   = useState(0);   // 전체 쿼리 수 (스트리밍 진행 표시용)
+  const [totalCount, setTotalCount]   = useState(0);
   const [query, setQuery]             = useState('');
   const [results, setResults]         = useState([]);
   const [summary, setSummary]         = useState(null);
   const [hasResult, setHasResult]     = useState(false);
   const [apiStatus, setApiStatus]     = useState('idle');
   const [fileName, setFileName]       = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [user, setUser]               = useState(null);
   const [dragOver, setDragOver]       = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -963,6 +1097,118 @@ export default function App() {
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
   const handleCloseCatalog = useCallback(() => setShowCatalog(false), []);
+
+  // ─── 히스토리 갱신 함수 (초기 로딩 + 진단 완료 후 재사용) ───
+  const refreshHistory = useCallback(async () => {
+    try {
+      const res = await fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryItems(data);
+      }
+    } catch { /* 백엔드 오프라인 시 무시 */ }
+  }, []);
+
+  // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
+  const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
+    try {
+      const resultsWithSql = allResults.map((r, i) => ({ ...r, query_sql: sqlList[i] ?? '' }));
+      await fetch('http://localhost:8000/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ query_sql: originalQuery, results: resultsWithSql }),
+      });
+    } catch { /* 무시 */ }
+    await refreshHistory();
+  }, [refreshHistory]);
+
+  // ─── 히스토리 + 유저 로딩 ───────────────────────────────────
+  useEffect(() => {
+    const loadAll = async () => {
+      try {
+        const [meRes, histRes] = await Promise.all([
+          fetch('http://localhost:8000/me', { credentials: 'include' }),
+          fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' }),
+        ]);
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          setUser(meData.email ? { email: meData.email } : null);
+        }
+        if (histRes.ok) {
+          const histData = await histRes.json();
+          setHistoryItems(histData);
+        }
+      } catch { /* 백엔드 오프라인 시 무시 */ }
+    };
+    loadAll();
+  }, []);
+
+  // ─── 브라우저 뒤로가기 지원 ─────────────────────────────────
+  useEffect(() => {
+    const onPop = () => {
+      setHasResult(false);
+      setResults([]);
+      setSummary(null);
+      setApiStatus('idle');
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const handleNewAnalysis = useCallback(() => {
+    window.history.pushState(null, '');
+    setHasResult(false);
+    setResults([]);
+    setSummary(null);
+    setQuery('');
+    setApiStatus('idle');
+  }, []);
+
+  const handleDeleteHistory = useCallback(async (id) => {
+    try {
+      await fetch(`http://localhost:8000/history/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      setHistoryItems(prev => prev.filter(item => item.id !== id));
+    } catch { /* 무시 */ }
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('http://localhost:8000/logout', { credentials: 'include' });
+    } catch { /* 무시 */ }
+    setUser(null);
+    setHistoryItems([]);
+  }, []);
+
+  const handleSelectHistory = useCallback((item) => {
+    try {
+      const aiResponse = typeof item.ai_response === 'string'
+        ? JSON.parse(item.ai_response)
+        : item.ai_response;
+
+      // 새 배치 형식(배열): saveSession이 저장한 처리 완료된 결과 → 직접 사용
+      // 구 형식(단일 객체): 원시 API 응답 → processApiResult로 변환
+      const loaded = Array.isArray(aiResponse)
+        ? aiResponse.map((res, i) => ({
+            ...res,
+            index: i,
+            sql: res.sql || res.query_sql || item.query_sql,
+          }))
+        : [processApiResult(aiResponse, item.query_sql, 0)];
+
+      setResults(loaded);
+      setSummary(calcSummary(loaded));
+      setQuery(item.query_sql);
+      window.history.pushState({ view: 'result' }, '');
+      setHasResult(true);
+      setApiStatus('connected');
+    } catch (e) {
+      console.error('히스토리 로드 실패:', e);
+    }
+  }, []);
 
   const theme = useMemo(() => ({
     bg:       isDarkMode ? 'bg-[#121212]' : 'bg-zinc-200',
@@ -982,21 +1228,26 @@ export default function App() {
     setFileError(null); 
     const reader = new FileReader();
     reader.onload = (e) => { setQuery(e.target.result); setFileName(file.name); };
+    reader.onerror = () => setFileError('파일을 읽을 수 없습니다. 다시 시도해주세요.');
     reader.readAsText(file);
   }, []);
 
-  const clearFile = () => {
+  const clearFile = useCallback(() => {
     setFileName(null);
     setQuery('');
-    setFileError(null); 
+    setFileError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  }, []);
 
   // ─── 진단 실행 (스트리밍) ────────────────────────────────────
   const runDiagnose = async () => {
-    const sqls = splitSQLs(query);
     if (sqls.length === 0) return;
+    if (sqls.length > 50) {
+      alert('최대 50개 쿼리까지 분석 가능합니다. 쿼리 수를 줄여주세요.');
+      return;
+    }
 
+    window.history.pushState({ view: 'result' }, '');
     setLoading(true);
     setHasResult(true);
     setResults([]);
@@ -1008,13 +1259,14 @@ export default function App() {
 
     const analysisResults = [];
     let successCount = 0;
-    const rank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
     let mockData = null;
     if (IS_MOCK) {
       const mod = await import('./data/mock_diagnose_result.json');
       mockData = mod.default;
     }
+
+    const { fetchDiagnose } = IS_MOCK ? {} : await import('./api/diagnose');
 
     for (let i = 0; i < sqls.length; i++) {
       let result;
@@ -1024,7 +1276,6 @@ export default function App() {
         result = mockResult ? processApiResult(mockResult, sqls[i], i) : analyzeSQL(sqls[i], i);
       } else {
         try {
-          const { fetchDiagnose } = await import('./api/diagnose');
           const data = await fetchDiagnose(sqls[i]);
           result = processApiResult(data, sqls[i], i);
           successCount++;
@@ -1042,7 +1293,7 @@ export default function App() {
     }
 
     setResults(prev => [...prev].sort(
-      (a, b) => (rank[b.risk] || 0) - (rank[a.risk] || 0)
+      (a, b) => (RISK_RANK[b.risk] || 0) - (RISK_RANK[a.risk] || 0)
     ));
 
     if (IS_MOCK) setApiStatus('mock');
@@ -1050,9 +1301,12 @@ export default function App() {
     else setApiStatus('local');
 
     setLoading(false);
+
+    if (!IS_MOCK && successCount > 0) saveSession(analysisResults, query, sqls);
   };
 
-  const sqlCount = splitSQLs(query).length;
+  const sqls = useMemo(() => splitSQLs(query), [query]);
+  const sqlCount = sqls.length;
 
   const statusBadge = {
     connected: { cls: 'bg-green-500/20 text-green-400', dot: 'bg-green-400', label: 'AI 연결됨' },
@@ -1064,15 +1318,24 @@ export default function App() {
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700 ${isDarkMode ? 'bg-grid-dark' : 'bg-grid-light'}`}>
 
       {/* 모달 */}
-      {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}        {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}  
-      {/* 좌측 상단 로고 */}
-      <div className="fixed top-4 left-4 z-40 flex items-center gap-2.5">
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-900'}`}>
-          <Database size={15} className="text-white" />
-        </div>
-        <span className={`text-sm font-bold tracking-tight ${isDarkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
-        </span>
-      </div>
+      {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}
+      {showCatalog && <PatternCatalogModal onClose={handleCloseCatalog} isDarkMode={isDarkMode} />}
+
+      {/* 사이드바 */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(v => !v)}
+        historyItems={historyItems}
+        user={user}
+        isDarkMode={isDarkMode}
+        onSelectHistory={handleSelectHistory}
+        onNewAnalysis={handleNewAnalysis}
+        onLogout={handleLogout}
+        onDeleteHistory={handleDeleteHistory}
+      />
+
+      {/* 컨텐츠 영역 — 사이드바 너비만큼 밀기 */}
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-12'}`}>
 
       {/* 우측 상단 고정 */}
       <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
@@ -1238,6 +1501,7 @@ export default function App() {
           )}
         </div>
       )}
+      </div> {/* 컨텐츠 래퍼 끝 */}
     </div>
   );
 }
@@ -1279,6 +1543,7 @@ function InputArea({
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.ctrlKey && e.key === 'Enter') runDiagnose(); }}
             placeholder={`분석할 Oracle SQL을 입력하세요...\n\n예)  SELECT * FROM orders WHERE ROWNUM <= 10;\n     SELECT NVL(name,'') FROM users;`}
+            maxLength={50000}
             className={`w-full ${compact ? 'h-28' : 'h-52'} px-5 pt-5 pb-3 outline-none font-sans text-sm leading-relaxed resize-none transition-all ${theme.textarea} bg-transparent`}
           />
           {dragOver && (
