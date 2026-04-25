@@ -9,7 +9,7 @@ conn = pymysql.connect(
     host='localhost',
     user='root',
     password='1234', 
-    db='bucket-store',
+    db='bucket_store',
     charset='utf8mb4',
     cursorclass=pymysql.cursors.DictCursor
 )
