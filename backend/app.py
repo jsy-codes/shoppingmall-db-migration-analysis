@@ -12,7 +12,7 @@ import uuid
 import anthropic
 import os
 from dotenv import load_dotenv
-from sqlalchemy import desc
+from sqlalchemy import text
 
 # .env 파일 불러옴
 env_path = Path(__file__).parent.parent / ".env"
@@ -206,7 +206,7 @@ async def get_history(request: Request, limit: int = 20, offset: int = 0):
     # limit과 offset을 사용하여 필요한 만큼만 끊어서 가져옴
     history = db.query(DiagnoseLog)\
                 .filter(DiagnoseLog.user_email == user_email)\
-                .order_by(desc(DiagnoseLog.created_at))\
+                .order_by(text(DiagnoseLog.created_at))\
                 .offset(offset)\
                 .limit(limit)\
                 .all()
@@ -362,6 +362,7 @@ async def save_session(body: SessionRequest, request: Request):
     user_email = get_user_id(request)
     db = SessionLocal()
     try:
+        print("SESSION RECEIVED:", body)
         new_log = DiagnoseLog(
             user_email=user_email,
             query_sql=body.query_sql,
