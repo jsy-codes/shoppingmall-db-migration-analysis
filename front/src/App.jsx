@@ -1112,6 +1112,7 @@ export default function App() {
   // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
 const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   try {
+    console.log("SAVE SESSION CALLED");
     const resultsWithSql = allResults.map((r, i) => ({
       ...r,
       query_sql: sqlList[i] ?? ''
@@ -1318,7 +1319,8 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     else setApiStatus('local');
 
     setLoading(false);
-
+    console.log("successCount:", successCount);
+    console.log("IS_MOCK:", IS_MOCK);
     if (!IS_MOCK && successCount > 0) saveSession(analysisResults, query, sqls);
   };
 
