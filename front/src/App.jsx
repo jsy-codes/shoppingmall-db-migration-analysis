@@ -1078,6 +1078,8 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
 
 // ─── 메인 App ─────────────────────────────────────────────────
 export default function App() {
+
+
   const [isDarkMode, setIsDarkMode]   = useState(true);
   const [loading, setLoading]         = useState(false);
   const [totalCount, setTotalCount]   = useState(0);
@@ -1098,20 +1100,35 @@ export default function App() {
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
   const handleCloseCatalog = useCallback(() => setShowCatalog(false), []);
+    // anon_id를 localStorage에 고정
+  const getAnonId = () => {
+    let anonId = localStorage.getItem('anon_id');
+    if (!anonId) {
+      anonId = `anon_${Math.random().toString(36).slice(2, 14)}`;
+      localStorage.setItem('anon_id', anonId);
+    }
+    return anonId;
+  };
 
+  // 모든 fetch에 붙일 헤더
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth_token');
+    if (token) return { Authorization: `Bearer ${token}` };
+    return { 'X-Anon-Id': getAnonId() };
+  };
   // ─── 히스토리 갱신 함수 (초기 로딩 + 진단 완료 후 재사용) ───
 const refreshHistory = useCallback(async () => {
   try {
-    const token = localStorage.getItem('auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { headers });
+    const res = await fetch(
+      'https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0',
+      { headers: getAuthHeaders() }
+    );
     if (res.ok) {
       const data = await res.json();
       setHistoryItems(data);
     }
   } catch { }
 }, []);
-
   // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
 const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   try {
@@ -1122,22 +1139,19 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     }));
 
     const res = await fetch(
-  "https://shoppingmall-db-migration-analysis.onrender.com/session",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(localStorage.getItem('auth_token')
-        ? { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
-        : {}),
-    },
-    body: JSON.stringify({ query_sql: originalQuery, results: resultsWithSql }),
-  }
-);
+      "https://shoppingmall-db-migration-analysis.onrender.com/session",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ query_sql: originalQuery, results: resultsWithSql }),
+      }
+    );
 
     const data = await res.json();
     console.log("SESSION RESPONSE:", data);
-
   } catch (err) {
     console.error("SESSION ERROR:", err);
   }
@@ -1160,8 +1174,8 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   const loadAll = async () => {
     try {
       const [meRes, histRes] = await Promise.all([
-        fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { headers }),
-        fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { headers }),
+        fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { headers: getAuthHeaders() }),
+        fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { headers: getAuthHeaders() }),
       ]);
       if (meRes.ok) {
         const meData = await meRes.json();
@@ -1197,12 +1211,11 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     setApiStatus('idle');
   }, []);
 
-  const handleDeleteHistory = useCallback(async (id) => {
+const handleDeleteHistory = useCallback(async (id) => {
   try {
-    const token = localStorage.getItem('auth_token');
     await fetch(`https://shoppingmall-db-migration-analysis.onrender.com/history/${id}`, {
       method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: getAuthHeaders(),
     });
     setHistoryItems(prev => prev.filter(item => item.id !== id));
   } catch { }

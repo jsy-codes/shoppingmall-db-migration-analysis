@@ -85,31 +85,29 @@ class SessionRequest(BaseModel):
 
 # ─── JWT로 유저 확인 ───────────────────────────────────────────
 def get_user_id(request: Request) -> str:
+    # 1. JWT 토큰 확인 (로그인 유저)
     auth = request.headers.get("Authorization", "")
-    print(f"[AUTH] header: '{auth[:60]}'")
     if auth.startswith("Bearer "):
         token = auth[7:]
-        # PyJWT 버전에 따라 decode 방식이 다를 수 있어서 둘 다 시도
-        for verify in [True, False]:
-            try:
-                payload = jwt.decode(
-                    token,
-                    secret_key,
-                    algorithms=["HS256"],
-                    options={"verify_exp": verify}
-                )
-                email = payload.get("email")
-                if email:
-                    print(f"[AUTH] JWT OK → {email}")
-                    return email
-            except Exception as e:
-                print(f"[AUTH] JWT decode error (verify={verify}): {e}")
-    anon_id = request.session.get('anon_id')
-    if not anon_id:
-        anon_id = f"anon_{uuid.uuid4().hex[:12]}"
-        request.session['anon_id'] = anon_id
-    print(f"[AUTH] fallback anon → {anon_id}")
-    return anon_id
+        try:
+            payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+            email = payload.get("email")
+            if email:
+                print(f"[AUTH] JWT OK → {email}")
+                return email
+        except Exception as e:
+            print(f"[AUTH] JWT error: {e}")
+
+    # 2. 비로그인: 프론트 localStorage의 anon_id 사용
+    anon_id = request.headers.get("X-Anon-Id")
+    if anon_id:
+        print(f"[AUTH] anon → {anon_id}")
+        return anon_id
+
+    # 3. 아무것도 없으면 임시 anon (히스토리 저장 안 됨)
+    fallback = f"anon_{uuid.uuid4().hex[:12]}"
+    print(f"[AUTH] fallback → {fallback}")
+    return fallback
 
 def adjust_score_by_level(score: int, level: str) -> int:
     if level == "HIGH":
