@@ -86,17 +86,29 @@ class SessionRequest(BaseModel):
 # ─── JWT로 유저 확인 ───────────────────────────────────────────
 def get_user_id(request: Request) -> str:
     auth = request.headers.get("Authorization", "")
+    print(f"[AUTH] header: '{auth[:60]}'")
     if auth.startswith("Bearer "):
-        try:
-            payload = jwt.decode(auth[7:], secret_key, algorithms=["HS256"])
-            return payload["email"]
-        except Exception:
-            pass
-    # fallback: 익명
+        token = auth[7:]
+        # PyJWT 버전에 따라 decode 방식이 다를 수 있어서 둘 다 시도
+        for verify in [True, False]:
+            try:
+                payload = jwt.decode(
+                    token,
+                    secret_key,
+                    algorithms=["HS256"],
+                    options={"verify_exp": verify}
+                )
+                email = payload.get("email")
+                if email:
+                    print(f"[AUTH] JWT OK → {email}")
+                    return email
+            except Exception as e:
+                print(f"[AUTH] JWT decode error (verify={verify}): {e}")
     anon_id = request.session.get('anon_id')
     if not anon_id:
         anon_id = f"anon_{uuid.uuid4().hex[:12]}"
         request.session['anon_id'] = anon_id
+    print(f"[AUTH] fallback anon → {anon_id}")
     return anon_id
 
 def adjust_score_by_level(score: int, level: str) -> int:
