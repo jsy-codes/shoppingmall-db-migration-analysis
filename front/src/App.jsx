@@ -8,7 +8,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import rules from '../../backend/validation/pattern_rules.json';
 
 // ─── Mock 설정 ─────────────────────────────────────────────────
-const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
+// const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
+const IS_MOCK = False;
 
 // ─── 위험도 순위 (공통 상수) ───────────────────────────────────
 const RISK_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1 };
