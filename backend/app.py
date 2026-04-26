@@ -212,7 +212,14 @@ async def get_history(request: Request, limit: int = 20, offset: int = 0):
                 .all()
     db.close()
     return history
-
+@app.get("/db-check")
+def db_check():
+    db = SessionLocal()
+    try:
+        db.execute("SELECT 1")
+        return {"ok": True}
+    except Exception as e:
+        return {"error": str(e)}
 # [엔드포인트] 현재 로그인된 유저 정보
 @app.get("/me")
 async def me(request: Request):
