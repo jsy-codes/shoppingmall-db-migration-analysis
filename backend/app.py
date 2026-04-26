@@ -125,7 +125,7 @@ def get_db():
 @app.get("/login")
 async def login(request: Request):
     # 구글 로그인 페이지로 리다이렉트
-    redirect_uri = "http://localhost:8000/auth/callback"
+    redirect_uri = "https://shoppingmall-db-migration-analysis.onrender.com/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get("/auth/callback")
@@ -137,7 +137,7 @@ async def auth_callback(request: Request):
     # 세션에 유저 이메일 저장 (로그인 유지)
     request.session['user'] = user_info['email']
 
-    return RedirectResponse(url="http://localhost:5173")
+    return RedirectResponse(url="https://shoppingmall-ui.onrender.com")
 
 #                   ------[ db관련 ]------
 # 테스트용

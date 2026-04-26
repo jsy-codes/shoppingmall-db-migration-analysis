@@ -973,7 +973,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
             <LogOut size={15} />
           </button>
         ) : (
-          <a href="http://localhost:8000/login" title="Google로 로그인"
+          <a href="https://shoppingmall-db-migration-analysis.onrender.com/login" title="Google로 로그인"
             className={`p-2 rounded-lg transition-all flex items-center justify-center ${t.iconBtn}`}>
             <LogIn size={16} />
           </a>
@@ -1064,7 +1064,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
               </button>
             </div>
           ) : (
-            <a href="http://localhost:8000/login"
+            <a href="https://shoppingmall-db-migration-analysis.onrender.com/login"
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all w-full ${t.iconBtn}`}>
               <LogIn size={13} /> Google로 로그인
             </a>
@@ -1101,7 +1101,7 @@ export default function App() {
   // ─── 히스토리 갱신 함수 (초기 로딩 + 진단 완료 후 재사용) ───
   const refreshHistory = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' });
+      const res = await fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setHistoryItems(data);
@@ -1113,7 +1113,7 @@ export default function App() {
   const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     try {
       const resultsWithSql = allResults.map((r, i) => ({ ...r, query_sql: sqlList[i] ?? '' }));
-      await fetch('http://localhost:8000/session', {
+      await fetch('https://shoppingmall-db-migration-analysis.onrender.com/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -1128,8 +1128,8 @@ export default function App() {
     const loadAll = async () => {
       try {
         const [meRes, histRes] = await Promise.all([
-          fetch('http://localhost:8000/me', { credentials: 'include' }),
-          fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' }),
+          fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { credentials: 'include' }),
+          fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' }),
         ]);
         if (meRes.ok) {
           const meData = await meRes.json();
@@ -1167,7 +1167,7 @@ export default function App() {
 
   const handleDeleteHistory = useCallback(async (id) => {
     try {
-      await fetch(`http://localhost:8000/history/${id}`, {
+      await fetch(`https://shoppingmall-db-migration-analysis.onrender.com/history/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -1177,7 +1177,7 @@ export default function App() {
 
   const handleLogout = useCallback(async () => {
     try {
-      await fetch('http://localhost:8000/logout', { credentials: 'include' });
+      await fetch('https://shoppingmall-db-migration-analysis.onrender.com/logout', { credentials: 'include' });
     } catch { /* 무시 */ }
     setUser(null);
     setHistoryItems([]);

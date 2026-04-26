@@ -4,7 +4,7 @@
 // 응답 형식: { rule_id, risk_level, reason, recommended_ddl,
 //              estimated_improvement, risk_score, matched_pattern_ids }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://shoppingmall-db-migration-analysis.onrender.com';
 
 export async function fetchDiagnose(sql) {
   const res = await fetch(`${API_URL}/diagnose`, {
