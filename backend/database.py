@@ -17,12 +17,15 @@ DB_PATH = BASE_DIR / "history.db"
 
 # 윈도우 환경에서 경로 인식을 확실하게 하기 위해 as_posix() 사용
 # sqlite:/// (슬래시 3개) + 절대경로
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH.as_posix()}"
+import os
+
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 # SQL라이트용 엔진 생성 (create_client가 아니라 create_engine입니다)
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# engine = create_engine(
+#     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+# )
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
