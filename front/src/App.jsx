@@ -1144,24 +1144,41 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
 
   // ─── 히스토리 + 유저 로딩 ───────────────────────────────────
   useEffect(() => {
-    const loadAll = async () => {
-      try {
-        const [meRes, histRes] = await Promise.all([
-          fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { credentials: 'include' }),
-          fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' }),
-        ]);
-        if (meRes.ok) {
-          const meData = await meRes.json();
-          setUser(meData.email ? { email: meData.email } : null);
-        }
-        if (histRes.ok) {
-          const histData = await histRes.json();
-          setHistoryItems(histData);
-        }
-      } catch { /* 백엔드 오프라인 시 무시 */ }
-    };
-    loadAll();
-  }, []);
+  const params = new URLSearchParams(window.location.search);
+  const email = params.get('email');
+  const loginSuccess = params.get('login');
+
+  // URL 파라미터로 이메일 받은 경우
+  if (loginSuccess === 'success' && email) {
+    setUser({ email });
+    window.history.replaceState({}, '', '/');
+    // /me 건너뛰고 히스토리만 로드
+    fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setHistoryItems(data))
+      .catch(() => {});
+    return; // ← 여기서 종료, loadAll 실행 안 함
+  }
+
+  // 일반 진입 시 (새로고침, 첫 방문)
+  const loadAll = async () => {
+    try {
+      const [meRes, histRes] = await Promise.all([
+        fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { credentials: 'include' }),
+        fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' }),
+      ]);
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        setUser(meData.email ? { email: meData.email } : null);
+      }
+      if (histRes.ok) {
+        const histData = await histRes.json();
+        setHistoryItems(histData);
+      }
+    } catch { }
+  };
+  loadAll();
+}, []);
 
   // ─── 브라우저 뒤로가기 지원 ─────────────────────────────────
   useEffect(() => {

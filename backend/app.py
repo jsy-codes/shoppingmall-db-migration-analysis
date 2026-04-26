@@ -24,7 +24,12 @@ app = FastAPI()
 secret_key = os.getenv("SESSION_SECRET_KEY")
 if not secret_key:
     raise ValueError("SESSION_SECRET_KEY가 설정되지 않았습니다!")
-app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="lax", https_only=False)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=secret_key,
+    same_site="none",   # ← lax → none
+    https_only=True     # ← none이면 반드시 True
+)
 
 # Anthropic 클라이언트 설정
 # API Key가 없으면 서버 시작 시 에러를 내도록 설정하는 것이 디버깅에 좋습니다.
@@ -134,14 +139,16 @@ async def login(request: Request):
 
 @app.get("/auth/callback")
 async def auth_callback(request: Request):
-    # 구글로부터 인증 토큰을 받아옴
     token = await oauth.google.authorize_access_token(request)
-    user_info = token.get('userinfo') # 여기에 이메일, 이름 등이 들어있음
+    user_info = token.get('userinfo')
     
-    # 세션에 유저 이메일 저장 (로그인 유지)
     request.session['user'] = user_info['email']
-
-    return RedirectResponse(url="https://shoppingmall-ui.onrender.com")
+    
+    # 이메일을 쿼리파라미터로 프론트에 전달
+    email = user_info['email']
+    return RedirectResponse(
+        url=f"https://shoppingmall-ui.onrender.com?login=success&email={email}"
+    )
 
 #                   ------[ db관련 ]------
 # 테스트용
@@ -361,6 +368,7 @@ async def diagnose(req: QueryRequest, request: Request):
 @app.post("/session")
 async def save_session(body: SessionRequest, request: Request):
     user_email = get_user_id(request)
+    print(f"[SESSION] user_email: {user_email}")
     db = SessionLocal()
     try:
         print("SESSION RECEIVED:", body)
