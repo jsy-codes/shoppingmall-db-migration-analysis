@@ -1110,21 +1110,35 @@ export default function App() {
   }, []);
 
   // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
-const res = await fetch(
-  "https://shoppingmall-db-migration-analysis.onrender.com/session",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      query_sql: originalQuery,
-      results: resultsWithSql
-    }),
-  }
-);
+const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
+  try {
+    const resultsWithSql = allResults.map((r, i) => ({
+      ...r,
+      query_sql: sqlList[i] ?? ''
+    }));
 
-const data = await res.json();
-console.log("SESSION RESPONSE:", data);
+    const res = await fetch(
+      "https://shoppingmall-db-migration-analysis.onrender.com/session",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          query_sql: originalQuery,
+          results: resultsWithSql
+        }),
+      }
+    );
+
+    const data = await res.json();
+    console.log("SESSION RESPONSE:", data);
+
+  } catch (err) {
+    console.error("SESSION ERROR:", err);
+  }
+
+  await refreshHistory();
+}, [refreshHistory]);
 
   // ─── 히스토리 + 유저 로딩 ───────────────────────────────────
   useEffect(() => {
