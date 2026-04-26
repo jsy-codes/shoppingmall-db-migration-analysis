@@ -216,7 +216,7 @@ async def get_history(request: Request, limit: int = 20, offset: int = 0):
 def db_check():
     db = SessionLocal()
     try:
-        db.execute("SELECT 1")
+        db.execute(desc("SELECT 1"))
         return {"ok": True}
     except Exception as e:
         return {"error": str(e)}
