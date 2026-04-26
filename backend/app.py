@@ -11,11 +11,13 @@ import sys
 import uuid
 import anthropic
 import os
+import jwt
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from sqlalchemy import text
 from sqlalchemy import desc
-# .env 파일 불러옴
+
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
@@ -24,22 +26,14 @@ app = FastAPI()
 secret_key = os.getenv("SESSION_SECRET_KEY")
 if not secret_key:
     raise ValueError("SESSION_SECRET_KEY가 설정되지 않았습니다!")
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=secret_key,
-    same_site="none",   # ← lax → none
-    https_only=True     # ← none이면 반드시 True
-)
+app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="none", https_only=True)
 
-# Anthropic 클라이언트 설정
-# API Key가 없으면 서버 시작 시 에러를 내도록 설정하는 것이 디버깅에 좋습니다.
 anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 if not anthropic_key:
     raise ValueError("ANTHROPIC_API_KEY가 .env 파일에 없습니다.")
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
-# CORS 설정 (프론트엔드 연동용)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -54,15 +48,12 @@ app.add_middleware(
 oauth = OAuth()
 oauth.register(
     name='google',
-    # 구글 클라이언트_ID
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    # 비밀번호
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'}
 )
 
-# 경로 문제 대비(파이썬 경로에 추가)
 ROOT_DIR = Path(__file__).parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
@@ -70,26 +61,18 @@ BASE_DIR = Path(__file__).parent
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
-# db관련
 from database import init_db, SessionLocal, DiagnoseLog
-
-# [팀원 모듈 임포트] 
-# 규칙 기반 시뮬레이터 / 위험도 계산 모델
 from model.risk_model import RiskPredictor
 from backend.validation.consistency_simulator import load_rules, evaluate_sql
 
-# 객체 생성
 predictor = RiskPredictor()
 
-# 시뮬레이터 규칙 로드
 RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
 RULES = load_rules(RULES_PATH)
 try:
-    # RULES가 리스트 안에 객체들이 들어있는 형태라면:
     rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
     RULES_STR = json.dumps(rules_data, ensure_ascii=False)
 except Exception as e:
-    # 만약 위 방법이 안 된다면 시뮬레이터 파일 자체를 직접 읽는 방법
     with open(RULES_PATH, 'r', encoding='utf-8') as f:
         RULES_STR = f.read()
 
@@ -100,11 +83,16 @@ class SessionRequest(BaseModel):
     query_sql: str
     results: list
 
+# ─── JWT로 유저 확인 ───────────────────────────────────────────
 def get_user_id(request: Request) -> str:
-    """로그인 유저는 이메일, 비로그인 유저는 세션에 저장된 익명 ID를 반환."""
-    email = request.session.get('user')
-    if email:
-        return email
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            payload = jwt.decode(auth[7:], secret_key, algorithms=["HS256"])
+            return payload["email"]
+        except Exception:
+            pass
+    # fallback: 익명
     anon_id = request.session.get('anon_id')
     if not anon_id:
         anon_id = f"anon_{uuid.uuid4().hex[:12]}"
@@ -119,10 +107,8 @@ def adjust_score_by_level(score: int, level: str) -> int:
     else:
         return max(score, 20)
 
-# 서버 시작 시 테이블 생성
 init_db()
 
-# DB 세션을 가져오는 함수 (FastAPI 의존성 주입용)
 def get_db():
     db = SessionLocal()
     try:
@@ -130,10 +116,9 @@ def get_db():
     finally:
         db.close()
 
-#                   ------[ 로그인관련 ]------
+# ─── 로그인 관련 ───────────────────────────────────────────────
 @app.get("/login")
 async def login(request: Request):
-    # 구글 로그인 페이지로 리다이렉트
     redirect_uri = "https://shoppingmall-db-migration-analysis.onrender.com/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
@@ -141,49 +126,37 @@ async def login(request: Request):
 async def auth_callback(request: Request):
     token = await oauth.google.authorize_access_token(request)
     user_info = token.get('userinfo')
-    
-    request.session['user'] = user_info['email']
-    
-    # 이메일을 쿼리파라미터로 프론트에 전달
     email = user_info['email']
-    return RedirectResponse(
-        url=f"https://shoppingmall-ui.onrender.com?login=success&email={email}"
+
+    # JWT 발급
+    jwt_token = jwt.encode(
+        {"email": email, "exp": datetime.utcnow() + timedelta(days=7)},
+        secret_key,
+        algorithm="HS256"
     )
 
-#                   ------[ db관련 ]------
-# 테스트용
+    return RedirectResponse(
+        url=f"https://shoppingmall-ui.onrender.com?token={jwt_token}"
+    )
+
+# ─── DB 관련 ───────────────────────────────────────────────────
 @app.get("/db-test")
 async def test_db():
     try:
         db = SessionLocal()
-        # 1. 테스트용 데이터 생성
         test_log = DiagnoseLog(
             user_email="test@gmail.com",
             query_sql="SELECT * FROM oracle_table;",
-            ai_response={
-                "reason": "테스트 데이터입니다.",
-                "recommended_ddl": "CREATE TABLE mysql_table (id INT);",
-                "estimated_improvement": "50%"
-            }
+            ai_response={"reason": "테스트 데이터입니다.", "recommended_ddl": "CREATE TABLE mysql_table (id INT);", "estimated_improvement": "50%"}
         )
-        # 2. DB에 추가 및 커밋
         db.add(test_log)
         db.commit()
-        
-        # 3. 잘 들어갔는지 다시 한번 조회해보기
         saved_data = db.query(DiagnoseLog).filter(DiagnoseLog.user_email == "test@gmail.com").first()
         db.close()
-        
-        return {
-            "message": "DB 연결 및 데이터 저장 성공!",
-            "saved_id": saved_data.id,
-            "saved_email": saved_data.user_email
-        }
+        return {"message": "DB 연결 및 데이터 저장 성공!", "saved_id": saved_data.id, "saved_email": saved_data.user_email}
     except Exception as e:
         return {"error": str(e)}
 
-# [엔드포인트] 왼쪽 사이드바용 히스토리 목록
-# limit : 개수 , offset : 건너뛸 개수
 @app.get("/logout")
 async def logout(request: Request):
     request.session.clear()
@@ -209,9 +182,7 @@ async def delete_history(log_id: str, request: Request):
 @app.get("/history")
 async def get_history(request: Request, limit: int = 20, offset: int = 0):
     user_email = get_user_id(request)
-
     db = SessionLocal()
-    # limit과 offset을 사용하여 필요한 만큼만 끊어서 가져옴
     history = db.query(DiagnoseLog)\
                 .filter(DiagnoseLog.user_email == user_email)\
                 .order_by(desc(DiagnoseLog.created_at))\
@@ -220,6 +191,7 @@ async def get_history(request: Request, limit: int = 20, offset: int = 0):
                 .all()
     db.close()
     return history
+
 @app.get("/db-check")
 def db_check():
     db = SessionLocal()
@@ -228,40 +200,31 @@ def db_check():
         return {"ok": True}
     except Exception as e:
         return {"error": str(e)}
-# [엔드포인트] 현재 로그인된 유저 정보
+
 @app.get("/me")
 async def me(request: Request):
-    email = request.session.get('user')
+    user_id = get_user_id(request)
+    email = user_id if "@" in user_id else None
     return {"email": email}
 
-#                   ------[ (AI)진단 관련 ]------
-# [엔드포인트 1] 진단 기능 (AI 쿼리 진단 API)   
+# ─── AI 진단 관련 ──────────────────────────────────────────────
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest, request: Request):
     user_email = get_user_id(request)
 
-    # 1. [Simulator] 규칙 기반 선행 분석
     sim_result = evaluate_sql(req.sql, RULES)
-    
-    # 2. 결과 가공: 매칭된 ID 목록과 최고 위험도 추출
     matched_ids = list(set(
-        p["id"] for detail in sim_result["details"] 
+        p["id"] for detail in sim_result["details"]
         for p in detail["matched_patterns"]
     ))
     max_severity = sim_result["summary"]["max_severity"]
-    #severity_counts = sim_result["summary"]["severity_counts"]
 
-    # 3. [Risk Model] 정량적 위험 점수 계산 
     risk_analysis = predictor.evaluate_risk_score(sim_result)
     risk_score = risk_analysis["risk_score"]
-
     risk_score = adjust_score_by_level(risk_score, max_severity)
-    risk_level = risk_analysis["risk_level"] # "HIGH", "MED", "LOW"
-    
+    risk_level = risk_analysis["risk_level"]
 
-    # 4. [AI 엔진] Claude에게 전달할 시스템 프롬프트 설정
     system_prompt = f"""
-
     당신은 Oracle에서 MySQL로의 이관 전문가입니다. 
     제공된 [이관 규칙 가이드라인]를 바탕으로 [사전 분석 결과]에 명시된 패턴을 중점적으로 사용자의 SQL을 분석하여 최적의 솔루션을 제공하세요.
 
@@ -288,7 +251,6 @@ async def diagnose(req: QueryRequest, request: Request):
     }}
     """
 
-    # 5. Claude 호출: 시뮬레이터가 찾은 '이미 확정된 패턴'을 컨텍스트로 전달
     user_context = f"""
     [사전 분석 결과]
     - 감지된 패턴 ID: {matched_ids}
@@ -303,11 +265,8 @@ async def diagnose(req: QueryRequest, request: Request):
     performance_data = []
     for detail in sim_result["details"]:
         for pattern in detail["matched_patterns"]:
-            # 실제 측정값이 없으므로, 패턴별 '기본 영향도'를 기준으로 before/after 시뮬레이션
-            base_ms = 100 # 기준 시간
-            # 위험도가 HIGH면 개선 폭을 크게(80%), LOW면 작게(20%) 설정하는 식의 로직
+            base_ms = 100
             improvement_rate = 0.8 if pattern["severity"] == "HIGH" else 0.4
-            
             performance_data.append({
                 "pattern": pattern["id"],
                 "label": pattern["name"],
@@ -315,51 +274,37 @@ async def diagnose(req: QueryRequest, request: Request):
                 "after": int(base_ms * (1 - improvement_rate)),
                 "improvement": improvement_rate * 100
             })
+
     risk_score_data = []
-    for rule in RULES: # pattern_rules.json의 모든 규칙
-        # 이번에 탐지된 패턴 ID 목록(matched_ids)에 포함되어 있다면
+    for rule in RULES:
         if rule.id in matched_ids:
-            if risk_score < 20:
-                # 시뮬레이터 결과에서 해당 패턴의 severity를 찾아 가중치 부여
-                current_score = 80 if max_severity == "HIGH" else 50
-            else:
-                current_score = risk_score
+            current_score = (80 if max_severity == "HIGH" else 50) if risk_score < 20 else risk_score
         else:
-            # 탐지 안 된 패턴은 낮은 기본 점수 부여
-            current_score = 10 
-            
-        risk_score_data.append({
-            "id": rule.id,
-            "name": rule.name,
-            "score": current_score
-        })
+            current_score = 10
+        risk_score_data.append({"id": rule.id, "name": rule.name, "score": current_score})
 
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001", # 모델명 확인 필요
+            model="claude-haiku-4-5-20251001",
             max_tokens=1500,
             system=system_prompt,
             messages=[{"role": "user", "content": user_context}]
         )
-        
-        # AI 응답 파싱
         raw_text = message.content[0].text
         ai_json = json.loads(re.search(r'(\{.*\})', raw_text, re.DOTALL).group(1))
 
-        # 6. [최종 통합 결과] 모든 팀원의 산출물을 하나로 합쳐 반환
         final_result = {
-            "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"), # AI가 뽑은 대표 ID
-            "risk_level": risk_level,              # 시뮬레이터 결과
-            "risk_score": risk_score,                # 리스크 스코어
-            "matched_pattern_ids": matched_ids,      # 감지된 패턴 목록
-            "reason": ai_json["reason"],             # Claude: 논리적 이유
-            "recommended_ddl": ai_json["recommended_ddl"], # Claude: 수정 쿼리
-            "estimated_improvement": ai_json["estimated_improvement"], # Claude: 기대 효과
-            "simulator_detail": sim_result["details"], # 프론트엔드 상세 표시용
+            "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"),
+            "risk_level": risk_level,
+            "risk_score": risk_score,
+            "matched_pattern_ids": matched_ids,
+            "reason": ai_json["reason"],
+            "recommended_ddl": ai_json["recommended_ddl"],
+            "estimated_improvement": ai_json["estimated_improvement"],
+            "simulator_detail": sim_result["details"],
             "performance_data": performance_data,
             "risk_score_data": risk_score_data
         }
-
         return final_result
 
     except Exception as e:
@@ -371,7 +316,6 @@ async def save_session(body: SessionRequest, request: Request):
     print(f"[SESSION] user_email: {user_email}")
     db = SessionLocal()
     try:
-        print("SESSION RECEIVED:", body)
         new_log = DiagnoseLog(
             user_email=user_email,
             query_sql=body.query_sql,

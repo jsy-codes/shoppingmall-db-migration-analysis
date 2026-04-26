@@ -1100,15 +1100,17 @@ export default function App() {
   const handleCloseCatalog = useCallback(() => setShowCatalog(false), []);
 
   // ─── 히스토리 갱신 함수 (초기 로딩 + 진단 완료 후 재사용) ───
-  const refreshHistory = useCallback(async () => {
-    try {
-      const res = await fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryItems(data);
-      }
-    } catch { /* 백엔드 오프라인 시 무시 */ }
-  }, []);
+const refreshHistory = useCallback(async () => {
+  try {
+    const token = localStorage.getItem('auth_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { headers });
+    if (res.ok) {
+      const data = await res.json();
+      setHistoryItems(data);
+    }
+  } catch { }
+}, []);
 
   // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
 const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
@@ -1120,17 +1122,18 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     }));
 
     const res = await fetch(
-      "https://shoppingmall-db-migration-analysis.onrender.com/session",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          query_sql: originalQuery,
-          results: resultsWithSql
-        }),
-      }
-    );
+  "https://shoppingmall-db-migration-analysis.onrender.com/session",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(localStorage.getItem('auth_token')
+        ? { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+        : {}),
+    },
+    body: JSON.stringify({ query_sql: originalQuery, results: resultsWithSql }),
+  }
+);
 
     const data = await res.json();
     console.log("SESSION RESPONSE:", data);
@@ -1145,27 +1148,20 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   // ─── 히스토리 + 유저 로딩 ───────────────────────────────────
   useEffect(() => {
   const params = new URLSearchParams(window.location.search);
-  const email = params.get('email');
-  const loginSuccess = params.get('login');
-
-  // URL 파라미터로 이메일 받은 경우
-  if (loginSuccess === 'success' && email) {
-    setUser({ email });
+  const token = params.get('token');
+  if (token) {
+    localStorage.setItem('auth_token', token);
     window.history.replaceState({}, '', '/');
-    // /me 건너뛰고 히스토리만 로드
-    fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setHistoryItems(data))
-      .catch(() => {});
-    return; // ← 여기서 종료, loadAll 실행 안 함
   }
 
-  // 일반 진입 시 (새로고침, 첫 방문)
+  const savedToken = localStorage.getItem('auth_token');
+  const headers = savedToken ? { Authorization: `Bearer ${savedToken}` } : {};
+
   const loadAll = async () => {
     try {
       const [meRes, histRes] = await Promise.all([
-        fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { credentials: 'include' }),
-        fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { credentials: 'include' }),
+        fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { headers }),
+        fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { headers }),
       ]);
       if (meRes.ok) {
         const meData = await meRes.json();
@@ -1202,22 +1198,21 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   }, []);
 
   const handleDeleteHistory = useCallback(async (id) => {
-    try {
-      await fetch(`https://shoppingmall-db-migration-analysis.onrender.com/history/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      setHistoryItems(prev => prev.filter(item => item.id !== id));
-    } catch { /* 무시 */ }
-  }, []);
+  try {
+    const token = localStorage.getItem('auth_token');
+    await fetch(`https://shoppingmall-db-migration-analysis.onrender.com/history/${id}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    setHistoryItems(prev => prev.filter(item => item.id !== id));
+  } catch { }
+}, []);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch('https://shoppingmall-db-migration-analysis.onrender.com/logout', { credentials: 'include' });
-    } catch { /* 무시 */ }
-    setUser(null);
-    setHistoryItems([]);
-  }, []);
+ const handleLogout = useCallback(async () => {
+  localStorage.removeItem('auth_token');
+  setUser(null);
+  setHistoryItems([]);
+}, []);
 
   const handleSelectHistory = useCallback((item) => {
     try {
