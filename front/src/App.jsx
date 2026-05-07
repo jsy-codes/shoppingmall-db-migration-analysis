@@ -974,7 +974,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
             <LogOut size={15} />
           </button>
         ) : (
-          <a href="https://shoppingmall-db-migration-analysis.onrender.com/login" title="Google로 로그인"
+          <a href="http://localhost:5173/login" title="Google로 로그인"
             className={`p-2 rounded-lg transition-all flex items-center justify-center ${t.iconBtn}`}>
             <LogIn size={16} />
           </a>
@@ -1065,7 +1065,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
               </button>
             </div>
           ) : (
-            <a href="https://shoppingmall-db-migration-analysis.onrender.com/login"
+            <a href="http://localhost:5173/login"
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all w-full ${t.iconBtn}`}>
               <LogIn size={13} /> Google로 로그인
             </a>
@@ -1120,7 +1120,7 @@ export default function App() {
 const refreshHistory = useCallback(async () => {
   try {
     const res = await fetch(
-      'https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0',
+      'http://localhost:5173/history?limit=30&offset=0',
       { headers: getAuthHeaders() }
     );
     if (res.ok) {
@@ -1139,7 +1139,7 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     }));
 
     const res = await fetch(
-      "https://shoppingmall-db-migration-analysis.onrender.com/session",
+      "http://localhost:5173/session",
       {
         method: "POST",
         headers: {
@@ -1170,12 +1170,12 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
 
   const savedToken = localStorage.getItem('auth_token');
   const headers = savedToken ? { Authorization: `Bearer ${savedToken}` } : {};
-
+//http://localhost:5173
   const loadAll = async () => {
     try {
       const [meRes, histRes] = await Promise.all([
-        fetch('https://shoppingmall-db-migration-analysis.onrender.com/me', { headers: getAuthHeaders() }),
-        fetch('https://shoppingmall-db-migration-analysis.onrender.com/history?limit=30&offset=0', { headers: getAuthHeaders() }),
+        fetch('http://localhost:5173/me', { headers: getAuthHeaders() }),
+        fetch('http://localhost:5173/history?limit=30&offset=0', { headers: getAuthHeaders() }),
       ]);
       if (meRes.ok) {
         const meData = await meRes.json();
@@ -1213,7 +1213,7 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
 
 const handleDeleteHistory = useCallback(async (id) => {
   try {
-    await fetch(`https://shoppingmall-db-migration-analysis.onrender.com/history/${id}`, {
+    await fetch(`http://localhost:5173/history/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });

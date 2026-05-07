@@ -26,14 +26,14 @@ app = FastAPI()
 secret_key = os.getenv("SESSION_SECRET_KEY")
 if not secret_key:
     raise ValueError("SESSION_SECRET_KEY가 설정되지 않았습니다!")
-app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="none", https_only=True)
+app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="none", https_only=False) # local : https_only=False
 
 anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 if not anthropic_key:
     raise ValueError("ANTHROPIC_API_KEY가 .env 파일에 없습니다.")
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
+# http://localhost:5173 , http://localhost:5173
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -129,7 +129,7 @@ def get_db():
 # ─── 로그인 관련 ───────────────────────────────────────────────
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = "https://shoppingmall-db-migration-analysis.onrender.com/auth/callback"
+    redirect_uri = "http://localhost:8000/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get("/auth/callback")
@@ -146,7 +146,7 @@ async def auth_callback(request: Request):
     )
 
     return RedirectResponse(
-        url=f"https://shoppingmall-ui.onrender.com?token={jwt_token}"
+        url=f"http://localhost:5173?token={jwt_token}"
     )
 
 # ─── DB 관련 ───────────────────────────────────────────────────
