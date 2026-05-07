@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 1,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "failure_types": [
+      "AGGREGATION_FUNCTION_MIGRATION"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t24",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t24 (\n    name VARCHAR(50)\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t24 VALUES ('A'), ('B'), ('C')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle LISTAGG\nSELECT LISTAGG(name, ',') WITHIN GROUP (ORDER BY name) FROM t24",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P24"
+      ],
+      "failure_types": [
+        "AGGREGATION_FUNCTION_MIGRATION"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P24",
+          "name": "LISTAGG Aggregation",
+          "severity": "HIGH",
+          "failure_type": "AGGREGATION_FUNCTION_MIGRATION",
+          "description": "LISTAGG is Oracle-specific string aggregation; not available in MySQL",
+          "impact": "문자열 집계 함수 비호환으로 실행 에러 발생",
+          "quant_signal": "GROUP_CONCAT 변환 후 구분자·정렬 결과 건수 검증 필요"
+        }
+      ],
+      "recommendations": [
+        "Replace with GROUP_CONCAT(col ORDER BY ... SEPARATOR ...)"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL GROUP_CONCAT\nSELECT GROUP_CONCAT(name ORDER BY name SEPARATOR ',') FROM t24",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}
