@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 1,
+    "max_severity": "MEDIUM",
+    "severity_counts": {
+      "HIGH": 0,
+      "MEDIUM": 1,
+      "LOW": 0
+    },
+    "failure_types": [
+      "REGEX_FUNCTION_MIGRATION"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t27",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t27 (\n    name VARCHAR(50)\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t27 VALUES ('Alice'), ('bob'), ('CHARLIE')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle\nSELECT * FROM t27 WHERE REGEXP_LIKE(name, '^a', 'i')",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P27"
+      ],
+      "failure_types": [
+        "REGEX_FUNCTION_MIGRATION"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 1,
+        "LOW": 0
+      },
+      "max_severity": "MEDIUM",
+      "matched_patterns": [
+        {
+          "id": "P27",
+          "name": "REGEXP_LIKE Function",
+          "severity": "MEDIUM",
+          "failure_type": "REGEX_FUNCTION_MIGRATION",
+          "description": "REGEXP_LIKE is Oracle-specific; behavior differs from MySQL REGEXP",
+          "impact": "정규식 매칭 플래그 차이로 결과 건수 불일치 가능",
+          "quant_signal": "정규식 매칭 결과 건수 Oracle vs MySQL 비교 필요"
+        }
+      ],
+      "recommendations": [
+        "Replace with col REGEXP 'pattern'; verify flag semantics (case sensitivity)"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL\nSELECT * FROM t27 WHERE name REGEXP '^a'",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

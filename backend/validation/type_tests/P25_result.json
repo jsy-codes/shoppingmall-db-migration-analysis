@@ -1,0 +1,76 @@
+{
+  "summary": {
+    "statement_count": 3,
+    "total_pattern_count": 1,
+    "max_severity": "LOW",
+    "severity_counts": {
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 1
+    },
+    "failure_types": [
+      "NUMERIC_TYPE_MAPPING"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t25",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle NUMBER\nCREATE TABLE t25 (\n    price NUMBER(10,2),\n    count NUMBER\n)",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P25"
+      ],
+      "failure_types": [
+        "NUMERIC_TYPE_MAPPING"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 1
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [
+        {
+          "id": "P25",
+          "name": "NUMBER Type Declaration",
+          "severity": "LOW",
+          "failure_type": "NUMERIC_TYPE_MAPPING",
+          "description": "Oracle NUMBER(p,s) requires explicit mapping to MySQL numeric types",
+          "impact": "타입 매핑 오류 시 소수점 손실 또는 범위 초과로 정합성 불일치",
+          "quant_signal": "DDL 컬럼 타입 변환 후 INSERT 데이터 정밀도 차이"
+        }
+      ],
+      "recommendations": [
+        "Map NUMBER(p,0) to INT/BIGINT, NUMBER(p,s>0) to DECIMAL(p,s)"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL 변환\nCREATE TABLE t25_new (\n    price DECIMAL(10,2),\n    count INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

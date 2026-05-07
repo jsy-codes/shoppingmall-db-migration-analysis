@@ -262,5 +262,101 @@
     "fix": "Use DATE() or DATE_FORMAT depending on granularity",
     "impact": "날짜 절삭 함수 차이로 집계 기준 불일치",
     "quant_signal": "일/월 단위 집계 건수 차이"
+  },
+  {
+    "id": "P23",
+    "name": "SEQUENCE NEXTVAL/CURRVAL",
+    "risk": "HIGH",
+    "type": "regex",
+    "pattern": "\\b\\w+\\.(NEXTVAL|CURRVAL)\\b",
+    "failure_type": "SEQUENCE_SYNTAX_INCOMPATIBILITY",
+    "description": "Oracle SEQUENCE.NEXTVAL/CURRVAL is not supported in MySQL",
+    "fix": "Replace with AUTO_INCREMENT or implement sequence-table workaround",
+    "impact": "시퀀스 기반 PK 채번 로직 전면 재작성 필요, 채번 누락 시 PK 충돌",
+    "quant_signal": "NEXTVAL/CURRVAL 호출 시 즉시 syntax error"
+  },
+  {
+    "id": "P24",
+    "name": "LISTAGG Aggregation",
+    "risk": "HIGH",
+    "type": "regex",
+    "pattern": "\\bLISTAGG\\s*\\(",
+    "failure_type": "AGGREGATION_FUNCTION_MIGRATION",
+    "description": "LISTAGG is Oracle-specific string aggregation; not available in MySQL",
+    "fix": "Replace with GROUP_CONCAT(col ORDER BY ... SEPARATOR ...)",
+    "impact": "문자열 집계 함수 비호환으로 실행 에러 발생",
+    "quant_signal": "GROUP_CONCAT 변환 후 구분자·정렬 결과 건수 검증 필요"
+  },
+  {
+    "id": "P25",
+    "name": "NUMBER Type Declaration",
+    "risk": "LOW",
+    "type": "regex",
+    "pattern": "\\bNUMBER\\b",
+    "failure_type": "NUMERIC_TYPE_MAPPING",
+    "description": "Oracle NUMBER(p,s) requires explicit mapping to MySQL numeric types",
+    "fix": "Map NUMBER(p,0) to INT/BIGINT, NUMBER(p,s>0) to DECIMAL(p,s)",
+    "impact": "타입 매핑 오류 시 소수점 손실 또는 범위 초과로 정합성 불일치",
+    "quant_signal": "DDL 컬럼 타입 변환 후 INSERT 데이터 정밀도 차이"
+  },
+  {
+    "id": "P26",
+    "name": "CONNECT BY NOCYCLE",
+    "risk": "HIGH",
+    "type": "regex",
+    "pattern": "\\bCONNECT\\s+BY\\s+NOCYCLE\\b",
+    "failure_type": "HIERARCHY_CYCLE_DETECTION_MIGRATION",
+    "description": "CONNECT BY NOCYCLE cycle detection has no direct MySQL equivalent",
+    "fix": "Rewrite as WITH RECURSIVE with explicit visited-node SET tracking",
+    "impact": "순환 참조 탐지 누락 시 재귀 CTE 무한루프 발생 가능",
+    "quant_signal": "재귀 CTE 실행 시 max_recursion 한계 도달 여부 확인"
+  },
+  {
+    "id": "P27",
+    "name": "REGEXP_LIKE Function",
+    "risk": "MEDIUM",
+    "type": "regex",
+    "pattern": "\\bREGEXP_LIKE\\s*\\(",
+    "failure_type": "REGEX_FUNCTION_MIGRATION",
+    "description": "REGEXP_LIKE is Oracle-specific; behavior differs from MySQL REGEXP",
+    "fix": "Replace with col REGEXP 'pattern'; verify flag semantics (case sensitivity)",
+    "impact": "정규식 매칭 플래그 차이로 결과 건수 불일치 가능",
+    "quant_signal": "정규식 매칭 결과 건수 Oracle vs MySQL 비교 필요"
+  },
+  {
+    "id": "P28",
+    "name": "PIVOT/UNPIVOT Operator",
+    "risk": "HIGH",
+    "type": "regex",
+    "pattern": "\\b(PIVOT|UNPIVOT)\\s*\\(",
+    "failure_type": "PIVOT_SYNTAX_INCOMPATIBILITY",
+    "description": "PIVOT/UNPIVOT operators are Oracle-specific SQL extensions",
+    "fix": "Rewrite using conditional aggregation: SUM(CASE WHEN col=val THEN ... END) GROUP BY",
+    "impact": "피벗 로직 전면 재작성 필요, 동적 컬럼 수 변환 불가",
+    "quant_signal": "변환 후 컬럼 수 및 집계 값 일치 여부 검증"
+  },
+  {
+    "id": "P29",
+    "name": "WM_CONCAT Aggregation",
+    "risk": "HIGH",
+    "type": "regex",
+    "pattern": "\\bWM_CONCAT\\s*\\(",
+    "failure_type": "DEPRECATED_AGGREGATION_MIGRATION",
+    "description": "WM_CONCAT is deprecated in Oracle 12c+ and not available in MySQL",
+    "fix": "Replace with GROUP_CONCAT; note result order is not guaranteed without ORDER BY",
+    "impact": "집계 함수 미지원으로 실행 에러 발생, 순서 보장 불가",
+    "quant_signal": "GROUP_CONCAT 변환 후 구분자·순서 검증 필요"
+  },
+  {
+    "id": "P30",
+    "name": "NCHAR/NVARCHAR2 Type",
+    "risk": "LOW",
+    "type": "regex",
+    "pattern": "\\bN(CHAR|VARCHAR2)\\b",
+    "failure_type": "UNICODE_TYPE_MAPPING",
+    "description": "Oracle NCHAR/NVARCHAR2 stores Unicode; MySQL handles this via charset",
+    "fix": "Map to CHAR/VARCHAR with CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+    "impact": "문자셋 매핑 누락 시 한글·이모지 저장 오류 또는 데이터 잘림",
+    "quant_signal": "멀티바이트 문자 INSERT/SELECT 결과 byte 수 불일치"
   }
 ]

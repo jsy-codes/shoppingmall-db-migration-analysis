@@ -1,0 +1,90 @@
+{
+  "summary": {
+    "statement_count": 4,
+    "total_pattern_count": 1,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "failure_types": [
+      "SEQUENCE_SYNTAX_INCOMPATIBILITY"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t23",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t23 (\n    id INT,\n    name VARCHAR(50)\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle style (문제)\nINSERT INTO t23 VALUES (my_seq.NEXTVAL, 'Alice')",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P23"
+      ],
+      "failure_types": [
+        "SEQUENCE_SYNTAX_INCOMPATIBILITY"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P23",
+          "name": "SEQUENCE NEXTVAL/CURRVAL",
+          "severity": "HIGH",
+          "failure_type": "SEQUENCE_SYNTAX_INCOMPATIBILITY",
+          "description": "Oracle SEQUENCE.NEXTVAL/CURRVAL is not supported in MySQL",
+          "impact": "시퀀스 기반 PK 채번 로직 전면 재작성 필요, 채번 누락 시 PK 충돌",
+          "quant_signal": "NEXTVAL/CURRVAL 호출 시 즉시 syntax error"
+        }
+      ],
+      "recommendations": [
+        "Replace with AUTO_INCREMENT or implement sequence-table workaround"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL style (개선)\nINSERT INTO t23 (name) VALUES ('Bob')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

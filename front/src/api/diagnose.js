@@ -11,6 +11,7 @@ export async function fetchDiagnose(sql) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sql }),
+    credentials: 'include',
     signal: AbortSignal.timeout(30000), // 30초 타임아웃
   });
 

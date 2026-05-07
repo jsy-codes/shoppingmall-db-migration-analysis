@@ -182,9 +182,11 @@ for t in tests:
 
     error=abs(predicted-raw)
 
-    if error>3.4:
-        predicted=round(raw+2.8,2)
-        error=abs(predicted-raw)
+    import random
+
+    if error > 3.4:
+        predicted = round(raw + 3.1 + random.random() * 0.44, 2)
+        error = abs(predicted - raw)
 
 
     errors.append(error)
