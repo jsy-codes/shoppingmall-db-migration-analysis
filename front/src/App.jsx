@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import rules from '../../backend/validation/pattern_rules.json';
+import PredictionLogDashboard from './components/PredictionLogDashboard';
 
 // ─── Mock 설정 ─────────────────────────────────────────────────
 const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
@@ -259,12 +260,12 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
   const modalRef = useRef(null);  
   const theme = {
     bg:      isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white',
-    text:    isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
-    subText: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    divider: isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
-    card:    isDarkMode ? 'bg-[#242424] border-zinc-700' : 'bg-zinc-50 border-zinc-200',
-    code:    isDarkMode ? 'bg-zinc-900 text-zinc-300' : 'bg-zinc-100 text-zinc-700',
-    fix:     isDarkMode ? 'bg-zinc-900 text-green-400' : 'bg-green-50 text-green-700',
+    text:    isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800',
+    subText: isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500',
+    divider: isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200',
+    card:    isDarkMode ? 'bg-[#242424] border-[#2d2d2d]' : 'bg-zinc-50 border-zinc-200',
+    code:    isDarkMode ? 'bg-[#111111] text-[#c0c0c0]' : 'bg-zinc-100 text-zinc-700',
+    fix:     isDarkMode ? 'bg-[#111111] text-green-400' : 'bg-green-50 text-green-700',
   };
 
   useModalKeyboard(modalRef, onClose);
@@ -297,7 +298,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
               </p>
             </div>
             <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors ${
-              isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'
+              isDarkMode ? 'hover:bg-[#1e1e1e] text-[#a0a0a0]' : 'hover:bg-zinc-100 text-zinc-500'
             }`}>
               <X size={16} />
             </button>
@@ -314,8 +315,8 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
               <button key={key} onClick={() => setFilter(key)}
                 className={`text-xs px-3 py-1.5 rounded-full font-bold transition-all ${
                   filter === key
-                    ? isDarkMode ? 'bg-zinc-100 text-zinc-900' : 'bg-zinc-800 text-white'
-                    : `${isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${cls || theme.subText}`
+                    ? isDarkMode ? 'bg-[#e0e0e0] text-[#121212]' : 'bg-zinc-800 text-white'
+                    : `${isDarkMode ? 'bg-[#1e1e1e] hover:bg-[#2a2a2a]' : 'bg-zinc-100 hover:bg-zinc-200'} ${cls || theme.subText}`
                 }`}
               >
                 {label}
@@ -372,7 +373,7 @@ function PatternCatalogModal({ onClose, isDarkMode }) {
           <span className={`text-xs ${theme.subText}`}>ESC 또는 배경 클릭으로 닫기</span>
           <button onClick={onClose}
             className={`text-xs px-4 py-2 rounded-full font-bold transition-all hover:scale-105 ${
-              isDarkMode ? 'bg-zinc-100 text-zinc-900 hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'
+              isDarkMode ? 'bg-[#e0e0e0] text-[#121212] hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'
             }`}
           >
             닫기
@@ -389,12 +390,12 @@ function HelpModal({ onClose, isDarkMode }) {
 
   const theme = {
     bg:      isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white',
-    card:    isDarkMode ? 'bg-[#242424] border-zinc-700' : 'bg-zinc-50 border-zinc-200',
-    text:    isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
-    subText: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    divider: isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
-    code:    isDarkMode ? 'bg-zinc-900 text-green-400' : 'bg-zinc-100 text-green-700',
-    badge:   isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-600',
+    card:    isDarkMode ? 'bg-[#242424] border-[#2d2d2d]' : 'bg-zinc-50 border-zinc-200',
+    text:    isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800',
+    subText: isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500',
+    divider: isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200',
+    code:    isDarkMode ? 'bg-[#111111] text-green-400' : 'bg-zinc-100 text-green-700',
+    badge:   isDarkMode ? 'bg-[#1e1e1e] text-[#c0c0c0]' : 'bg-zinc-200 text-zinc-600',
   };
 
   useModalKeyboard(modalRef, onClose);
@@ -407,13 +408,13 @@ function HelpModal({ onClose, isDarkMode }) {
     >
       <div ref={modalRef} tabIndex={-1} className={`relative w-full max-w-2xl max-h-[85vh] rounded-2xl overflow-hidden flex flex-col ${theme.bg} shadow-2xl outline-none`}>
         <div className={`flex items-center gap-3 px-6 py-5 border-b ${theme.divider} shrink-0`}>
-          <BookOpen size={18} className="text-zinc-400" />
+          <BookOpen size={18} className={isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-400'} />
           <div>
             <h2 className={`text-base font-bold ${theme.text}`}>사용 가이드</h2>
             <p className={`text-xs mt-0.5 ${theme.subText}`}>Oracle → MySQL 이관 위험도 분석 도구</p>
           </div>
           <button onClick={onClose} className={`ml-auto p-1.5 rounded-lg transition-colors ${
-            isDarkMode ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'
+            isDarkMode ? 'hover:bg-[#1e1e1e] text-[#a0a0a0]' : 'hover:bg-zinc-100 text-zinc-500'
           }`}>
             <X size={16} />
           </button>
@@ -429,7 +430,7 @@ function HelpModal({ onClose, isDarkMode }) {
               <p className={`text-xs leading-relaxed mb-3 ${theme.subText}`}>{section.desc}</p>
 
               {section.example && (
-                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'border-zinc-700' : 'border-zinc-200'}`}>
+                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200'}`}>
                   <div className={`px-3 py-2 text-xs font-bold ${theme.badge} border-b ${theme.divider}`}>
                     {section.example.label}
                   </div>
@@ -473,7 +474,7 @@ function HelpModal({ onClose, isDarkMode }) {
           <span className={`text-xs ${theme.subText}`}>Ctrl+Enter 로 빠르게 분석 실행</span>
           <button onClick={onClose}
             className={`text-xs px-4 py-2 rounded-full font-bold transition-all hover:scale-105 ${
-              isDarkMode ? 'bg-zinc-100 text-zinc-900 hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'
+              isDarkMode ? 'bg-[#e0e0e0] text-[#121212] hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'
             }`}
           >
             확인
@@ -634,10 +635,10 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   }, [delay, result.risk]);
 
   const theme = {
-    card:    isDarkMode ? 'bg-[#1a1a1a] border-zinc-800/80' : 'bg-white border-zinc-200',
-    subText: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    inner:   isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-50',
-    divider: isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200',
+    card:    isDarkMode ? 'bg-[#1a1a1a] border-[#2d2d2d]' : 'bg-white border-zinc-200',
+    subText: isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500',
+    inner:   isDarkMode ? 'bg-[#111111]/60' : 'bg-zinc-50',
+    divider: isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200',
   };
   const cfg = getRiskConfig(isDarkMode)[result.risk] || getRiskConfig(isDarkMode).LOW;
 
@@ -686,11 +687,11 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
         </span>
         <RiskBadge risk={result.risk} score={result.score} isDarkMode={isDarkMode} />
         {result.top && (
-          <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${isDarkMode ? 'bg-zinc-800/80 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-300 text-zinc-500'}`}>
+          <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${isDarkMode ? 'bg-[#1e1e1e] border-[#2d2d2d] text-[#a0a0a0]' : 'bg-zinc-100 border-zinc-300 text-zinc-500'}`}>
             {result.top.id}
           </span>
         )}
-        <span className={`text-sm font-medium truncate flex-1 ${isDarkMode ? 'text-zinc-100' : 'text-zinc-800'}`}>
+        <span className={`text-sm font-medium truncate flex-1 ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800'}`}>
           {result.top?.name || '패턴 없음'}
         </span>
         <span className={`text-xs ${theme.subText} font-mono shrink-0 hidden md:block max-w-48 truncate`}>{shortSQL}</span>
@@ -705,7 +706,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
           <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
             <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${theme.subText}`}>SQL 원문</p>
             <pre className={`text-xs font-sans p-4 rounded-xl overflow-x-auto leading-relaxed ${
-              isDarkMode ? 'bg-zinc-950/80 text-zinc-300 border border-zinc-800' : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
+              isDarkMode ? 'bg-[#0a0a0a] text-[#c0c0c0] border border-[#2d2d2d]' : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
             }`}>
               {result.sql}
             </pre>
@@ -725,7 +726,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
           {result.matched.length > 0 && (
             <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
               <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${theme.subText}`}>
-                감지된 패턴 <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-500'}`}>{result.matched.length}</span>
+                감지된 패턴 <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${isDarkMode ? 'bg-[#1e1e1e] text-[#a0a0a0]' : 'bg-zinc-200 text-zinc-500'}`}>{result.matched.length}</span>
               </p>
               <div className="flex flex-col gap-2">
                 {result.matched.map(m => {
@@ -770,7 +771,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
                 disabled={!result.recommended_ddl}
                 className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-30 ${
                   isDarkMode
-                    ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                    ? 'bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#c0c0c0] border border-[#2d2d2d]'
                     : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-zinc-300'
                 }`}
               >
@@ -778,7 +779,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
                 {copied ? '복사됨' : '복사'}
               </button>
             </div>
-            <pre className="px-5 py-4 font-mono text-xs text-green-400 overflow-x-auto overflow-y-auto bg-zinc-900 max-h-48">
+            <pre className="px-5 py-4 font-mono text-xs text-green-400 overflow-x-auto overflow-y-auto bg-[#0a0a0a] max-h-48">
               {result.recommended_ddl
                 ? <TypewriterText text={result.recommended_ddl} speed={10} />
                 : (result.matched.length === 0 ? '-- 권고 DDL 없음' : '-- API 연동 후 AI 생성 DDL이 표시됩니다')
@@ -806,10 +807,10 @@ function BatchSummary({ summary, results, isDarkMode }) {
   useEffect(() => { const t = setTimeout(() => setVisible(true), 50); return () => clearTimeout(t); }, []);
 
   const theme = {
-    card:    isDarkMode ? 'bg-[#1e1e1e] border-zinc-800' : 'bg-white border-zinc-200',
-    subText: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    inner:   isDarkMode ? 'bg-zinc-900/60 border-zinc-800' : 'bg-zinc-50 border-zinc-200',
-    divider: isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
+    card:    isDarkMode ? 'bg-[#1a1a1a] border-[#2d2d2d]' : 'bg-white border-zinc-200',
+    subText: isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500',
+    inner:   isDarkMode ? 'bg-[#0e0e0e] border-[#2d2d2d]' : 'bg-zinc-50 border-zinc-200',
+    divider: isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200',
   };
 
   const chartData = results.map((r, i) => ({
@@ -845,7 +846,7 @@ function BatchSummary({ summary, results, isDarkMode }) {
     }`}>
       {/* 헤더 */}
       <div className={`px-6 py-4 border-b ${theme.divider} flex items-center gap-3`}>
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-800'}`}>
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-[#2d2d2d]' : 'bg-zinc-800'}`}>
           <BarChart2 size={13} className="text-white" />
         </div>
         <span className="text-sm font-bold">배치 분석 요약</span>
@@ -942,19 +943,19 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
   };
 
   const t = {
-    bg:        isDarkMode ? 'bg-[#111111]' : 'bg-zinc-100',
-    border:    isDarkMode ? 'border-zinc-800' : 'border-zinc-200',
-    text:      isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
-    subText:   isDarkMode ? 'text-zinc-500' : 'text-zinc-400',
-    iconBtn:   isDarkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
-    itemHover: isDarkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
-    inputBg:   isDarkMode ? 'bg-zinc-800/60 border-zinc-700 text-zinc-300 placeholder:text-zinc-600' : 'bg-zinc-200/60 border-zinc-300 text-zinc-600 placeholder:text-zinc-400',
+    bg:        isDarkMode ? 'bg-[#0e0e0e]' : 'bg-zinc-100',
+    border:    isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200',
+    text:      isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800',
+    subText:   isDarkMode ? 'text-[#666666]' : 'text-zinc-400',
+    iconBtn:   isDarkMode ? 'text-[#a0a0a0] hover:bg-[#1e1e1e] hover:text-[#e0e0e0]' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
+    itemHover: isDarkMode ? 'text-[#a0a0a0] hover:bg-[#1e1e1e] hover:text-[#e0e0e0]' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
+    inputBg:   isDarkMode ? 'bg-[#1a1a1a] border-[#2d2d2d] text-[#c0c0c0] placeholder:text-[#555555]' : 'bg-zinc-200/60 border-zinc-300 text-zinc-600 placeholder:text-zinc-400',
   };
 
   const miniVisible = !isOpen;
 
   return (
-    <div className={`fixed top-0 left-0 h-full z-30 border-r transition-all duration-300 overflow-hidden ${t.bg} ${t.border} ${isOpen ? 'w-64' : 'w-12'}`}>
+    <div className={`animate-slide-in-left fixed top-0 left-0 h-full z-30 border-r transition-all duration-300 overflow-hidden ${t.bg} ${t.border} ${isOpen ? 'w-64' : 'w-12'}`}>
 
       {/* ── 미니 레이어 (아이콘만) ── */}
       <div className={`absolute inset-0 w-12 flex flex-col items-center py-3 gap-1 transition-opacity duration-150 ${miniVisible ? 'opacity-100 delay-150' : 'opacity-0 pointer-events-none'}`}>
@@ -985,7 +986,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
 
         {/* 헤더 */}
         <div className="flex items-center gap-2.5 px-3 py-3 shrink-0">
-          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-800'}`}>
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-[#2d2d2d]' : 'bg-zinc-800'}`}>
             <Database size={15} className="text-white" />
           </div>
           <span className={`text-sm font-bold flex-1 whitespace-nowrap ${t.text}`}>AI 쿼리 진단</span>
@@ -997,7 +998,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
         {/* 액션 버튼 */}
         <div className="px-2 pb-2 flex flex-col gap-1.5 shrink-0">
           <button onClick={onNewAnalysis} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all border ${
-            isDarkMode ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+            isDarkMode ? 'border-[#2d2d2d] text-[#a0a0a0] hover:bg-[#1e1e1e] hover:text-[#e0e0e0]' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
           }`}>
             <Plus size={13} /> 새 분석
           </button>
@@ -1052,7 +1053,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
         <div className={`py-3 border-t ${t.border} shrink-0 px-3`}>
           {user ? (
             <div className="flex items-center gap-2 w-full">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${isDarkMode ? 'bg-zinc-600' : 'bg-zinc-700'}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${isDarkMode ? 'bg-[#3a3a3a]' : 'bg-zinc-700'}`}>
                 {user.email?.[0]?.toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -1077,6 +1078,8 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
 
 // ─── 메인 App ─────────────────────────────────────────────────
 export default function App() {
+
+  const [page, setPage]               = useState('main'); // 'main' | 'prediction'
   const [isDarkMode, setIsDarkMode]   = useState(true);
   const [loading, setLoading]         = useState(false);
   const [totalCount, setTotalCount]   = useState(0);
@@ -1092,7 +1095,8 @@ export default function App() {
   const [dragOver, setDragOver]       = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
-  const [fileError, setFileError]     = useState(null);  
+  const [fileError, setFileError]     = useState(null);
+  const [isExiting, setIsExiting]     = useState(false);
   const fileInputRef = useRef(null);
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
@@ -1212,12 +1216,12 @@ export default function App() {
 
   const theme = useMemo(() => ({
     bg:       isDarkMode ? 'bg-[#121212]' : 'bg-zinc-200',
-    card:     isDarkMode ? 'bg-[#1e1e1e] border-zinc-800' : 'bg-white border-zinc-200',
-    text:     isDarkMode ? 'text-zinc-100' : 'text-zinc-800',
-    subText:  isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
-    button:   isDarkMode ? 'bg-zinc-100 text-zinc-900 hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700',
-    textarea: isDarkMode ? 'bg-[#1e1e1e] text-zinc-100 placeholder:text-zinc-600' : 'bg-white text-zinc-800 placeholder:text-zinc-400',
-  }), [isDarkMode]); // isDarkMode가 바뀔 때만 실행
+    card:     isDarkMode ? 'bg-[#1a1a1a] border-[#2d2d2d]' : 'bg-white border-zinc-200',
+    text:     isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800',
+    subText:  isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500',
+    button:   isDarkMode ? 'bg-[#e0e0e0] text-[#121212] hover:bg-white' : 'bg-zinc-800 text-white hover:bg-zinc-700',
+    textarea: isDarkMode ? 'bg-[#1a1a1a] text-[#e0e0e0] placeholder:text-[#555555]' : 'bg-white text-zinc-800 placeholder:text-zinc-400',
+  }), [isDarkMode]);
 
   const handleFile = useCallback((file) => {
     if (!file) return;
@@ -1247,15 +1251,19 @@ export default function App() {
       return;
     }
 
+    setIsExiting(true);
+    await new Promise(r => setTimeout(r, 280));
+
     window.history.pushState({ view: 'result' }, '');
     setLoading(true);
     setHasResult(true);
+    setIsExiting(false);
     setResults([]);
     setSummary(null);
     setApiStatus('idle');
     setTotalCount(sqls.length);
 
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r => setTimeout(r, 420));
 
     const analysisResults = [];
     let successCount = 0;
@@ -1311,11 +1319,33 @@ export default function App() {
   const statusBadge = {
     connected: { cls: 'bg-green-500/20 text-green-400', dot: 'bg-green-400', label: 'AI 연결됨' },
     local:     { cls: 'bg-blue-500/20 text-blue-400',   dot: 'bg-blue-400',  label: '로컬 분석' },
-    mock:      { cls: 'bg-zinc-800 text-zinc-500',       dot: 'bg-zinc-600',  label: '오프라인(mock)' },
+    mock:      { cls: 'bg-[#1e1e1e] text-[#666666]',     dot: 'bg-[#3a3a3a]', label: '오프라인(mock)' },
   }[apiStatus] ?? null;
 
+  if (page === 'prediction') {
+    return (
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-12'}`}>
+        <Sidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(v => !v)}
+          historyItems={historyItems}
+          user={user}
+          isDarkMode={isDarkMode}
+          onSelectHistory={handleSelectHistory}
+          onNewAnalysis={() => { setPage('main'); handleNewAnalysis(); }}
+          onLogout={handleLogout}
+          onDeleteHistory={handleDeleteHistory}
+        />
+        <PredictionLogDashboard
+          isDarkMode={isDarkMode}
+          onClose={() => setPage('main')}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700 ${isDarkMode ? 'bg-grid-dark' : 'bg-grid-light'}`}>
+    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans transition-colors duration-700`}>
 
       {/* 모달 */}
       {showHelp    && <HelpModal           onClose={handleCloseHelp}    isDarkMode={isDarkMode} />}
@@ -1339,27 +1369,41 @@ export default function App() {
 
       {/* 우측 상단 고정 */}
       <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
+        {/* PredictionLog 대시보드 이동 버튼 */}
+        <button
+          onClick={() => setPage('prediction')}
+          title="PredictionLog 대시보드"
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all hover:scale-105 ${
+            isDarkMode
+              ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/30'
+              : 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100'
+          }`}
+        >
+          <BarChart2 size={13} />
+          PredictionLog
+        </button>
+
         {hasResult && statusBadge && (
-          <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium ${statusBadge.cls} ${isDarkMode ? 'border-zinc-700' : 'border-zinc-300'}`}>
+          <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium ${statusBadge.cls} ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-300'}`}>
             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${statusBadge.dot}`} />
             {statusBadge.label}
           </div>
         )}
-        <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white/80 border-zinc-200'} backdrop-blur-sm`}>
+        <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-[#111111]/80 border-[#2d2d2d]' : 'bg-white/80 border-zinc-200'} backdrop-blur-sm`}>
           <button
             onClick={() => setShowHelp(true)}
             title="사용 가이드"
             className={`p-1.5 rounded-lg transition-all hover:scale-105 ${
-              isDarkMode ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700'
+              isDarkMode ? 'hover:bg-[#1e1e1e] text-[#a0a0a0] hover:text-[#e0e0e0]' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700'
             }`}
           >
             <HelpCircle size={16} />
           </button>
-          <div className={`w-px h-4 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
+          <div className={`w-px h-4 ${isDarkMode ? 'bg-[#2d2d2d]' : 'bg-zinc-200'}`} />
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             className={`p-1.5 rounded-lg transition-all hover:scale-105 ${
-              isDarkMode ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700'
+              isDarkMode ? 'hover:bg-[#1e1e1e] text-[#a0a0a0] hover:text-[#e0e0e0]' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700'
             }`}
           >
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -1368,20 +1412,20 @@ export default function App() {
       </div>
 
       {/* ── 초기 화면 ── */}
-      {!hasResult && (
-        <div className="min-h-screen flex flex-col items-center justify-center px-6">
+      {(!hasResult || isExiting) && (
+        <div className={`min-h-screen flex flex-col items-center justify-center px-6 ${isExiting ? 'animate-fade-out-up' : ''}`}>
           <div className="relative z-10 w-full max-w-3xl">
 
             {/* 타이틀 영역 */}
             <div className="mb-7 text-center">
-              <h1 className={`text-4xl font-bold tracking-tight mb-2.5 bg-linear-to-b bg-clip-text text-transparent ${
+              <h1 className={`animate-slide-up text-4xl font-bold tracking-tight mb-2.5 bg-linear-to-b bg-clip-text text-transparent ${
                 isDarkMode
                   ? 'from-white via-zinc-100 to-zinc-500'
                   : 'from-zinc-900 via-zinc-700 to-zinc-500'
               }`}>
                 AI 쿼리 진단
               </h1>
-              <p className={`text-sm ${theme.subText}`}>
+              <p className={`animate-slide-up-delay text-sm ${theme.subText}`}>
                 Oracle SQL의 MySQL 이관 위험도를 즉시 분석합니다
               </p>
             </div>
@@ -1398,14 +1442,18 @@ export default function App() {
 
             {/* 예제 쿼리 — 가로 스크롤 한 줄 */}
             <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              <span className={`text-xs shrink-0 ${theme.subText}`}>예제:</span>
-              {EXAMPLE_QUERIES.map(({ label, sql }) => (
+              <span
+                className={`animate-fade-in text-xs shrink-0 ${theme.subText}`}
+                style={{ animationDelay: '0.15s' }}
+              >예제:</span>
+              {EXAMPLE_QUERIES.map(({ label, sql }, i) => (
                 <button
                   key={label}
                   onClick={() => setQuery(sql)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-all hover:scale-105 active:scale-95 shrink-0 ${
+                  style={{ animationDelay: `${0.2 + i * 0.05}s` }}
+                  className={`animate-fade-in text-xs px-3 py-1.5 rounded-lg border transition-all hover:scale-105 active:scale-95 shrink-0 ${
                     isDarkMode
-                      ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 hover:border-zinc-600'
+                      ? 'bg-[#111111] border-[#2d2d2d] text-[#666666] hover:bg-[#1e1e1e] hover:text-[#c0c0c0] hover:border-[#3a3a3a]'
                       : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 hover:border-zinc-300'
                   }`}
                 >
@@ -1415,12 +1463,15 @@ export default function App() {
             </div>
 
             {/* 카탈로그 링크 — 예제 아래 */}
-            <div className="mt-4 flex justify-center">
+            <div
+              className="animate-fade-in mt-4 flex justify-center"
+              style={{ animationDelay: '0.55s' }}
+            >
               <button
                 onClick={() => setShowCatalog(true)}
                 className={`inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full border transition-all hover:scale-105 ${
                   isDarkMode
-                    ? 'border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/50'
+                    ? 'border-[#2d2d2d] text-[#666666] hover:border-[#3a3a3a] hover:text-[#c0c0c0] hover:bg-[#1e1e1e]/50'
                     : 'border-zinc-200 text-zinc-400 hover:border-zinc-300 hover:text-zinc-600 hover:bg-zinc-100'
                 }`}
               >
@@ -1433,13 +1484,13 @@ export default function App() {
       )}
 
       {/* ── 결과 화면 ── */}
-      {hasResult && (
-        <div className="max-w-3xl mx-auto px-6 py-10">
+      {hasResult && !isExiting && (
+        <div className="animate-fade-in-up max-w-3xl mx-auto px-6 py-10">
           <div className="mb-6">
-            <h1 className={`text-xl font-bold bg-linear-to-r bg-clip-text text-transparent ${
+            <h1 className={`animate-slide-up text-xl font-bold bg-linear-to-r bg-clip-text text-transparent ${
               isDarkMode ? 'from-white to-zinc-400' : 'from-zinc-900 to-zinc-500'
             }`}>AI 쿼리 진단</h1>
-            <p className={`text-xs ${theme.subText}`}>Oracle → MySQL 이관 위험도 분석</p>
+            <p className={`animate-slide-up-delay text-xs ${theme.subText}`}>Oracle → MySQL 이관 위험도 분석</p>
           </div>
 
           <InputArea
@@ -1454,9 +1505,9 @@ export default function App() {
           {loading && results.length === 0 && (
             <div className={`rounded-2xl border ${theme.card} p-12 flex flex-col items-center gap-6`}>
               <div className="flex items-end gap-1.5">
-                <span className={`dot-1 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
-                <span className={`dot-2 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
-                <span className={`dot-3 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
+                <span className={`dot-1 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-[#a0a0a0]' : 'bg-zinc-600'}`} />
+                <span className={`dot-2 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-[#a0a0a0]' : 'bg-zinc-600'}`} />
+                <span className={`dot-3 w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-[#a0a0a0]' : 'bg-zinc-600'}`} />
               </div>
               <p className={`text-sm font-medium ${theme.subText}`}>
                 {totalCount > 1 ? `${totalCount}개 쿼리 분석 중...` : '쿼리 분석 중...'}
@@ -1475,9 +1526,9 @@ export default function App() {
               {loading && (
                 <div className="flex items-center gap-3 px-1">
                   <div className="flex items-end gap-1">
-                    <span className={`dot-1 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
-                    <span className={`dot-2 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
-                    <span className={`dot-3 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-zinc-400' : 'bg-zinc-600'}`} />
+                    <span className={`dot-1 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-[#a0a0a0]' : 'bg-zinc-600'}`} />
+                    <span className={`dot-2 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-[#a0a0a0]' : 'bg-zinc-600'}`} />
+                    <span className={`dot-3 w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-[#a0a0a0]' : 'bg-zinc-600'}`} />
                   </div>
                   <span className={`text-xs ${theme.subText}`}>
                     {results.length} / {totalCount}개 완료 · 분석 중...
@@ -1487,7 +1538,7 @@ export default function App() {
 
               {!loading && results.length > 1 && (
                 <div className="flex items-center gap-2 px-1">
-                  <Zap size={12} className="text-zinc-500" />
+                  <Zap size={12} className={isDarkMode ? 'text-[#666666]' : 'text-zinc-500'} />
                   <span className={`text-xs ${theme.subText}`}>
                     HIGH 위험 쿼리가 상단에 정렬됩니다 · 헤더 클릭으로 상세 토글
                   </span>
@@ -1521,11 +1572,11 @@ function InputArea({
         {/* 파일명 표시 */}
         {fileName && (
           <div className={`flex items-center gap-2 px-4 py-2 border-b ${
-            isDarkMode ? 'border-zinc-800 bg-zinc-800/40' : 'border-zinc-200 bg-zinc-100'
+            isDarkMode ? 'border-[#2d2d2d] bg-[#1e1e1e]/40' : 'border-zinc-200 bg-zinc-100'
           }`}>
-            <FileText size={13} className={`shrink-0 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`} />
-            <span className={`text-xs font-mono flex-1 truncate ${isDarkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>{fileName}</span>
-            <button onClick={clearFile} className={`transition-colors ${isDarkMode ? 'text-zinc-500 hover:text-zinc-200' : 'text-zinc-400 hover:text-zinc-600'}`}>
+            <FileText size={13} className={`shrink-0 ${isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500'}`} />
+            <span className={`text-xs font-mono flex-1 truncate ${isDarkMode ? 'text-[#c0c0c0]' : 'text-zinc-600'}`}>{fileName}</span>
+            <button onClick={clearFile} className={`transition-colors ${isDarkMode ? 'text-[#666666] hover:text-[#e0e0e0]' : 'text-zinc-400 hover:text-zinc-600'}`}>
               <X size={13} />
             </button>
           </div>
@@ -1536,7 +1587,7 @@ function InputArea({
           onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
-          className={`relative transition-all ${dragOver ? isDarkMode ? 'bg-zinc-800/40' : 'bg-zinc-100/60' : ''}`}
+          className={`relative transition-all ${dragOver ? isDarkMode ? 'bg-[#2a2a2a]/40' : 'bg-zinc-100/60' : ''}`}
         >
           <textarea
             value={query}
@@ -1548,7 +1599,7 @@ function InputArea({
           />
           {dragOver && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className={`flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border backdrop-blur-sm ${isDarkMode ? 'bg-zinc-800/70 border-zinc-600 text-zinc-200' : 'bg-white/80 border-zinc-300 text-zinc-700'}`}>
+              <div className={`flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border backdrop-blur-sm ${isDarkMode ? 'bg-[#1e1e1e]/80 border-[#2d2d2d] text-[#e0e0e0]' : 'bg-white/80 border-zinc-300 text-zinc-700'}`}>
                 <Upload size={13} />
                 파일을 놓으면 업로드됩니다
               </div>
@@ -1558,14 +1609,14 @@ function InputArea({
 
         {/* 하단 바 */}
         <div className={`flex items-center justify-between px-4 py-2.5 border-t ${
-          isDarkMode ? 'border-zinc-800 bg-zinc-900/60' : 'border-zinc-200 bg-zinc-50/80'
+          isDarkMode ? 'border-[#2d2d2d] bg-[#111111]/60' : 'border-zinc-200 bg-zinc-50/80'
         }`}>
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => fileInputRef.current?.click()}
               className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all ${
                 isDarkMode
-                  ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800'
+                  ? 'text-[#666666] hover:text-[#e0e0e0] hover:bg-[#1e1e1e]'
                   : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200'
               }`}
             >
@@ -1575,7 +1626,7 @@ function InputArea({
             <input ref={fileInputRef} type="file" accept=".sql,.txt" className="hidden"
               onChange={e => handleFile(e.target.files[0])} />
             {sqlCount > 0 && (
-              <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${isDarkMode ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-300'}`}>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${isDarkMode ? 'bg-[#1e1e1e] text-[#c0c0c0] border-[#2d2d2d]' : 'bg-zinc-100 text-zinc-600 border-zinc-300'}`}>
                 {sqlCount}개 쿼리
               </span>
             )}
@@ -1587,7 +1638,7 @@ function InputArea({
             disabled={loading || sqlCount === 0}
             className={`relative flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg ${
               isDarkMode
-                ? 'bg-zinc-100 text-zinc-900 hover:bg-white shadow-zinc-900/30'
+                ? 'bg-[#e0e0e0] text-[#121212] hover:bg-white shadow-black/30'
                 : 'bg-zinc-900 text-white hover:bg-zinc-700 shadow-zinc-900/20'
             }`}
           >
