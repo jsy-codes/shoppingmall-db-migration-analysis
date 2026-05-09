@@ -1,0 +1,13 @@
+DROP TABLE IF EXISTS t29;
+
+CREATE TABLE t29 (
+    name VARCHAR(50)
+);
+
+INSERT INTO t29 VALUES ('A'), ('B'), ('C');
+
+-- ❌ Oracle deprecated
+SELECT WM_CONCAT(name) FROM t29;
+
+-- ✅ MySQL
+SELECT GROUP_CONCAT(name) FROM t29;

@@ -9,7 +9,8 @@ import rules from '../../backend/validation/pattern_rules.json';
 import PredictionLogDashboard from './components/PredictionLogDashboard';
 
 // ─── Mock 설정 ─────────────────────────────────────────────────
-const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
+// const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
+const IS_MOCK = false;
 
 // ─── 위험도 순위 (공통 상수) ───────────────────────────────────
 const RISK_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1 };
@@ -974,7 +975,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
             <LogOut size={15} />
           </button>
         ) : (
-          <a href="http://localhost:8000/login" title="Google로 로그인"
+          <a href="http://localhost:5173/login" title="Google로 로그인"
             className={`p-2 rounded-lg transition-all flex items-center justify-center ${t.iconBtn}`}>
             <LogIn size={16} />
           </a>
@@ -1065,7 +1066,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
               </button>
             </div>
           ) : (
-            <a href="http://localhost:8000/login"
+            <a href="http://localhost:5173/login"
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all w-full ${t.iconBtn}`}>
               <LogIn size={13} /> Google로 로그인
             </a>
@@ -1079,7 +1080,9 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
 // ─── 메인 App ─────────────────────────────────────────────────
 export default function App() {
 
+
   const [page, setPage]               = useState('main'); // 'main' | 'prediction'
+
   const [isDarkMode, setIsDarkMode]   = useState(true);
   const [loading, setLoading]         = useState(false);
   const [totalCount, setTotalCount]   = useState(0);
@@ -1101,52 +1104,95 @@ export default function App() {
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
   const handleCloseCatalog = useCallback(() => setShowCatalog(false), []);
+    // anon_id를 localStorage에 고정
+  const getAnonId = () => {
+    let anonId = localStorage.getItem('anon_id');
+    if (!anonId) {
+      anonId = `anon_${Math.random().toString(36).slice(2, 14)}`;
+      localStorage.setItem('anon_id', anonId);
+    }
+    return anonId;
+  };
 
+  // 모든 fetch에 붙일 헤더
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth_token');
+    if (token) return { Authorization: `Bearer ${token}` };
+    return { 'X-Anon-Id': getAnonId() };
+  };
   // ─── 히스토리 갱신 함수 (초기 로딩 + 진단 완료 후 재사용) ───
-  const refreshHistory = useCallback(async () => {
-    try {
-      const res = await fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryItems(data);
-      }
-    } catch { /* 백엔드 오프라인 시 무시 */ }
-  }, []);
-
+const refreshHistory = useCallback(async () => {
+  try {
+    const res = await fetch(
+      'http://localhost:5173/history?limit=30&offset=0',
+      { headers: getAuthHeaders() }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      setHistoryItems(data);
+    }
+  } catch { }
+}, []);
   // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
-  const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
-    try {
-      const resultsWithSql = allResults.map((r, i) => ({ ...r, query_sql: sqlList[i] ?? '' }));
-      await fetch('http://localhost:8000/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
+  try {
+    console.log("SAVE SESSION CALLED");
+    const resultsWithSql = allResults.map((r, i) => ({
+      ...r,
+      query_sql: sqlList[i] ?? ''
+    }));
+
+    const res = await fetch(
+      "http://localhost:5173/session",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({ query_sql: originalQuery, results: resultsWithSql }),
-      });
-    } catch { /* 무시 */ }
-    await refreshHistory();
-  }, [refreshHistory]);
+      }
+    );
+
+    const data = await res.json();
+    console.log("SESSION RESPONSE:", data);
+  } catch (err) {
+    console.error("SESSION ERROR:", err);
+  }
+
+  await refreshHistory();
+}, [refreshHistory]);
 
   // ─── 히스토리 + 유저 로딩 ───────────────────────────────────
   useEffect(() => {
-    const loadAll = async () => {
-      try {
-        const [meRes, histRes] = await Promise.all([
-          fetch('http://localhost:8000/me', { credentials: 'include' }),
-          fetch('http://localhost:8000/history?limit=30&offset=0', { credentials: 'include' }),
-        ]);
-        if (meRes.ok) {
-          const meData = await meRes.json();
-          setUser(meData.email ? { email: meData.email } : null);
-        }
-        if (histRes.ok) {
-          const histData = await histRes.json();
-          setHistoryItems(histData);
-        }
-      } catch { /* 백엔드 오프라인 시 무시 */ }
-    };
-    loadAll();
-  }, []);
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if (token) {
+    localStorage.setItem('auth_token', token);
+    window.history.replaceState({}, '', '/');
+  }
+
+  const savedToken = localStorage.getItem('auth_token');
+  const headers = savedToken ? { Authorization: `Bearer ${savedToken}` } : {};
+//http://localhost:5173
+  const loadAll = async () => {
+    try {
+      const [meRes, histRes] = await Promise.all([
+        fetch('http://localhost:5173/me', { headers: getAuthHeaders() }),
+        fetch('http://localhost:5173/history?limit=30&offset=0', { headers: getAuthHeaders() }),
+      ]);
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        setUser(meData.email ? { email: meData.email } : null);
+      }
+      if (histRes.ok) {
+        const histData = await histRes.json();
+        setHistoryItems(histData);
+      }
+    } catch { }
+  };
+  loadAll();
+}, []);
 
   // ─── 브라우저 뒤로가기 지원 ─────────────────────────────────
   useEffect(() => {
@@ -1169,23 +1215,21 @@ export default function App() {
     setApiStatus('idle');
   }, []);
 
-  const handleDeleteHistory = useCallback(async (id) => {
-    try {
-      await fetch(`http://localhost:8000/history/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      setHistoryItems(prev => prev.filter(item => item.id !== id));
-    } catch { /* 무시 */ }
-  }, []);
+const handleDeleteHistory = useCallback(async (id) => {
+  try {
+    await fetch(`http://localhost:5173/history/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    setHistoryItems(prev => prev.filter(item => item.id !== id));
+  } catch { }
+}, []);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch('http://localhost:8000/logout', { credentials: 'include' });
-    } catch { /* 무시 */ }
-    setUser(null);
-    setHistoryItems([]);
-  }, []);
+ const handleLogout = useCallback(async () => {
+  localStorage.removeItem('auth_token');
+  setUser(null);
+  setHistoryItems([]);
+}, []);
 
   const handleSelectHistory = useCallback((item) => {
     try {
@@ -1309,7 +1353,8 @@ export default function App() {
     else setApiStatus('local');
 
     setLoading(false);
-
+    console.log("successCount:", successCount);
+    console.log("IS_MOCK:", IS_MOCK);
     if (!IS_MOCK && successCount > 0) saveSession(analysisResults, query, sqls);
   };
 
