@@ -975,7 +975,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
             <LogOut size={15} />
           </button>
         ) : (
-          <a href="http://localhost:5173/login" title="Google로 로그인"
+          <a href="http://localhost:8000/login" title="Google로 로그인"
             className={`p-2 rounded-lg transition-all flex items-center justify-center ${t.iconBtn}`}>
             <LogIn size={16} />
           </a>
@@ -1066,7 +1066,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
               </button>
             </div>
           ) : (
-            <a href="http://localhost:5173/login"
+            <a href="http://localhost:8000/login"
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all w-full ${t.iconBtn}`}>
               <LogIn size={13} /> Google로 로그인
             </a>
@@ -1124,7 +1124,7 @@ export default function App() {
 const refreshHistory = useCallback(async () => {
   try {
     const res = await fetch(
-      'http://localhost:5173/history?limit=30&offset=0',
+      'http://localhost:8000/history?limit=30&offset=0',
       { headers: getAuthHeaders() }
     );
     if (res.ok) {
@@ -1143,7 +1143,7 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     }));
 
     const res = await fetch(
-      "http://localhost:5173/session",
+      "http://localhost:8000/session",
       {
         method: "POST",
         headers: {
@@ -1178,8 +1178,8 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   const loadAll = async () => {
     try {
       const [meRes, histRes] = await Promise.all([
-        fetch('http://localhost:5173/me', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5173/history?limit=30&offset=0', { headers: getAuthHeaders() }),
+        fetch('http://localhost:8000/me', { headers: getAuthHeaders() }),
+        fetch('http://localhost:8000/history?limit=30&offset=0', { headers: getAuthHeaders() }),
       ]);
       if (meRes.ok) {
         const meData = await meRes.json();
@@ -1217,7 +1217,7 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
 
 const handleDeleteHistory = useCallback(async (id) => {
   try {
-    await fetch(`http://localhost:5173/history/${id}`, {
+    await fetch(`http://localhost:8000/history/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
