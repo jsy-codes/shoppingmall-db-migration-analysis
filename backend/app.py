@@ -26,18 +26,19 @@ app = FastAPI()
 secret_key = os.getenv("SESSION_SECRET_KEY")
 if not secret_key:
     raise ValueError("SESSION_SECRET_KEY가 설정되지 않았습니다!")
-app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="none", https_only=True)
+app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="lax", https_only=False) # local : https_only=False
 
 anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 if not anthropic_key:
     raise ValueError("ANTHROPIC_API_KEY가 .env 파일에 없습니다.")
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
+# http://localhost:5173 , http://localhost:5173
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173",
         "https://shoppingmall-ui.onrender.com"
     ],
     allow_credentials=True,
@@ -58,10 +59,10 @@ ROOT_DIR = Path(__file__).parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 BASE_DIR = Path(__file__).parent
-if str(BASE_DIR) not in sys.path:
+if str(BASE_DIR) not in sys.path:   
     sys.path.append(str(BASE_DIR))
 
-from database import init_db, SessionLocal, DiagnoseLog
+from database import init_db, SessionLocal, DiagnoseLog, PredictionLog
 from model.risk_model import RiskPredictor
 from backend.validation.consistency_simulator import load_rules, evaluate_sql
 
@@ -129,7 +130,7 @@ def get_db():
 # ─── 로그인 관련 ───────────────────────────────────────────────
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = "https://shoppingmall-db-migration-analysis.onrender.com/auth/callback"
+    redirect_uri = "http://localhost:8000/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get("/auth/callback")
@@ -146,7 +147,7 @@ async def auth_callback(request: Request):
     )
 
     return RedirectResponse(
-        url=f"https://shoppingmall-ui.onrender.com?token={jwt_token}"
+        url=f"http://localhost:5173?token={jwt_token}"
     )
 
 # ─── DB 관련 ───────────────────────────────────────────────────
@@ -272,6 +273,7 @@ async def diagnose(req: QueryRequest, request: Request):
     위 분석 결과를 참고하여 상세 설명과 수정된 DDL을 작성하세요.
     """
 
+    # 변경예정
     performance_data = []
     for detail in sim_result["details"]:
         for pattern in detail["matched_patterns"]:
@@ -285,6 +287,7 @@ async def diagnose(req: QueryRequest, request: Request):
                 "improvement": improvement_rate * 100
             })
 
+    # 변경예정
     risk_score_data = []
     for rule in RULES:
         if rule.id in matched_ids:
@@ -315,11 +318,40 @@ async def diagnose(req: QueryRequest, request: Request):
             "performance_data": performance_data,
             "risk_score_data": risk_score_data
         }
+
+        # 토큰 사용량 확인
+        usage = message.usage
+        print(f"DEBUG: [TOKEN USAGE] Input: {usage.input_tokens}, Output: {usage.output_tokens}")
+
+        # PredictionLog DB 저장
+        db_log = SessionLocal()
+        try:
+            # performance_data에서 시간 데이터 추출 (없으면 기본값 100, 60)
+            perf = performance_data[0] if performance_data else {"before": 100.0, "after": 60.0}
+            
+            new_pred = PredictionLog(
+                pattern_id=final_result["rule_id"],
+                predicted_score=float(risk_score),
+                actual_ms=None,      # W1단계에서는 아직 실측 전이므로 None
+                before_ms=float(perf["before"]),
+                after_ms=float(perf["after"]),
+                error_rate=0.0,      # 초기값
+                created_at=datetime.now()
+            )
+            db_log.add(new_pred)
+            db_log.commit()
+            print(f"DEBUG: PredictionLog 저장 완료 ({final_result['rule_id']})")
+        except Exception as db_err:
+            db_log.rollback()
+            print(f"DEBUG: PredictionLog 저장 중 에러 -> {db_err}")
+        finally:
+            db_log.close()
+
         return final_result
 
     except Exception as e:
         return {"error": str(e)}
-
+    
 @app.post("/session")
 async def save_session(body: SessionRequest, request: Request):
     user_email = get_user_id(request)

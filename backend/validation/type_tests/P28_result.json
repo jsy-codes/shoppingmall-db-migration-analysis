@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 1,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "failure_types": [
+      "PIVOT_SYNTAX_INCOMPATIBILITY"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS sales",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE sales (\n    product VARCHAR(50),\n    year INT,\n    amount INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO sales VALUES\n('A', 2023, 100),\n('A', 2024, 200)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle PIVOT\nSELECT * FROM sales\nPIVOT (\n    SUM(amount)\n    FOR year IN (2023, 2024)\n)",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P28"
+      ],
+      "failure_types": [
+        "PIVOT_SYNTAX_INCOMPATIBILITY"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P28",
+          "name": "PIVOT/UNPIVOT Operator",
+          "severity": "HIGH",
+          "failure_type": "PIVOT_SYNTAX_INCOMPATIBILITY",
+          "description": "PIVOT/UNPIVOT operators are Oracle-specific SQL extensions",
+          "impact": "피벗 로직 전면 재작성 필요, 동적 컬럼 수 변환 불가",
+          "quant_signal": "변환 후 컬럼 수 및 집계 값 일치 여부 검증"
+        }
+      ],
+      "recommendations": [
+        "Rewrite using conditional aggregation: SUM(CASE WHEN col=val THEN ... END) GROUP BY"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL (CASE)\nSELECT\n    product,\n    SUM(CASE WHEN year = 2023 THEN amount END) AS y2023,\n    SUM(CASE WHEN year = 2024 THEN amount END) AS y2024\nFROM sales\nGROUP BY product",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}
