@@ -384,6 +384,42 @@ def _mock(patterns: list[dict], max_sev: str = "HIGH") -> dict:
         "details": [{"matched_patterns": patterns}],
     }
 
+def parse_explain_json(json_string: str) -> dict:
+    """
+    MySQL EXPLAIN JSON 결과를 파싱해서 위험 신호(quant_signal)를 뽑아내는 함수
+    """
+    try:
+        data = json.loads(json_string)
+        query_block = data.get("query_block", {})
+        
+        # 기본 위험 신호 셋팅
+        quant_signal = {
+            "is_full_scan": False,
+            "no_index_flag": False,
+            "rows_examined": 0
+        }
+        
+        # 테이블 접근 방식 확인
+        if "table" in query_block:
+            table_info = query_block["table"]
+            
+            # 1. Full Table Scan (type = ALL) 확인
+            if table_info.get("access_type") == "ALL":
+                quant_signal["is_full_scan"] = True
+                
+            # 2. 인덱스 없음 (key = NULL) 확인
+            if table_info.get("key") is None:
+                quant_signal["no_index_flag"] = True
+                
+            # 3. 스캔 예상 로우 수 추출
+            quant_signal["rows_examined"] = int(table_info.get("rows_examined_per_scan", 0))
+            
+        return quant_signal
+        
+    except Exception as e:
+        print(f"JSON 파싱 에러 났음: {e}")
+        return {}
+
 
 if __name__ == "__main__":
     predictor = RiskPredictor()
