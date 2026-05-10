@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, JSON, create_engine
+from sqlalchemy import Column, String, Text, DateTime, JSON, Float, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 import uuid
@@ -41,6 +41,18 @@ class DiagnoseLog(Base):
     user_email = Column(String, index=True)
     query_sql = Column(Text)
     ai_response = Column(JSON)
+    created_at = Column(DateTime, default=datetime.now)
+
+class PredictionLog(Base):
+    __tablename__ = "prediction_logs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    pattern_id = Column(String, index=True)      # 예: P04
+    predicted_score = Column(Float)             # AI가 예측한 리스크 점수
+    actual_ms = Column(Float, nullable=True)    # MySQL 실측 시간
+    before_ms = Column(Float, nullable=True)    # Oracle 예상 시간
+    after_ms = Column(Float, nullable=True)     # MySQL 예상 시간
+    error_rate = Column(Float, nullable=True)   # (예측-실측) 오차율
     created_at = Column(DateTime, default=datetime.now)
 
 # 📌 테이블 생성

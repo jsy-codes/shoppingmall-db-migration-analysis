@@ -49,13 +49,17 @@ Oracle → MySQL 마이그레이션 위험도 점수 계산 모델
   v2: sim_result 입력 + severity/임계값 역전 버그 수정
   v3: failure_type 카테고리 도입, 감쇠·조합 보너스 체계화
   v4: 리턴값 호환성 정비, MED 정규화 완전 적용 (현재)
+  v4.1 [fix]: EXPLAIN JSON 파서 추가, Grid Search 파라미터 정의 추가
+       - sys.stdout 래퍼 제거 (서버 환경 부작용)
+       - CATEGORY_BONUS float → int 타입 통일 (_bonus 리턴타입 일치)
+       - 출력 포맷 복원: applied={:5.1f}, decay_note 출력 연결
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Optional
-import json
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -126,6 +130,7 @@ _FAILURE_CATEGORY: dict[str, str] = {
     "SYSTEM_TABLE_DEPENDENCY":         "COMPATIBILITY",
 }
 
+# [FIX] float → int 로 통일. _bonus() 리턴 타입(int)과 일치시킴.
 CATEGORY_BONUS: dict[str, int] = {
     "QUERY_FAILURE":  10,
     "DATA_INTEGRITY":  8,
@@ -153,9 +158,81 @@ DECAY_RATE = 0.25
 # "즉시 실패 + 데이터 불일치 동시 발생"은 단순 합산보다 위험.
 MULTI_CATEGORY_BONUS: dict[int, int] = {2: 3, 3: 6, 4: 10}
 
+# Grid Search 파라미터 탐색 범위 (parameter_tuning.py 에서 실제 사용 예정)
+# 현재 파일에서는 직접 실행하지 않으며, 외부 튜닝 스크립트에서 import 해 사용.
+GRID_SEARCH_PARAMS: dict[str, list] = {
+    "DECAY_RATE": [0.1, 0.2, 0.3, 0.4],
+    "BONUS":      list(range(1, 16)),  # 1 ~ 15
+}
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. 데이터 클래스
+# 5. EXPLAIN JSON 파서 (quant_signal 추출)
+#    MySQL 8.0 EXPLAIN FORMAT=JSON 결과를 파싱해 위험 신호를 정량화한다.
+#    현재는 단일 테이블 쿼리 기준 초기 골격 (W2에서 nested/join 확장 예정).
+#
+#    반환 키:
+#      is_full_scan   (bool)  — access_type == "ALL"
+#      no_index_flag  (bool)  — key == null
+#      rows_examined  (int)   — rows_examined_per_scan
+# ══════════════════════════════════════════════════════════════════════════════
+
+def parse_explain_json(json_string: str) -> dict:
+    """
+    MySQL EXPLAIN FORMAT=JSON 결과를 파싱해 quant_signal 딕셔너리를 반환한다.
+
+    Parameters
+    ----------
+    json_string : str
+        EXPLAIN FORMAT=JSON 출력 문자열
+
+    Returns
+    -------
+    dict
+        {
+          "is_full_scan":  bool,   # type=ALL 여부
+          "no_index_flag": bool,   # key=NULL 여부
+          "rows_examined": int,    # rows_examined_per_scan
+        }
+        파싱 실패 시 빈 dict 반환.
+    """
+    try:
+        data = json.loads(json_string)
+        query_block = data.get("query_block", {})
+
+        quant_signal: dict = {
+            "is_full_scan":  False,
+            "no_index_flag": False,
+            "rows_examined": 0,
+        }
+
+        if "table" in query_block:
+            table_info = query_block["table"]
+
+            # 1. Full Table Scan: access_type == "ALL"
+            if table_info.get("access_type") == "ALL":
+                quant_signal["is_full_scan"] = True
+
+            # 2. 인덱스 미사용: key == null
+            if table_info.get("key") is None:
+                quant_signal["no_index_flag"] = True
+
+            # 3. 예상 스캔 행 수
+            quant_signal["rows_examined"] = int(
+                table_info.get("rows_examined_per_scan", 0)
+            )
+
+        return quant_signal
+
+    except Exception as e:
+        # 라이브러리 코드이므로 stderr 로 출력 (stdout 오염 방지)
+        import sys
+        print(f"[parse_explain_json] 파싱 에러: {e}", file=sys.stderr)
+        return {}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. 데이터 클래스
 # ══════════════════════════════════════════════════════════════════════════════
 
 @dataclass
@@ -221,7 +298,7 @@ class RiskResult:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. RiskPredictor
+# 7. RiskPredictor
 # ══════════════════════════════════════════════════════════════════════════════
 
 class RiskPredictor:
@@ -375,7 +452,7 @@ class RiskPredictor:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. 단독 검증
+# 8. 단독 검증
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _mock(patterns: list[dict], max_sev: str = "HIGH") -> dict:
@@ -458,10 +535,12 @@ if __name__ == "__main__":
         cats = r["score_breakdown"]["unique_categories"]
         print(f"{desc:<48} {r['risk_score']:>5}점  {r['risk_level']:<8}  {cats}")
         for c in r["contributions"]:
-            decay_note = f"(×{DECAY_RATE}^{list(r['contributions']).index(c)})" if list(r['contributions']).index(c) > 0 else ""
+            idx        = list(r["contributions"]).index(c)
+            # [FIX] decay_note 계산 후 출력 f-string 에 연결 (A 코드 누락 수정)
+            decay_note = f"(×{DECAY_RATE}^{idx})" if idx > 0 else ""
             print(f"   {c['pattern_id']:<4} {c['severity']:<7} {c['category']:<16} "
                   f"floor={c['floor']:2}+bonus={c['bonus']:2}={c['floor']+c['bonus']:2} "
-                  f"→ applied={c['applied_score']:5.1f} {decay_note}")
+                  f"→ applied={c['applied_score']:5.1f} {decay_note}")  # [FIX] :5.1f 복원
         bd = r["score_breakdown"]
         if bd["multi_category_bonus"]:
             print(f"   ↳ 다중 카테고리 보너스 (+{bd['multi_category_bonus']}): {bd['unique_categories']}")

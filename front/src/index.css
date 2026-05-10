@@ -14,18 +14,64 @@
   }
 }
 
-/* ── 배경 그리드 패턴 ─────────────────────────────────── */
-.bg-grid-dark {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
+
+/* ── 타이틀 슬라이드업 애니메이션 ────────────────────── */
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.bg-grid-light {
-  background-image:
-    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
-  background-size: 48px 48px;
+.animate-slide-up {
+  animation: slide-up-fade 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-slide-up-delay {
+  animation: slide-up-fade 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+
+/* ── 페이드인 (예제·카탈로그 버튼) ──────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.5s ease both;
+}
+
+/* ── 화면 전환 ───────────────────────────────────────── */
+@keyframes fade-out-up {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-20px); }
+}
+.animate-fade-out-up {
+  animation: fade-out-up 0.28s ease forwards;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── 사이드바 슬라이드인 (페이지 최초 진입) ──────────── */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ── 로고 플로팅 애니메이션 ───────────────────────────── */

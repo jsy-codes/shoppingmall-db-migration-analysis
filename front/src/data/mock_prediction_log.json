@@ -1,0 +1,32 @@
+{
+  "logs": [
+    { "id": 1, "pattern_id": "P01", "pattern_name": "Implicit Type Cast",    "predicted_score": 72, "actual_ms": 340, "before_ms": 340, "after_ms": 12,  "error_rate": 1.20, "risk": "MEDIUM", "created_at": "2026-05-01T09:12:00" },
+    { "id": 2, "pattern_id": "P02", "pattern_name": "Function on Indexed Col","predicted_score": 88, "actual_ms": 980, "before_ms": 980, "after_ms": 14,  "error_rate": 0.80, "risk": "HIGH",   "created_at": "2026-05-01T09:15:00" },
+    { "id": 3, "pattern_id": "P03", "pattern_name": "ROWNUM Pagination",      "predicted_score": 92, "actual_ms": 1200,"before_ms": 1200,"after_ms": 18,  "error_rate": 0.60, "risk": "HIGH",   "created_at": "2026-05-01T09:18:00" },
+    { "id": 4, "pattern_id": "P04", "pattern_name": "NVL Function",           "predicted_score": 30, "actual_ms": 95,  "before_ms": 95,  "after_ms": 8,   "error_rate": 2.80, "risk": "LOW",    "created_at": "2026-05-02T10:00:00" },
+    { "id": 5, "pattern_id": "P05", "pattern_name": "DATE() on Indexed Col",  "predicted_score": 65, "actual_ms": 510, "before_ms": 510, "after_ms": 22,  "error_rate": 2.10, "risk": "MEDIUM", "created_at": "2026-05-02T10:05:00" },
+    { "id": 6, "pattern_id": "P06", "pattern_name": "DECODE Function",        "predicted_score": 45, "actual_ms": 210, "before_ms": 210, "after_ms": 11,  "error_rate": 1.50, "risk": "LOW",    "created_at": "2026-05-02T10:10:00" },
+    { "id": 7, "pattern_id": "P07", "pattern_name": "SYSDATE Usage",          "predicted_score": 55, "actual_ms": 280, "before_ms": 280, "after_ms": 9,   "error_rate": 0.90, "risk": "MEDIUM", "created_at": "2026-05-03T11:00:00" },
+    { "id": 8, "pattern_id": "P08", "pattern_name": "CONNECT BY Hierarchy",   "predicted_score": 95, "actual_ms": 1800,"before_ms": 1800,"after_ms": 45,  "error_rate": 1.10, "risk": "HIGH",   "created_at": "2026-05-03T11:05:00" },
+    { "id": 9, "pattern_id": "P09", "pattern_name": "MINUS Operator",         "predicted_score": 78, "actual_ms": 620, "before_ms": 620, "after_ms": 30,  "error_rate": 1.80, "risk": "HIGH",   "created_at": "2026-05-03T11:10:00" },
+    { "id":10, "pattern_id": "P10", "pattern_name": "SEQUENCE Usage",         "predicted_score": 40, "actual_ms": 150, "before_ms": 150, "after_ms": 7,   "error_rate": 0.40, "risk": "LOW",    "created_at": "2026-05-04T09:00:00" },
+    { "id":11, "pattern_id": "P11", "pattern_name": "OUTER JOIN(+) Syntax",   "predicted_score": 70, "actual_ms": 430, "before_ms": 430, "after_ms": 20,  "error_rate": 1.30, "risk": "MEDIUM", "created_at": "2026-05-04T09:05:00" },
+    { "id":12, "pattern_id": "P12", "pattern_name": "ROWID Access",           "predicted_score": 85, "actual_ms": 760, "before_ms": 760, "after_ms": 25,  "error_rate": 3.50, "risk": "HIGH",   "created_at": "2026-05-04T09:10:00" }
+  ],
+  "grid_search_history": [
+    { "round": 1, "decay_rate": 0.30, "category_bonus": 5,  "avg_error_rate": 4.80, "best": false },
+    { "round": 2, "decay_rate": 0.25, "category_bonus": 7,  "avg_error_rate": 3.90, "best": false },
+    { "round": 3, "decay_rate": 0.20, "category_bonus": 9,  "avg_error_rate": 3.10, "best": false },
+    { "round": 4, "decay_rate": 0.18, "category_bonus": 10, "avg_error_rate": 2.60, "best": false },
+    { "round": 5, "decay_rate": 0.15, "category_bonus": 11, "avg_error_rate": 2.10, "best": false },
+    { "round": 6, "decay_rate": 0.14, "category_bonus": 12, "avg_error_rate": 1.80, "best": false },
+    { "round": 7, "decay_rate": 0.13, "category_bonus": 12, "avg_error_rate": 1.62, "best": true  }
+  ],
+  "quant_signals": [
+    { "pattern_id": "P01", "full_scan_ratio": 0.72, "no_index_flag": true,  "rows_ratio": 145 },
+    { "pattern_id": "P02", "full_scan_ratio": 0.91, "no_index_flag": true,  "rows_ratio": 312 },
+    { "pattern_id": "P03", "full_scan_ratio": 0.95, "no_index_flag": true,  "rows_ratio": 520 },
+    { "pattern_id": "P04", "full_scan_ratio": 0.10, "no_index_flag": false, "rows_ratio": 18  },
+    { "pattern_id": "P05", "full_scan_ratio": 0.65, "no_index_flag": true,  "rows_ratio": 230 }
+  ]
+}
