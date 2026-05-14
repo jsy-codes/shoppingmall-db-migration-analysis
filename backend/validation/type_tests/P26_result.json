@@ -1,6 +1,6 @@
 {
   "summary": {
-    "statement_count": 2,
+    "statement_count": 5,
     "total_pattern_count": 4,
     "max_severity": "HIGH",
     "severity_counts": {
@@ -17,6 +17,48 @@
     "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
   },
   "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS tree",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE tree (\n    id        INT PRIMARY KEY,\n    name      VARCHAR(100),\n    parent_id INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO tree VALUES\n(1, '본사',   NULL),\n(2, '영업팀', 1),\n(3, '개발팀', 1),\n(4, '프론트', 3),\n(5, '백엔드', 3)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
     {
       "statement": "-- ❌ Oracle 계층 쿼리\nSELECT id, parent_id\nFROM tree\nCONNECT BY NOCYCLE PRIOR id = parent_id",
       "pattern_count": 2,

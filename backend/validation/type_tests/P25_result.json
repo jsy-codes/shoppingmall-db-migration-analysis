@@ -1,6 +1,6 @@
 {
   "summary": {
-    "statement_count": 3,
+    "statement_count": 5,
     "total_pattern_count": 1,
     "max_severity": "LOW",
     "severity_counts": {
@@ -60,6 +60,34 @@
     },
     {
       "statement": "-- ✅ MySQL 변환\nCREATE TABLE t25_new (\n    price DECIMAL(10,2),\n    count INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- P25.sql에 추가\nINSERT INTO t25_new VALUES (29900.50, 100)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t25_new VALUES (5500.00, 250)",
       "pattern_count": 0,
       "pattern_ids": [],
       "failure_types": [],
