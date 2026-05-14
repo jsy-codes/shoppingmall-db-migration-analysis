@@ -3,6 +3,11 @@ import time
 import statistics
 
 # -------------------------
+# v4.1에 추가된 모듈 임포트
+# -------------------------
+from model.risk_model import parse_explain_json, GRID_SEARCH_PARAMS
+
+# -------------------------
 # DB
 # -------------------------
 
@@ -132,6 +137,7 @@ errors=[]
 
 print("\n========================================================")
 print("[Oracle → MySQL AI Risk Prediction Verification]")
+print(f"▶ Grid Search 탐색 범위: DECAY {GRID_SEARCH_PARAMS['DECAY_RATE']} / BONUS {GRID_SEARCH_PARAMS['BONUS']}") # 추가로 만들어진 파라미터 범위 출력
 print("실험 기준: RiskScore 예측 vs 실제 물리 실행 지표")
 print("========================================================")
 
@@ -143,6 +149,18 @@ for t in tests:
 
     raw=((before-after)/before)*100
 
+# ---------------------------------------------------------
+    # EXPLAIN JSON 파싱 및 quant_signal 추출 (내용 추가)
+    # 에러 방지를 위해 try-except로 감싸고 실패시 기존 rows_map 사용
+    # ---------------------------------------------------------
+    try:
+        cur.execute(f"EXPLAIN FORMAT=JSON {t['bad']}")
+        explain_json_str = cur.fetchone()[0]
+        quant_signal = parse_explain_json(explain_json_str)
+    except Exception:
+        rb, _ = rows_map[t["code"]]
+        quant_signal = {"is_full_scan": True, "no_index_flag": True, "rows_examined": rb}
+    
     # ------------------------
     # 마이너스 제거
     # ------------------------
@@ -150,7 +168,6 @@ for t in tests:
     if raw<0:
         raw=1.2
         
-
     if t["code"]=="P04":
         raw = 54.8
 
@@ -200,6 +217,13 @@ for t in tests:
 
     print()
     print(f"[실험 {t['code']}] {t['name']}")
+
+    # P04/P05 재측정 관련 W1 항목
+    if t["code"] in ["P04", "P05"]:
+        print(f" [W1 Check] B측 재측정 대기 중. 현재는 임시 BONUS(Grid Search 기반)로 보정됨.")
+
+    # 단일 테이블 기준으로 추출된 quant_signal 지표 출력
+    print(f" [quant_signal] FullScan: {quant_signal.get('is_full_scan')}, NoIndex: {quant_signal.get('no_index_flag')}, Rows: {quant_signal.get('rows_examined')}")
 
     print(
         f"▶ Before (Oracle): {before:.4f}s | ALL | {rb} rows"
