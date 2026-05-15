@@ -47,13 +47,14 @@ class PredictionLog(Base):
     __tablename__ = "prediction_logs"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    pattern_id = Column(String, index=True)      # 예: P04
-    predicted_score = Column(Float)             # AI가 예측한 리스크 점수
-    actual_ms = Column(Float, nullable=True)    # MySQL 실측 시간
-    before_ms = Column(Float, nullable=True)    # Oracle 예상 시간
-    after_ms = Column(Float, nullable=True)     # MySQL 예상 시간
-    error_rate = Column(Float, nullable=True)   # (예측-실측) 오차율
-    created_at = Column(DateTime, default=datetime.now)
+    pattern_id = Column(String, index=True)     # 예: P04
+    pattern_name = Column(String)   # 추가예정
+    risk = Column(String)           # HIGH / MEDIUM / LOW
+    predicted_score = Column(Float)             # 리스크 점수?
+    before_ms = Column(Float, nullable=True)    # 이관 전 실행시간
+    after_ms = Column(Float, nullable=True)     # 이관(변환) 후 실행시간
+    error_rate = Column(Float, nullable=True)   # 오차율
+    created_at = Column(DateTime, default=datetime.now) # 기록 시각
 
 # 📌 테이블 생성
 def init_db():

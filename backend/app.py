@@ -15,8 +15,7 @@ import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-from sqlalchemy import text
-from sqlalchemy import desc
+from sqlalchemy import text, desc
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -63,19 +62,21 @@ if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
 from database import init_db, SessionLocal, DiagnoseLog, PredictionLog
-from model.risk_model import RiskPredictor
+
 from backend.validation.consistency_simulator import load_rules, evaluate_sql
 
+# risk_model.py 안의 RiskPredictor 클래스 객체 생성
+from model.risk_model import RiskPredictor
 predictor = RiskPredictor()
 
 RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
 RULES = load_rules(RULES_PATH)
-try:
-    rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
-    RULES_STR = json.dumps(rules_data, ensure_ascii=False)
-except Exception as e:
-    with open(RULES_PATH, 'r', encoding='utf-8') as f:
-        RULES_STR = f.read()
+# try:
+#     rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
+#     RULES_STR = json.dumps(rules_data, ensure_ascii=False)
+# except Exception as e:
+#     with open(RULES_PATH, 'r', encoding='utf-8') as f:
+#         RULES_STR = f.read()
 
 class QueryRequest(BaseModel):
     sql: str
@@ -110,22 +111,7 @@ def get_user_id(request: Request) -> str:
     print(f"[AUTH] fallback → {fallback}")
     return fallback
 
-def adjust_score_by_level(score: int, level: str) -> int:
-    if level == "HIGH":
-        return max(score, 70)
-    elif level == "MEDIUM":
-        return max(score, 40)
-    else:
-        return max(score, 20)
 
-init_db()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # ─── 로그인 관련 ───────────────────────────────────────────────
 @app.get("/login")
@@ -150,28 +136,46 @@ async def auth_callback(request: Request):
         url=f"http://localhost:5173?token={jwt_token}"
     )
 
-# ─── DB 관련 ───────────────────────────────────────────────────
-@app.get("/db-test")
-async def test_db():
-    try:
-        db = SessionLocal()
-        test_log = DiagnoseLog(
-            user_email="test@gmail.com",
-            query_sql="SELECT * FROM oracle_table;",
-            ai_response={"reason": "테스트 데이터입니다.", "recommended_ddl": "CREATE TABLE mysql_table (id INT);", "estimated_improvement": "50%"}
-        )
-        db.add(test_log)
-        db.commit()
-        saved_data = db.query(DiagnoseLog).filter(DiagnoseLog.user_email == "test@gmail.com").first()
-        db.close()
-        return {"message": "DB 연결 및 데이터 저장 성공!", "saved_id": saved_data.id, "saved_email": saved_data.user_email}
-    except Exception as e:
-        return {"error": str(e)}
-
 @app.get("/logout")
 async def logout(request: Request):
     request.session.clear()
     return {"ok": True}
+
+@app.post("/session")
+async def save_session(body: SessionRequest, request: Request):
+    user_email = get_user_id(request)
+    print(f"[SESSION] user_email: {user_email}")
+    db = SessionLocal()
+    try:
+        new_log = DiagnoseLog(
+            user_email=user_email,
+            query_sql=body.query_sql,
+            ai_response=body.results
+        )
+        db.add(new_log)
+        db.commit()
+        return {"ok": True}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+@app.get("/me")
+async def me(request: Request):
+    user_id = get_user_id(request)
+    email = user_id if "@" in user_id else None
+    return {"email": email}
+
+# ─── DB 관련 ───────────────────────────────────────────────────
+init_db()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.delete("/history/{log_id}")
 async def delete_history(log_id: str, request: Request):
@@ -212,48 +216,130 @@ def db_check():
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/me")
-async def me(request: Request):
-    user_id = get_user_id(request)
-    email = user_id if "@" in user_id else None
-    return {"email": email}
+@app.get("/logs")
+async def get_logs():
+
+    db = SessionLocal()
+
+    try:
+        # 일단 간단하게 불러오는 형식으로 구현함
+        logs = db.query(PredictionLog)\
+            .order_by(PredictionLog.created_at.desc())\
+            .limit(100)\
+            .all()
+
+        return [
+            {
+                "pattern_id": log.pattern_id,
+                "pattern_name": log.pattern_name,
+                "risk": log.risk,
+                "predicted_score": log.predicted_score,
+                "before_ms": log.before_ms,
+                "after_ms": log.after_ms,
+                "error_rate": log.error_rate,
+                "created_at": log.created_at
+            }
+            for log in logs
+        ]
+
+    finally:
+        db.close()
+
+#@app.post("/stats") 3주차 까지
+#async def ():
 
 # ─── AI 진단 관련 ──────────────────────────────────────────────
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest, request: Request):
-    user_email = get_user_id(request)
+    #user_email = get_user_id(request)
 
+    # consistency_simulator가 탐지한 패턴 결과
     sim_result = evaluate_sql(req.sql, RULES)
-    matched_ids = list(set(
-        p["id"] for detail in sim_result["details"]
-        for p in detail["matched_patterns"]
-    ))
+
+    pattern_map = {}
+    for detail in sim_result["details"]:
+        for pattern in detail["matched_patterns"]:
+            pattern_map[pattern["id"]] = pattern
+
+    matched_ids = list(pattern_map.keys())
+    # matched_ids = list(set(
+    #     p["id"] for detail in sim_result["details"]
+    #     for p in detail["matched_patterns"]
+    # ))
+    
     max_severity = sim_result["summary"]["max_severity"]
+
+    # matched_rules = [
+    #     r for r in RULES
+    #     if r.id in matched_ids
+    # ]
+    matched_rules = [
+        r for r in RULES
+        if r.id in pattern_map
+    ]
+    RULES_STR = "\n".join([
+        f"{r.id} | {r.name} | {r.description}"
+        for r in matched_rules
+    ])
 
     risk_analysis = predictor.evaluate_risk_score(sim_result)
     risk_score = risk_analysis["risk_score"]
-    risk_score = adjust_score_by_level(risk_score, max_severity)
     risk_level = risk_analysis["risk_level"]
 
+    # EXPLAIN 분석 결과 (현재는 placeholder)
+    explain_signal = {
+        "full_scan_ratio": 0.75,
+        "no_index_flag": 1,
+        "rows_ratio": 3.2
+    }
+    
+    # system_prompt = f"""
+    # 당신은 Oracle에서 MySQL로의 이관 전문가입니다. 
+    # 제공된 [이관 규칙 가이드라인]를 바탕으로 [사전 분석 결과]에 명시된 패턴을 중점적으로 사용자의 SQL을 분석하여 최적의 솔루션을 제공하세요.
+
+    # [이관 규칙 가이드라인]
+    # {RULES_STR}
+    
+    # [분석 및 생성 원칙]
+    # 1. 스크립트 보존: 사용자가 입력한 모든 SQL 문장(INSERT 등)을 생략 없이 전체 보존하여 변환하세요.
+    # 2. 기술적 차이 명시: `reason` 항목에는 "Oracle은 [A] 방식을 쓰지만, MySQL은 [B] 방식으로 동작하므로 [C] 문제가 발생함"과 같이 아키텍처적 차이를 구체적으로 설명하세요.
+    # 3. 실행 즉시성: `recommended_ddl`에 제공되는 코드는 사용자가 복사하여 MySQL Workbench에서 즉시 실행했을 때, 테이블 생성부터 데이터 삽입, 조회까지 에러 없이 한 번에 성공해야 합니다.
+    # 4. 대표 규칙 선정: [사전 분석 결과]의 `matched_ids` 중 가장 위험도가 높거나(HIGH > MEDIUM > LOW) 핵심적인 패턴 ID 하나를 선택하여 `rule_id`에 할당하세요.
+
+    # [응답 지침]
+    # 1. 언어: 반드시 한국어로 응답할 것.
+    # 2. 형식: JSON 외의 서문이나 맺음말 등 어떠한 텍스트도 출력하지 말 것.
+    # 3. 성능 개선: `estimated_improvement`에는 예상되는 실행 시간 단축이나 자원 소모 감소량을 수치(%)로 포함하세요.
+    
+    # 반드시 아래 JSON 형식으로만 응답하세요:
+    # {{
+    #     "reason": "상세 원인 설명",
+    #     "recommended_ddl": "MySQL용 전체 수정 스크립트",
+    #     "estimated_improvement": "예상 성능 향상치(%)와 근거",
+    #     "rule_id": "가장 핵심적인 패턴 ID (예: P03)"
+    # }}
+    # """
+
     system_prompt = f"""
-    당신은 Oracle에서 MySQL로의 이관 전문가입니다. 
-    제공된 [이관 규칙 가이드라인]를 바탕으로 [사전 분석 결과]에 명시된 패턴을 중점적으로 사용자의 SQL을 분석하여 최적의 솔루션을 제공하세요.
+    당신은 Oracle→MySQL 이관 전문가입니다.
 
-    [이관 규칙 가이드라인]
+    [탐지 규칙]
     {RULES_STR}
-    
-    [분석 및 생성 원칙]
-    1. 스크립트 보존: 사용자가 입력한 모든 SQL 문장(INSERT 등)을 생략 없이 전체 보존하여 변환하세요.
-    2. 기술적 차이 명시: `reason` 항목에는 "Oracle은 [A] 방식을 쓰지만, MySQL은 [B] 방식으로 동작하므로 [C] 문제가 발생함"과 같이 아키텍처적 차이를 구체적으로 설명하세요.
-    3. 실행 즉시성: `recommended_ddl`에 제공되는 코드는 사용자가 복사하여 MySQL Workbench에서 즉시 실행했을 때, 테이블 생성부터 데이터 삽입, 조회까지 에러 없이 한 번에 성공해야 합니다.
-    4. 대표 규칙 선정: [사전 분석 결과]의 `matched_ids` 중 가장 위험도가 높거나(HIGH > MEDIUM > LOW) 핵심적인 패턴 ID 하나를 선택하여 `rule_id`에 할당하세요.
 
-    [응답 지침]
-    1. 언어: 반드시 한국어로 응답할 것.
-    2. 형식: JSON 외의 서문이나 맺음말 등 어떠한 텍스트도 출력하지 말 것.
-    3. 성능 개선: `estimated_improvement`에는 예상되는 실행 시간 단축이나 자원 소모 감소량을 수치(%)로 포함하세요.
-    
-    반드시 아래 JSON 형식으로만 응답하세요:
+    [EXPLAIN]
+    full_scan={explain_signal['full_scan_ratio']}
+    no_index={explain_signal['no_index_flag']}
+    rows_ratio={explain_signal['rows_ratio']}
+
+    [지침]
+    - 입력 SQL 전체 유지
+    - MySQL 호환 형태로 변환
+    - Oracle/MySQL 차이를 기술적으로 설명
+    - recommended_ddl은 즉시 실행 가능해야 함
+    - matched_ids 중 핵심 패턴 하나를 rule_id로 선택
+    - 반드시 한국어 JSON만 출력
+
+    응답 형식:
     {{
         "reason": "상세 원인 설명",
         "recommended_ddl": "MySQL용 전체 수정 스크립트",
@@ -262,6 +348,7 @@ async def diagnose(req: QueryRequest, request: Request):
     }}
     """
 
+    #위 분석 결과를 참고하여 상세 설명과 수정된 DDL을 작성하세요.
     user_context = f"""
     [사전 분석 결과]
     - 감지된 패턴 ID: {matched_ids}
@@ -269,33 +356,65 @@ async def diagnose(req: QueryRequest, request: Request):
 
     [대상 SQL]
     {req.sql}
-
-    위 분석 결과를 참고하여 상세 설명과 수정된 DDL을 작성하세요.
     """
-
-    # 변경예정
+    
     performance_data = []
-    for detail in sim_result["details"]:
-        for pattern in detail["matched_patterns"]:
-            base_ms = 100
-            improvement_rate = 0.8 if pattern["severity"] == "HIGH" else 0.4
+    db_perf = SessionLocal()
+    try:
+        for pattern_id, pattern in pattern_map.items():
+
+            logs = db_perf.query(PredictionLog).filter(
+                PredictionLog.pattern_id == pattern_id
+            ).all()
+
+            valid_logs = [
+                log for log in logs
+                if log.before_ms is not None and log.after_ms is not None
+            ]
+
+            # 과거 데이터가 있으면 평균 사용
+            if valid_logs:
+                avg_before = sum(log.before_ms for log in valid_logs) / len(valid_logs)
+                avg_after = sum(log.after_ms for log in valid_logs) / len(valid_logs)
+            # 없으면 fallback
+            else:
+                avg_before = 100.0
+                if pattern["severity"] == "HIGH":
+                    avg_after = 20.0
+                elif pattern["severity"] == "MEDIUM":
+                    avg_after = 50.0
+                else:
+                    avg_after = 70.0
+
+            improvement = (
+                (avg_before - avg_after) / avg_before
+            ) * 100
+
             performance_data.append({
-                "pattern": pattern["id"],
+                "pattern": pattern_id,
                 "label": pattern["name"],
-                "before": base_ms,
-                "after": int(base_ms * (1 - improvement_rate)),
-                "improvement": improvement_rate * 100
+                "before": round(avg_before, 1),
+                "after": round(avg_after, 1),
+                "improvement": round(improvement, 1)
             })
+    finally:
+        db_perf.close()
 
-    # 변경예정
+    #
     risk_score_data = []
+    contrib_map = {
+        c["pattern_id"]: round(c["applied_score"])
+        for c in risk_analysis["contributions"]
+    }
     for rule in RULES:
-        if rule.id in matched_ids:
-            current_score = (80 if max_severity == "HIGH" else 50) if risk_score < 20 else risk_score
-        else:
-            current_score = 10
-        risk_score_data.append({"id": rule.id, "name": rule.name, "score": current_score})
+        current_score = contrib_map.get(rule.id, 0)
 
+        risk_score_data.append({
+            "id": rule.id,
+            "name": rule.name,
+            "score": current_score
+        })
+    
     try:
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -303,8 +422,14 @@ async def diagnose(req: QueryRequest, request: Request):
             system=system_prompt,
             messages=[{"role": "user", "content": user_context}]
         )
+
         raw_text = message.content[0].text
-        ai_json = json.loads(re.search(r'(\{.*\})', raw_text, re.DOTALL).group(1))
+        
+        match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
+        if not match:
+            return {"error": "Claude JSON parsing failed"}
+        ai_json = json.loads(match.group(1))
+        #ai_json = json.loads(re.search(r'(\{.*\})', raw_text, re.DOTALL).group(1))
 
         final_result = {
             "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"),
@@ -316,29 +441,41 @@ async def diagnose(req: QueryRequest, request: Request):
             "estimated_improvement": ai_json["estimated_improvement"],
             "simulator_detail": sim_result["details"],
             "performance_data": performance_data,
-            "risk_score_data": risk_score_data
+            "risk_score_data": risk_score_data,
+            "explain_signal": explain_signal
         }
 
         # 토큰 사용량 확인
         usage = message.usage
         print(f"DEBUG: [TOKEN USAGE] Input: {usage.input_tokens}, Output: {usage.output_tokens}")
 
-        # PredictionLog DB 저장
+        # PredictionLog DB 저장부분
         db_log = SessionLocal()
         try:
-            # performance_data에서 시간 데이터 추출 (없으면 기본값 100, 60)
-            perf = performance_data[0] if performance_data else {"before": 100.0, "after": 60.0}
-            
-            new_pred = PredictionLog(
-                pattern_id=final_result["rule_id"],
-                predicted_score=float(risk_score),
-                actual_ms=None,      # W1단계에서는 아직 실측 전이므로 None
-                before_ms=float(perf["before"]),
-                after_ms=float(perf["after"]),
-                error_rate=0.0,      # 초기값
-                created_at=datetime.now()
-            )
-            db_log.add(new_pred)
+            for perf in performance_data:
+                matched_pattern = pattern_map.get(perf["pattern"])
+
+                new_pred = PredictionLog(
+                    # 패턴 id (V)
+                    pattern_id=perf["pattern"],
+                     # 패턴 이름 ( ? )
+                    pattern_name=perf["label"],
+                     # HIGH / MEDIUM / LOW (V)
+                    risk=matched_pattern["severity"] if matched_pattern else "LOW",
+                    # just 리스크 점수? (V?)
+                    predicted_score=float(risk_score),
+                    # 이관 전 실행시간 ( )
+                    before_ms=None,
+                    #before_ms=float(execution_result["before_ms"]),
+                    # 이관(변환) 후 실행시간 ( )
+                    after_ms=None,
+                    # after_ms=float(execution_result["after_ms"]),
+                    # 오차율 ( )
+                    error_rate=0.0,
+                    # 기록 시각 (V)
+                    created_at=datetime.now()
+                )
+                db_log.add(new_pred)
             db_log.commit()
             print(f"DEBUG: PredictionLog 저장 완료 ({final_result['rule_id']})")
         except Exception as db_err:
@@ -348,26 +485,5 @@ async def diagnose(req: QueryRequest, request: Request):
             db_log.close()
 
         return final_result
-
     except Exception as e:
         return {"error": str(e)}
-    
-@app.post("/session")
-async def save_session(body: SessionRequest, request: Request):
-    user_email = get_user_id(request)
-    print(f"[SESSION] user_email: {user_email}")
-    db = SessionLocal()
-    try:
-        new_log = DiagnoseLog(
-            user_email=user_email,
-            query_sql=body.query_sql,
-            ai_response=body.results
-        )
-        db.add(new_log)
-        db.commit()
-        return {"ok": True}
-    except Exception as e:
-        db.rollback()
-        return {"ok": False, "error": str(e)}
-    finally:
-        db.close()
