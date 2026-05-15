@@ -59,6 +59,22 @@
   animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* ── 배치분석 탭 슬라이드 전환 ───────────────────────── */
+@keyframes tab-slide-from-right {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes tab-slide-from-left {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-tab-from-right {
+  animation: tab-slide-from-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-tab-from-left {
+  animation: tab-slide-from-left 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* ── 사이드바 슬라이드인 (페이지 최초 진입) ──────────── */
 @keyframes slide-in-left {
   from {

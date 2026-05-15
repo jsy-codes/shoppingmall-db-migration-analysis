@@ -294,6 +294,38 @@ function QuantSignalTab({ isDarkMode }) {
   );
 }
 
+// ── 탭 내용만 (BatchSummary 내장용) ─────────────────────────────
+export function PredictionLogTabs({ isDarkMode }) {
+  const [activeTab, setActiveTab] = useState('error');
+
+  const theme = isDarkMode
+    ? { tabActive: 'bg-[#1e1e1e] text-[#e0e0e0] border-[#3d3d3d]', tabInactive: 'text-[#666] hover:text-[#aaa] hover:bg-[#161616]' }
+    : { tabActive: 'bg-white text-zinc-800 border-zinc-300',          tabInactive: 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'  };
+
+  return (
+    <div className="space-y-4">
+      <div className={`flex gap-1 p-1 rounded-xl border w-fit ${isDarkMode ? 'bg-[#111] border-[#2d2d2d]' : 'bg-zinc-200 border-zinc-300'}`}>
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all font-medium ${
+              activeTab === tab.id ? `${theme.tabActive} border` : `${theme.tabInactive} border-transparent`
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {activeTab === 'error'   && <ErrorRateTab  isDarkMode={isDarkMode} />}
+      {activeTab === 'compare' && <CompareTab    isDarkMode={isDarkMode} />}
+      {activeTab === 'grid'    && <GridSearchTab isDarkMode={isDarkMode} />}
+      {activeTab === 'quant'   && <QuantSignalTab isDarkMode={isDarkMode} />}
+    </div>
+  );
+}
+
 // ── 메인 대시보드 ────────────────────────────────────────────────
 export default function PredictionLogDashboard({ isDarkMode, onClose }) {
   const [activeTab, setActiveTab] = useState('error');
@@ -307,7 +339,7 @@ export default function PredictionLogDashboard({ isDarkMode, onClose }) {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-bold">PredictionLog 대시보드</h1>
+          <h1 className="text-lg font-bold">예측 로그 대시보드</h1>
           <p className={`text-xs mt-0.5 ${theme.sub}`}>
             목업 데이터 기반 · W2에서 실 API(/logs, /stats) 연동 예정
           </p>
