@@ -29,8 +29,14 @@ Oracle → MySQL 마이그레이션 위험도 점수 계산 모델
 
     → 같은 HIGH라도 P03(ROWNUM, QUERY_FAILURE)=90점 vs P09(JOIN Scan, PERFORMANCE)=85점
 
+  축 3 ─ quant_signal 동적 bonus (신규 — v4.2)
+    EXPLAIN FORMAT=JSON 파서 결과를 기반으로 실측 위험 신호를 점수에 반영.
+      rows_ratio > 100  : +5  (100만건 이상 스캔 예상)
+      no_index_flag = 1 : +3  (인덱스 미사용 확인)
+      full_scan_ratio ≥ 0.5 : +2  (절반 이상 테이블이 풀스캔)
+
 [집계 공식]
-  1. 각 패턴: contribution = (floor + bonus)
+  1. 각 패턴: contribution = (floor + category_bonus + quant_bonus)
   2. 동일 severity가 복수일 때 감쇠 적용: contribution × decay^n  (decay=0.25, n=중복 순서)
      → MEDIUM 패턴이 아무리 많아도 합산 한도 ≈ 71점 < HIGH 임계값(80) 보장
   3. 서로 다른 카테고리 복수 탐지 시 조합 보너스 추가 (2종+3 / 3종+6 / 4종+10)
@@ -45,14 +51,16 @@ Oracle → MySQL 마이그레이션 위험도 점수 계산 모델
     score_breakdown   (신규 — 발표·디버그용 점수 내역)
 
 [수정 이력]
-  v1: SQL 직접 분석 4-패턴 하드코딩 (원본)
-  v2: sim_result 입력 + severity/임계값 역전 버그 수정
-  v3: failure_type 카테고리 도입, 감쇠·조합 보너스 체계화
-  v4: 리턴값 호환성 정비, MED 정규화 완전 적용 (현재)
-  v4.1 [fix]: EXPLAIN JSON 파서 추가, Grid Search 파라미터 정의 추가
-       - sys.stdout 래퍼 제거 (서버 환경 부작용)
-       - CATEGORY_BONUS float → int 타입 통일 (_bonus 리턴타입 일치)
-       - 출력 포맷 복원: applied={:5.1f}, decay_note 출력 연결
+  v1:   SQL 직접 분석 4-패턴 하드코딩 (원본)
+  v2:   sim_result 입력 + severity/임계값 역전 버그 수정
+  v3:   failure_type 카테고리 도입, 감쇠·조합 보너스 체계화
+  v4:   리턴값 호환성 정비, MED 정규화 완전 적용
+  v4.1: EXPLAIN JSON 파서 추가, Grid Search 파라미터 정의 추가
+        sys.stdout 래퍼 제거, CATEGORY_BONUS float→int 타입 통일
+  v4.2: EXPLAIN 파서 강화 (filtered/Extra/full_scan_ratio/rows_ratio 추출)
+        quant_signal 필드 str→dict 타입 변경
+        quant_signal 기반 동적 bonus 추가 (_quant_bonus)
+        EXPLAIN 파서 단위 테스트 5종 추가
 """
 
 from __future__ import annotations
@@ -97,7 +105,7 @@ THRESHOLD_MED  = 40   # SEVERITY_FLOOR["MEDIUM"] 와 항상 동일해야 함
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. 축 2 — failure_type → category → bonus
-#    pattern_rules.json 의 22개 failure_type 을 4개 카테고리로 매핑.
+#    pattern_rules.json 의 패턴 failure_type 을 4개 카테고리로 매핑.
 #    분류 기준: 운영 환경에서의 치명도
 #      QUERY_FAILURE  — 즉시 실행 실패, 가장 명확하게 드러남
 #      DATA_INTEGRITY — 실행은 되지만 결과가 틀림 (발견 어렵고 파급 큼)
@@ -106,31 +114,38 @@ THRESHOLD_MED  = 40   # SEVERITY_FLOOR["MEDIUM"] 와 항상 동일해야 함
 # ══════════════════════════════════════════════════════════════════════════════
 
 _FAILURE_CATEGORY: dict[str, str] = {
-    "PAGINATION_MIGRATION_ERROR":      "QUERY_FAILURE",
-    "HIERARCHY_QUERY_MIGRATION":       "QUERY_FAILURE",
-    "JOIN_SYNTAX_INCOMPATIBILITY":     "QUERY_FAILURE",
-    "UPSERT_SYNTAX_MIGRATION":         "QUERY_FAILURE",
+    "PAGINATION_MIGRATION_ERROR":        "QUERY_FAILURE",
+    "HIERARCHY_QUERY_MIGRATION":         "QUERY_FAILURE",
+    "JOIN_SYNTAX_INCOMPATIBILITY":       "QUERY_FAILURE",
+    "UPSERT_SYNTAX_MIGRATION":           "QUERY_FAILURE",
+    "HIERARCHY_CYCLE_DETECTION_MIGRATION": "QUERY_FAILURE",
+    "PIVOT_SYNTAX_INCOMPATIBILITY":      "QUERY_FAILURE",
+    "SET_OPERATOR_INCOMPATIBILITY":      "QUERY_FAILURE",
 
-    "TYPE_MISMATCH_INDEX_BYPASS":      "DATA_INTEGRITY",
-    "TEMPORAL_TYPE_MISMATCH":          "DATA_INTEGRITY",
-    "CHAR_PADDING_COMPARISON":         "DATA_INTEGRITY",
-    "SET_OPERATOR_INCOMPATIBILITY":    "DATA_INTEGRITY",
-    "DATE_FORMAT_FUNCTION_MIGRATION":  "DATA_INTEGRITY",
-    "DATE_PARSE_FUNCTION_MIGRATION":   "DATA_INTEGRITY",
-    "DATE_TRUNCATION_MIGRATION":       "DATA_INTEGRITY",
+    "TYPE_MISMATCH_INDEX_BYPASS":        "DATA_INTEGRITY",
+    "TEMPORAL_TYPE_MISMATCH":            "DATA_INTEGRITY",
+    "CHAR_PADDING_COMPARISON":           "DATA_INTEGRITY",
+    "DATE_FORMAT_FUNCTION_MIGRATION":    "DATA_INTEGRITY",
+    "DATE_PARSE_FUNCTION_MIGRATION":     "DATA_INTEGRITY",
+    "DATE_TRUNCATION_MIGRATION":         "DATA_INTEGRITY",
     "TIMESTAMP_PRECISION_COMPATIBILITY": "DATA_INTEGRITY",
+    "NUMERIC_TYPE_MAPPING":              "DATA_INTEGRITY",
+    "UNICODE_TYPE_MAPPING":              "DATA_INTEGRITY",
 
-    "FUNCTION_INDEX_BYPASS":           "PERFORMANCE",
-    "FUNCTION_BASED_INDEX_LOSS":       "PERFORMANCE",
-    "JOIN_FULL_SCAN":                  "PERFORMANCE",
-    "NESTED_QUERY_DEGRADATION":        "PERFORMANCE",
+    "FUNCTION_INDEX_BYPASS":             "PERFORMANCE",
+    "FUNCTION_BASED_INDEX_LOSS":         "PERFORMANCE",
+    "JOIN_FULL_SCAN":                    "PERFORMANCE",
+    "NESTED_QUERY_DEGRADATION":          "PERFORMANCE",
 
-    "FUNCTION_COMPATIBILITY":          "COMPATIBILITY",
-    "STRING_TYPE_COMPATIBILITY":       "COMPATIBILITY",
-    "SYSTEM_TABLE_DEPENDENCY":         "COMPATIBILITY",
+    "FUNCTION_COMPATIBILITY":            "COMPATIBILITY",
+    "STRING_TYPE_COMPATIBILITY":         "COMPATIBILITY",
+    "SYSTEM_TABLE_DEPENDENCY":           "COMPATIBILITY",
+    "SEQUENCE_SYNTAX_INCOMPATIBILITY":   "COMPATIBILITY",
+    "AGGREGATION_FUNCTION_MIGRATION":    "COMPATIBILITY",
+    "DEPRECATED_AGGREGATION_MIGRATION":  "COMPATIBILITY",
+    "REGEX_FUNCTION_MIGRATION":          "COMPATIBILITY",
 }
 
-# [FIX] float → int 로 통일. _bonus() 리턴 타입(int)과 일치시킴.
 CATEGORY_BONUS: dict[str, int] = {
     "QUERY_FAILURE":  10,
     "DATA_INTEGRITY":  8,
@@ -149,32 +164,35 @@ def _bonus(failure_type: str) -> int:
 # 4. 집계 파라미터
 # ══════════════════════════════════════════════════════════════════════════════
 
-# 동일 severity 패턴 반복 시 감쇠율.
-# MEDIUM 패턴 무한 누적 합산 상한 = 48 / (1 - 0.25) = 64 < THRESHOLD_HIGH(80)
-# → MEDIUM만으로는 구조적으로 HIGH 등급 불가 보장.
 DECAY_RATE = 0.25
 
-# 서로 다른 failure_type 카테고리가 복수 감지될 때 추가 보너스.
-# "즉시 실패 + 데이터 불일치 동시 발생"은 단순 합산보다 위험.
 MULTI_CATEGORY_BONUS: dict[int, int] = {2: 3, 3: 6, 4: 10}
 
 # Grid Search 파라미터 탐색 범위 (parameter_tuning.py 에서 실제 사용 예정)
-# 현재 파일에서는 직접 실행하지 않으며, 외부 튜닝 스크립트에서 import 해 사용.
 GRID_SEARCH_PARAMS: dict[str, list] = {
     "DECAY_RATE": [0.1, 0.2, 0.3, 0.4],
     "BONUS":      list(range(1, 16)),  # 1 ~ 15
 }
 
+# quant_signal 기반 동적 bonus 임계값
+QUANT_ROWS_RATIO_THRESHOLD = 100   # rows_ratio 초과 시 +5
+QUANT_ROWS_BONUS           = 5
+QUANT_NO_INDEX_BONUS       = 3
+QUANT_FULL_SCAN_THRESHOLD  = 0.5   # full_scan_ratio 이상 시 +2
+QUANT_FULL_SCAN_BONUS      = 2
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. EXPLAIN JSON 파서 (quant_signal 추출)
+# 5. EXPLAIN JSON 파서 (v4.2 강화)
 #    MySQL 8.0 EXPLAIN FORMAT=JSON 결과를 파싱해 위험 신호를 정량화한다.
-#    현재는 단일 테이블 쿼리 기준 초기 골격 (W2에서 nested/join 확장 예정).
 #
-#    반환 키:
-#      is_full_scan   (bool)  — access_type == "ALL"
-#      no_index_flag  (bool)  — key == null
-#      rows_examined  (int)   — rows_examined_per_scan
+#    추출 항목:
+#      full_scan_ratio  (float)  — 전체 테이블 중 type=ALL 비율
+#      no_index_flag    (int)    — 인덱스 미사용 테이블 존재 여부 (0 or 1)
+#      rows_ratio       (float)  — rows_examined 합계 / 기준 행수(10,000)
+#      rows_examined    (int)    — 전체 스캔 행 수 합계
+#      filtered_avg     (float)  — filtered 컬럼 평균값 (없으면 None)
+#      extra_flags      (list)   — Extra 필드 메시지 목록
 # ══════════════════════════════════════════════════════════════════════════════
 
 def parse_explain_json(json_string: str) -> dict:
@@ -190,9 +208,12 @@ def parse_explain_json(json_string: str) -> dict:
     -------
     dict
         {
-          "is_full_scan":  bool,   # type=ALL 여부
-          "no_index_flag": bool,   # key=NULL 여부
-          "rows_examined": int,    # rows_examined_per_scan
+          "full_scan_ratio":  float,        # type=ALL 테이블 비율 (0.0~1.0)
+          "no_index_flag":    int,           # 인덱스 미사용 여부 (0 or 1)
+          "rows_ratio":       float,         # rows_examined 합계 / 10,000
+          "rows_examined":    int,           # 전체 스캔 행 수
+          "filtered_avg":     float | None,  # filtered 평균 (없으면 None)
+          "extra_flags":      list[str],     # Extra 메시지 목록
         }
         파싱 실패 시 빈 dict 반환.
     """
@@ -200,32 +221,62 @@ def parse_explain_json(json_string: str) -> dict:
         data = json.loads(json_string)
         query_block = data.get("query_block", {})
 
-        quant_signal: dict = {
-            "is_full_scan":  False,
-            "no_index_flag": False,
-            "rows_examined": 0,
+        total_tables     = 0
+        full_scan_tables = 0
+        no_index_count   = 0
+        total_rows       = 0
+        filtered_list: list[float] = []
+        extra_list:    list[str]   = []
+
+        def _process_table(table_info: dict) -> None:
+            nonlocal total_tables, full_scan_tables, no_index_count, total_rows
+
+            total_tables += 1
+
+            # ① type=ALL → 풀스캔
+            if table_info.get("access_type") == "ALL":
+                full_scan_tables += 1
+
+            # ② key=null → 인덱스 미사용
+            if table_info.get("key") is None:
+                no_index_count += 1
+
+            # ③ rows_examined 누적
+            total_rows += int(table_info.get("rows_examined_per_scan", 0))
+
+            # ④ filtered 수집
+            filtered = table_info.get("filtered")
+            if filtered is not None:
+                filtered_list.append(float(filtered))
+
+            # ⑤ Extra(message) 수집
+            extra = table_info.get("message")
+            if extra:
+                extra_list.append(str(extra))
+
+        # 단일 테이블 vs JOIN(nested_loop) 분기
+        if "table" in query_block:
+            _process_table(query_block["table"])
+        elif "nested_loop" in query_block:
+            for item in query_block["nested_loop"]:
+                if "table" in item:
+                    _process_table(item["table"])
+
+        # 지표 계산
+        full_scan_ratio = (full_scan_tables / total_tables) if total_tables > 0 else 0.0
+        rows_ratio      = (total_rows / 10_000) if total_tables > 0 else 0.0
+        filtered_avg    = (sum(filtered_list) / len(filtered_list)) if filtered_list else None
+
+        return {
+            "full_scan_ratio": round(full_scan_ratio, 2),
+            "no_index_flag":   1 if no_index_count > 0 else 0,
+            "rows_ratio":      round(rows_ratio, 2),
+            "rows_examined":   total_rows,
+            "filtered_avg":    round(filtered_avg, 1) if filtered_avg is not None else None,
+            "extra_flags":     extra_list,
         }
 
-        if "table" in query_block:
-            table_info = query_block["table"]
-
-            # 1. Full Table Scan: access_type == "ALL"
-            if table_info.get("access_type") == "ALL":
-                quant_signal["is_full_scan"] = True
-
-            # 2. 인덱스 미사용: key == null
-            if table_info.get("key") is None:
-                quant_signal["no_index_flag"] = True
-
-            # 3. 예상 스캔 행 수
-            quant_signal["rows_examined"] = int(
-                table_info.get("rows_examined_per_scan", 0)
-            )
-
-        return quant_signal
-
     except Exception as e:
-        # 라이브러리 코드이므로 stderr 로 출력 (stdout 오염 방지)
         import sys
         print(f"[parse_explain_json] 파싱 에러: {e}", file=sys.stderr)
         return {}
@@ -237,14 +288,17 @@ def parse_explain_json(json_string: str) -> dict:
 
 @dataclass
 class PatternContribution:
-    pattern_id:     str
-    pattern_name:   str
-    severity:       str
-    failure_type:   str
-    category:       str
-    floor:          int
-    bonus:          int
-    applied_score:  float   # 감쇠 적용 후 실제 기여 점수
+    pattern_id:    str
+    pattern_name:  str
+    severity:      str
+    failure_type:  str
+    category:      str
+    floor:         int
+    bonus:         int          # category_bonus + quant_bonus 합산
+    applied_score: float        # 감쇠 적용 후 실제 기여 점수
+    quant_signal:  dict = field(default_factory=dict)
+    # quant_signal 구조:
+    #   {"full_scan_ratio": float, "no_index_flag": int, "rows_ratio": float, ...}
 
 
 @dataclass
@@ -268,12 +322,12 @@ class RiskResult:
             for c in self.contributions
         ]
         return {
-            # ── 기존 호환 키 (app.py, 프론트엔드에서 그대로 사용 가능) ──────
+            # ── 기존 호환 키 ─────────────────────────────────────────────────
             "risk_score":        self.risk_score,
             "risk_level":        self.risk_level,
             "detected_patterns": detected_patterns,
 
-            # ── 신규 키 (app.py 차트 데이터·디버그용) ──────────────────────
+            # ── 신규 키 ──────────────────────────────────────────────────────
             "contributions": [
                 {
                     "pattern_id":    c.pattern_id,
@@ -284,6 +338,7 @@ class RiskResult:
                     "floor":         c.floor,
                     "bonus":         c.bonus,
                     "applied_score": round(c.applied_score, 1),
+                    "quant_signal":  c.quant_signal,   # dict 그대로 반환
                 }
                 for c in self.contributions
             ],
@@ -306,7 +361,7 @@ class RiskPredictor:
     Oracle → MySQL 위험도 점수 계산기.
 
     [사용법]
-        sim_result = evaluate_sql(sql, RULES)        # consistency_simulator
+        sim_result = evaluate_sql(sql, RULES)
         result     = predictor.evaluate_risk_score(sim_result)
 
         result["risk_score"]        # 0~100 정수
@@ -314,33 +369,12 @@ class RiskPredictor:
         result["detected_patterns"] # 문자열 리스트 (기존 형식 호환)
         result["contributions"]     # 패턴별 점수 기여 내역
         result["score_breakdown"]   # 집계 내역 (발표·디버그용)
-
-    Parameters
-    ----------
-    decay_rate : float
-        동일 severity 패턴 반복 감쇠율 (기본 0.25).
-        낮출수록 추가 패턴 영향이 작아짐.
     """
 
     def __init__(self, decay_rate: float = DECAY_RATE):
         self.decay = decay_rate
 
     def evaluate_risk_score(self, sim_result: dict) -> dict:
-        """
-        consistency_simulator.evaluate_sql() 반환값을 입력으로 받는다.
-
-        Parameters
-        ----------
-        sim_result : dict
-            {
-              "summary": {"max_severity": str, "severity_counts": dict, ...},
-              "details": [{"matched_patterns": [...], ...}, ...]
-            }
-
-        Returns
-        -------
-        dict  — RiskResult.to_dict() 참고
-        """
         return self._compute(sim_result).to_dict()
 
     # ── 내부 ─────────────────────────────────────────────────────────────────
@@ -360,10 +394,10 @@ class RiskPredictor:
             )
 
         contributions, base = self._aggregate(patterns)
-        cats     = sorted({c.category for c in contributions})
-        cat_b    = MULTI_CATEGORY_BONUS.get(len(cats), 0)
-        score    = min(100, max(0, round(base + cat_b)))
-        level    = self._level(score)
+        cats  = sorted({c.category for c in contributions})
+        cat_b = MULTI_CATEGORY_BONUS.get(len(cats), 0)
+        score = min(100, max(0, round(base + cat_b)))
+        level = self._level(score)
 
         return RiskResult(
             risk_score           = score,
@@ -377,10 +411,10 @@ class RiskPredictor:
 
     def _collect(self, details: list[dict]) -> list[dict]:
         """
-        모든 statement 의 matched_patterns 를 수집.
+        모든 statement 의 matched_patterns 수집.
         · 중복 pattern_id 제거 (첫 등장 유지)
         · severity 정규화
-        · (floor + bonus) 기준 내림차순 정렬 → 높은 점수부터 감쇠 적용
+        · (floor + bonus) 기준 내림차순 정렬
         """
         seen: set[str] = set()
         out:  list[dict] = []
@@ -403,6 +437,28 @@ class RiskPredictor:
         )
         return out
 
+    def _quant_bonus(self, quant_signal: dict) -> int:
+        """
+        EXPLAIN JSON 파서 결과(quant_signal)를 기반으로 동적 bonus 계산.
+
+          rows_ratio > 100  → +5  (100만건 이상 스캔)
+          no_index_flag = 1 → +3  (인덱스 미사용)
+          full_scan_ratio ≥ 0.5 → +2  (절반 이상 풀스캔)
+
+        quant_signal 이 비어있거나 None 이면 0 반환.
+        """
+        if not quant_signal:
+            return 0
+
+        bonus = 0
+        if quant_signal.get("rows_ratio", 0) > QUANT_ROWS_RATIO_THRESHOLD:
+            bonus += QUANT_ROWS_BONUS
+        if quant_signal.get("no_index_flag", 0) == 1:
+            bonus += QUANT_NO_INDEX_BONUS
+        if quant_signal.get("full_scan_ratio", 0.0) >= QUANT_FULL_SCAN_THRESHOLD:
+            bonus += QUANT_FULL_SCAN_BONUS
+        return bonus
+
     def _aggregate(
         self, patterns: list[dict]
     ) -> tuple[list[PatternContribution], float]:
@@ -410,34 +466,42 @@ class RiskPredictor:
         severity별 독립 감쇠 카운터로 기여도 합산.
 
         n번째(0-indexed) 동일 severity 패턴의 기여도:
-            (floor + bonus) × decay^n
-
-        severity가 다르면 카운터 독립 → HIGH 감쇠가 MEDIUM에 영향 없음.
+            (floor + category_bonus + quant_bonus) × decay^n
         """
         sev_count: dict[str, int] = {}
         contribs:  list[PatternContribution] = []
         total = 0.0
 
         for p in patterns:
-            sev   = p["severity"]
-            ft    = p.get("failure_type", "")
-            fl    = SEVERITY_FLOOR.get(sev, 10)
-            bns   = _bonus(ft)
-            base  = fl + bns
-            n     = sev_count.get(sev, 0)
-            applied = base * (self.decay ** n)
+            sev = p["severity"]
+            ft  = p.get("failure_type", "")
+            fl  = SEVERITY_FLOOR.get(sev, 10)
+
+            # 축 2: category bonus
+            cat_bns = _bonus(ft)
+
+            # 축 3: quant_signal 동적 bonus (EXPLAIN 파서 결과)
+            qs_raw  = p.get("quant_signal", {})
+            qs      = qs_raw if isinstance(qs_raw, dict) else {}
+            q_bns   = self._quant_bonus(qs)
+
+            total_bns = cat_bns + q_bns
+            base      = fl + total_bns
+            n         = sev_count.get(sev, 0)
+            applied   = base * (self.decay ** n)
             sev_count[sev] = n + 1
             total += applied
 
             contribs.append(PatternContribution(
-                pattern_id   = p.get("id", ""),
-                pattern_name = p.get("name", ""),
-                severity     = sev,
-                failure_type = ft,
-                category     = _category(ft),
-                floor        = fl,
-                bonus        = bns,
+                pattern_id    = p.get("id", ""),
+                pattern_name  = p.get("name", ""),
+                severity      = sev,
+                failure_type  = ft,
+                category      = _category(ft),
+                floor         = fl,
+                bonus         = total_bns,   # category + quant 합산값
                 applied_score = applied,
+                quant_signal  = qs,          # dict 그대로 저장
             ))
 
         return contribs, total
@@ -465,7 +529,7 @@ def _mock(patterns: list[dict], max_sev: str = "HIGH") -> dict:
 if __name__ == "__main__":
     predictor = RiskPredictor()
 
-    # pattern_rules.json 의 실제 패턴 데이터로 케이스 구성
+    # ── 기존 케이스 테스트 ────────────────────────────────────────────────────
     CASES = [
         ("HIGH 1개 — QUERY_FAILURE   (P03 ROWNUM)",
          _mock([{"id":"P03","name":"ROWNUM Pagination",    "severity":"HIGH",  "failure_type":"PAGINATION_MIGRATION_ERROR"}])),
@@ -480,7 +544,7 @@ if __name__ == "__main__":
          _mock([{"id":"P01","name":"Implicit Type Cast",   "severity":"MEDIUM","failure_type":"TYPE_MISMATCH_INDEX_BYPASS"},
                 {"id":"P05","name":"DATE vs DATETIME",     "severity":"MEDIUM","failure_type":"TEMPORAL_TYPE_MISMATCH"},
                 {"id":"P10","name":"Nested Subquery",      "severity":"MEDIUM","failure_type":"NESTED_QUERY_DEGRADATION"},
-                {"id":"P11","name":"DECODE Function",      "severity":"MED",   "failure_type":"FUNCTION_COMPATIBILITY"},  # "MED" 정규화 테스트
+                {"id":"P11","name":"DECODE Function",      "severity":"MED",   "failure_type":"FUNCTION_COMPATIBILITY"},
                 {"id":"P13","name":"START WITH Hierarchy", "severity":"MEDIUM","failure_type":"HIERARCHY_QUERY_MIGRATION"}], "MEDIUM")),
         ("LOW 1개 — COMPATIBILITY    (P04 NVL)",
          _mock([{"id":"P04","name":"NVL Function",         "severity":"LOW",   "failure_type":"FUNCTION_COMPATIBILITY"}], "LOW")),
@@ -498,15 +562,136 @@ if __name__ == "__main__":
         r    = predictor.evaluate_risk_score(mock)
         cats = r["score_breakdown"]["unique_categories"]
         print(f"{desc:<48} {r['risk_score']:>5}점  {r['risk_level']:<8}  {cats}")
-        for c in r["contributions"]:
-            idx        = list(r["contributions"]).index(c)
-            # [FIX] decay_note 계산 후 출력 f-string 에 연결 (A 코드 누락 수정)
+        for idx, c in enumerate(r["contributions"]):
             decay_note = f"(×{DECAY_RATE}^{idx})" if idx > 0 else ""
             print(f"   {c['pattern_id']:<4} {c['severity']:<7} {c['category']:<16} "
                   f"floor={c['floor']:2}+bonus={c['bonus']:2}={c['floor']+c['bonus']:2} "
-                  f"→ applied={c['applied_score']:5.1f} {decay_note}")  # [FIX] :5.1f 복원
+                  f"→ applied={c['applied_score']:5.1f} {decay_note}")
         bd = r["score_breakdown"]
         if bd["multi_category_bonus"]:
             print(f"   ↳ 다중 카테고리 보너스 (+{bd['multi_category_bonus']}): {bd['unique_categories']}")
         print()
     print(SEP)
+
+    # ── EXPLAIN 파서 단위 테스트 5종 ─────────────────────────────────────────
+    print("\n[EXPLAIN 파서 단위 테스트 5종]")
+    SEP2 = "─" * 60
+
+    TEST_CASES = [
+        # T1: 단일 테이블 풀스캔 + 인덱스 없음
+        (
+            "T1 — 단일 테이블 풀스캔 + 인덱스 없음",
+            json.dumps({
+                "query_block": {
+                    "table": {
+                        "access_type": "ALL",
+                        "key": None,
+                        "rows_examined_per_scan": 1000000,
+                        "filtered": 100.0,
+                    }
+                }
+            }),
+            {"full_scan_ratio": 1.0, "no_index_flag": 1, "rows_examined": 1000000},
+        ),
+        # T2: 단일 테이블 인덱스 사용 (정상)
+        (
+            "T2 — 단일 테이블 인덱스 사용 (정상)",
+            json.dumps({
+                "query_block": {
+                    "table": {
+                        "access_type": "ref",
+                        "key": "idx_member_id",
+                        "rows_examined_per_scan": 10,
+                        "filtered": 95.0,
+                    }
+                }
+            }),
+            {"full_scan_ratio": 0.0, "no_index_flag": 0, "rows_examined": 10},
+        ),
+        # T3: JOIN — 일부 테이블만 풀스캔
+        (
+            "T3 — JOIN 일부 풀스캔 (2테이블 중 1개)",
+            json.dumps({
+                "query_block": {
+                    "nested_loop": [
+                        {"table": {"access_type": "ALL",  "key": None,            "rows_examined_per_scan": 500000}},
+                        {"table": {"access_type": "ref",  "key": "idx_order_id",  "rows_examined_per_scan": 10}},
+                    ]
+                }
+            }),
+            {"full_scan_ratio": 0.5, "no_index_flag": 1, "rows_examined": 500010},
+        ),
+        # T4: JOIN — 전체 테이블 풀스캔
+        (
+            "T4 — JOIN 전체 풀스캔 (2테이블 모두)",
+            json.dumps({
+                "query_block": {
+                    "nested_loop": [
+                        {"table": {"access_type": "ALL", "key": None, "rows_examined_per_scan": 1000000}},
+                        {"table": {"access_type": "ALL", "key": None, "rows_examined_per_scan": 2000000}},
+                    ]
+                }
+            }),
+            {"full_scan_ratio": 1.0, "no_index_flag": 1, "rows_examined": 3000000},
+        ),
+        # T5: 잘못된 JSON — 빈 dict 반환 확인
+        (
+            "T5 — 잘못된 JSON 입력 (파싱 실패 처리)",
+            '{"broken_json":',
+            {},
+        ),
+    ]
+
+    print(SEP2)
+    pass_count = 0
+    for name, json_str, expected in TEST_CASES:
+        result = parse_explain_json(json_str)
+        ok     = all(result.get(k) == v for k, v in expected.items())
+        status = "✅ PASS" if ok else "❌ FAIL"
+        if ok:
+            pass_count += 1
+        print(f"  {status} | {name}")
+        if not ok:
+            for k, v in expected.items():
+                actual = result.get(k)
+                if actual != v:
+                    print(f"           {k}: 기대={v}, 실제={actual}")
+        else:
+            print(f"           결과: full_scan_ratio={result.get('full_scan_ratio')} "
+                  f"no_index_flag={result.get('no_index_flag')} "
+                  f"rows_examined={result.get('rows_examined')}")
+    print(SEP2)
+    success_rate = pass_count / len(TEST_CASES) * 100
+    print(f"\n  파싱 성공률: {pass_count}/{len(TEST_CASES)} ({success_rate:.0f}%)")
+    assert success_rate >= 95, f"파싱 성공률 {success_rate:.0f}% — 목표 95% 미달"
+    print("  ✅ 파싱 성공률 ≥ 95% 달성\n")
+
+    # ── quant_signal 기반 동적 bonus 테스트 ──────────────────────────────────
+    print("[quant_signal 동적 bonus 테스트]")
+    print(SEP2)
+
+    qs_full = {"full_scan_ratio": 1.0, "no_index_flag": 1, "rows_ratio": 150.0}
+    qs_none = {}
+    qs_partial = {"full_scan_ratio": 0.3, "no_index_flag": 0, "rows_ratio": 50.0}
+
+    mock_with_qs = _mock([{
+        "id": "P09", "name": "JOIN Without Index",
+        "severity": "HIGH", "failure_type": "JOIN_FULL_SCAN",
+        "quant_signal": qs_full,
+    }])
+    r_qs = predictor.evaluate_risk_score(mock_with_qs)
+    c_qs = r_qs["contributions"][0]
+    print(f"  quant_signal 풀옵션 — bonus={c_qs['bonus']} "
+          f"(category=5 + quant={c_qs['bonus']-5}), score={r_qs['risk_score']}")
+
+    mock_no_qs = _mock([{
+        "id": "P09", "name": "JOIN Without Index",
+        "severity": "HIGH", "failure_type": "JOIN_FULL_SCAN",
+        "quant_signal": qs_none,
+    }])
+    r_noqs = predictor.evaluate_risk_score(mock_no_qs)
+    c_noqs = r_noqs["contributions"][0]
+    print(f"  quant_signal 없음    — bonus={c_noqs['bonus']} "
+          f"(category=5 + quant=0), score={r_noqs['risk_score']}")
+    print(SEP2)
+    print(f"  quant_signal 있을 때 점수 차이: +{r_qs['risk_score'] - r_noqs['risk_score']}점\n")
