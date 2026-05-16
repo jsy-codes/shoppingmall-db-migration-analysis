@@ -77,6 +77,9 @@ except Exception as e:
     with open(RULES_PATH, 'r', encoding='utf-8') as f:
         RULES_STR = f.read()
 
+rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
+RULES_STR = json.dumps(rules_data, ensure_ascii=False) 
+
 class QueryRequest(BaseModel):
     sql: str
 
@@ -352,6 +355,20 @@ async def diagnose(req: QueryRequest, request: Request):
     except Exception as e:
         return {"error": str(e)}
     
+
+@app.post("/simulate")
+async def simulate(req: QueryRequest):
+    sim_result = evaluate_sql(req.sql, RULES)
+    matched_ids = list(set(
+        p["id"] for detail in sim_result["details"]
+        for p in detail["matched_patterns"]
+    ))
+    return {
+        "matched_pattern_ids": matched_ids,
+        "max_severity": sim_result["summary"]["max_severity"],
+        "total_pattern_count": sim_result["summary"]["total_pattern_count"],
+    }
+
 @app.post("/session")
 async def save_session(body: SessionRequest, request: Request):
     user_email = get_user_id(request)
