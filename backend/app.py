@@ -78,6 +78,9 @@ RULES = load_rules(RULES_PATH)
 #     with open(RULES_PATH, 'r', encoding='utf-8') as f:
 #         RULES_STR = f.read()
 
+rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
+RULES_STR = json.dumps(rules_data, ensure_ascii=False) 
+
 class QueryRequest(BaseModel):
     sql: str
 

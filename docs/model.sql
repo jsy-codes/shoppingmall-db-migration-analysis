@@ -60,3 +60,11 @@ CREATE TABLE PAYMENTS (
     payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES ORDERS(id)
 );
+
+ALTER TABLE ORDERS ADD INDEX idx_orders_member_id (member_id);
+ALTER TABLE ORDERS ADD INDEX idx_orders_status (status);
+ALTER TABLE ORDERS ADD INDEX idx_orders_created_at (created_at);
+ALTER TABLE ORDER_ITEMS ADD INDEX idx_items_order_id (order_id);
+ALTER TABLE ORDER_ITEMS ADD INDEX idx_items_product_id (product_id);
+ALTER TABLE MEMBERS ADD INDEX idx_members_status (status);
+ALTER TABLE MEMBERS ADD INDEX idx_members_email (email);
