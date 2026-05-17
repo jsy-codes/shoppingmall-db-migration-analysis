@@ -1,0 +1,14 @@
+DROP TABLE IF EXISTS t7;
+
+CREATE TABLE t7 (
+    c CHAR(5),
+    v VARCHAR(5)
+);
+
+INSERT INTO t7 VALUES
+('A', 'A');
+
+SELECT
+c = 'A',
+v = 'A'
+FROM t7;

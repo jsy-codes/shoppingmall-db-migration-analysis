@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS t2;
+
+CREATE TABLE t2 (
+    id INT,
+    name VARCHAR(20),
+    INDEX idx_name (name)
+);
+
+INSERT INTO t2 VALUES
+(1,'KIM'),
+(2,'LEE'),
+(3,'PARK');
+
+EXPLAIN SELECT * FROM t2 WHERE name = 'KIM';
+
+EXPLAIN SELECT * FROM t2 WHERE UPPER(name) = 'KIM';

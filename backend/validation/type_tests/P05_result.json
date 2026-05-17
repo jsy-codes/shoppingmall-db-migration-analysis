@@ -1,0 +1,90 @@
+{
+  "summary": {
+    "statement_count": 4,
+    "total_pattern_count": 1,
+    "max_severity": "MEDIUM",
+    "severity_counts": {
+      "HIGH": 0,
+      "MEDIUM": 1,
+      "LOW": 0
+    },
+    "failure_types": [
+      "TEMPORAL_TYPE_MISMATCH"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t5",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t5 (\n    d1 DATE,\n    d2 DATETIME\n)",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P05"
+      ],
+      "failure_types": [
+        "TEMPORAL_TYPE_MISMATCH"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 1,
+        "LOW": 0
+      },
+      "max_severity": "MEDIUM",
+      "matched_patterns": [
+        {
+          "id": "P05",
+          "name": "DATE vs DATETIME",
+          "severity": "MEDIUM",
+          "failure_type": "TEMPORAL_TYPE_MISMATCH",
+          "description": "Oracle DATE includes time semantics",
+          "impact": "시간 정보 손실/불일치로 정합성 이슈 발생",
+          "quant_signal": "날짜 비교 결과 건수 차이"
+        }
+      ],
+      "recommendations": [
+        "Validate whether DATETIME/TIMESTAMP is required"
+      ]
+    },
+    {
+      "statement": "INSERT INTO t5 VALUES\n('2024-01-01', '2024-01-01 10:10:10')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "SELECT * FROM t5",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+file,result
+P01.sql,OK
+P02.sql,OK
+P03.sql,"[""1054 (42S22): Unknown column 'ROWNUM' in 'where clause'""]"
+P04.sql,['1305 (42000): FUNCTION type_test.NVL does not exist']
+P05.sql,OK
+P06.sql,"[""1406 (22001): Data too long for column 'name' at row 1""]"
+P07.sql,OK
+P08.sql,OK
+P09.sql,OK
+P10.sql,OK
+P23.sql,"[""1054 (42S22): Unknown column 'my_seq.NEXTVAL' in 'field list'""]"
+P24.sql,"[""1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '(ORDER BY name) FROM t24' at line 2""]"
+P25.sql,"[""1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'NUMBER(10,2),\n    count NUMBER\n)' at line 3"", ""1050 (42S01): Table 't25_new' already exists""]"
+P26.sql,"[""1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'BY NOCYCLE PRIOR id = parent_id' at line 4""]"
+P27.sql,OK
+P28.sql,"[""1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '(\n    SUM(amount)\n    FOR year IN (2023, 2024)\n)' at line 3""]"
+P29.sql,['1305 (42000): FUNCTION type_test.WM_CONCAT does not exist']
+P30.sql,"[""1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'NVARCHAR2(50),\n    code NCHAR(10)\n)' at line 3""]"

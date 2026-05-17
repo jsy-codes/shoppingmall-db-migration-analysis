@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mysql-testbed:
+    image: mysql:8.0
+    container_name: migration-test-db
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bucketstore_dummy
+      TZ: Asia/Seoul
+    volumes:
+      - ./docs/model.sql:/docker-entrypoint-initdb.d/1_schema.sql
+      - mysql_data:/var/lib/mysql
+    command:
+      - --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql_data:

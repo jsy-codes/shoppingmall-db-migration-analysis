@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 1,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "failure_types": [
+      "PAGINATION_MIGRATION_ERROR"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t3",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t3 (\n    id INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t3 VALUES\n(1),(2),(3),(4),(5),(6)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- Oracle style (should fail)\nSELECT * FROM t3 WHERE ROWNUM <= 3",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P03"
+      ],
+      "failure_types": [
+        "PAGINATION_MIGRATION_ERROR"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P03",
+          "name": "ROWNUM Pagination",
+          "severity": "HIGH",
+          "failure_type": "PAGINATION_MIGRATION_ERROR",
+          "description": "ROWNUM is Oracle-specific",
+          "impact": "페이징 변환 누락 시 결과 과다 조회/쿼리 실패",
+          "quant_signal": "반환 row 수 과다 또는 syntax error"
+        }
+      ],
+      "recommendations": [
+        "Rewrite using LIMIT/OFFSET"
+      ]
+    },
+    {
+      "statement": "-- MySQL style\nSELECT * FROM t3 LIMIT 3",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

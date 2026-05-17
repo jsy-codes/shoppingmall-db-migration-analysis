@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/* ── 폰트 등록 (Tailwind v4 CSS-first) ─────────────────── */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+
+/* ── 타이틀 슬라이드업 애니메이션 ────────────────────── */
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-slide-up {
+  animation: slide-up-fade 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-slide-up-delay {
+  animation: slide-up-fade 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+
+/* ── 페이드인 (예제·카탈로그 버튼) ──────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.5s ease both;
+}
+
+/* ── 화면 전환 ───────────────────────────────────────── */
+@keyframes fade-out-up {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-20px); }
+}
+.animate-fade-out-up {
+  animation: fade-out-up 0.28s ease forwards;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── 배치분석 탭 슬라이드 전환 ───────────────────────── */
+@keyframes tab-slide-from-right {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes tab-slide-from-left {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-tab-from-right {
+  animation: tab-slide-from-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-tab-from-left {
+  animation: tab-slide-from-left 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── 사이드바 슬라이드인 (페이지 최초 진입) ──────────── */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── 로고 플로팅 애니메이션 ───────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+.animate-float { animation: float 4s ease-in-out infinite; }
+
+/* ── 점 3개 로딩 애니메이션 ───────────────────────────── */
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%            { transform: translateY(-6px); opacity: 1; }
+}
+.dot-1 { animation: bounce-dot 1.2s ease-in-out infinite 0s; }
+.dot-2 { animation: bounce-dot 1.2s ease-in-out infinite 0.2s; }
+.dot-3 { animation: bounce-dot 1.2s ease-in-out infinite 0.4s; }
+
+/* ── 입력 패널 포커스 글로우 ─────────────────────────── */
+/* ── 스크롤바 숨김 (예제 버튼 가로 스크롤) ──────────────── */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+.input-panel:focus-within {
+  border-color: rgba(161, 161, 170, 0.4);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04), 0 0 20px rgba(0, 0, 0, 0.04);
+}

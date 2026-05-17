@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 1,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "failure_types": [
+      "DEPRECATED_AGGREGATION_MIGRATION"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t29",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t29 (\n    name VARCHAR(50)\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t29 VALUES ('A'), ('B'), ('C')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle deprecated\nSELECT WM_CONCAT(name) FROM t29",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P29"
+      ],
+      "failure_types": [
+        "DEPRECATED_AGGREGATION_MIGRATION"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P29",
+          "name": "WM_CONCAT Aggregation",
+          "severity": "HIGH",
+          "failure_type": "DEPRECATED_AGGREGATION_MIGRATION",
+          "description": "WM_CONCAT is deprecated in Oracle 12c+ and not available in MySQL",
+          "impact": "집계 함수 미지원으로 실행 에러 발생, 순서 보장 불가",
+          "quant_signal": "GROUP_CONCAT 변환 후 구분자·순서 검증 필요"
+        }
+      ],
+      "recommendations": [
+        "Replace with GROUP_CONCAT; note result order is not guaranteed without ORDER BY"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL\nSELECT GROUP_CONCAT(name) FROM t29",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

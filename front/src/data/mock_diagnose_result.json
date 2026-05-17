@@ -1,0 +1,73 @@
+{
+  "results": [
+    {
+      "rule_id": "P03",
+      "risk_level": "HIGH",
+      "risk_score": 92,
+      "matched_pattern_ids": ["P03"],
+      "reason": "ROWNUM은 Oracle 전용 페이징 구문입니다. MySQL에서 LIMIT 없이 이관 시 전체 행 조회가 발생하여 심각한 성능 저하를 유발합니다.",
+      "recommended_ddl": "SELECT * FROM orders\nWHERE status = 'COMPLETE'\nLIMIT 10;",
+      "estimated_improvement": "Full Scan 제거, 응답시간 98% 단축",
+      "simulator_detail": []
+    },
+    {
+      "rule_id": "P02",
+      "risk_level": "HIGH",
+      "risk_score": 88,
+      "matched_pattern_ids": ["P02"],
+      "reason": "UPPER() 함수를 인덱스 컬럼에 적용하면 인덱스가 무력화되어 전체 테이블 스캔이 발생합니다.",
+      "recommended_ddl": "ALTER TABLE members ADD name_upper VARCHAR(100) GENERATED ALWAYS AS (UPPER(name));\nCREATE INDEX idx_members_name_upper ON members(name_upper);\nSELECT * FROM members WHERE name_upper = 'KIM';",
+      "estimated_improvement": "인덱스 재활성화로 Full Scan 제거, 응답시간 98.6% 단축",
+      "simulator_detail": []
+    },
+    {
+      "rule_id": "P04",
+      "risk_level": "LOW",
+      "risk_score": 30,
+      "matched_pattern_ids": ["P04"],
+      "reason": "NVL은 Oracle 전용 함수입니다. MySQL에서는 IFNULL 또는 COALESCE를 사용해야 합니다.",
+      "recommended_ddl": "SELECT IFNULL(price, 0) FROM products;",
+      "estimated_improvement": "함수 호환성 확보, syntax error 방지",
+      "simulator_detail": []
+    },
+    {
+      "rule_id": "P12",
+      "risk_level": "HIGH",
+      "risk_score": 85,
+      "matched_pattern_ids": ["P12"],
+      "reason": "CONNECT BY는 Oracle 전용 계층형 쿼리 구문입니다. MySQL에서는 WITH RECURSIVE CTE로 변환해야 합니다.",
+      "recommended_ddl": "WITH RECURSIVE cte AS (\n  SELECT id, name, parent_id FROM categories WHERE parent_id IS NULL\n  UNION ALL\n  SELECT c.id, c.name, c.parent_id FROM categories c\n  JOIN cte ON c.parent_id = cte.id\n)\nSELECT * FROM cte;",
+      "estimated_improvement": "계층 쿼리 호환성 100% 확보, syntax error 방지",
+      "simulator_detail": []
+    },
+    {
+      "rule_id": "P09",
+      "risk_level": "HIGH",
+      "risk_score": 78,
+      "matched_pattern_ids": ["P09"],
+      "reason": "JOIN 컬럼에 인덱스가 없으면 MySQL 옵티마이저가 전체 스캔을 수행합니다.",
+      "recommended_ddl": "CREATE INDEX idx_orders_member_id ON orders(member_id);\nCREATE INDEX idx_orders_product_id ON orders(product_id);",
+      "estimated_improvement": "조인 Full Scan 제거, 응답시간 98.2% 단축",
+      "simulator_detail": []
+    }
+  ],
+  "performance_data": [
+    { "pattern": "P02", "label": "함수인덱스", "before": 3200, "after": 45,  "improvement": 98.6 },
+    { "pattern": "P03", "label": "ROWNUM",    "before": 8900, "after": 120, "improvement": 98.7 },
+    { "pattern": "P09", "label": "조인인덱스", "before": 5400, "after": 98,  "improvement": 98.2 },
+    { "pattern": "P10", "label": "중첩쿼리",  "before": 2100, "after": 67,  "improvement": 96.8 },
+    { "pattern": "P12", "label": "계층쿼리",  "before": 7800, "after": 210, "improvement": 97.3 }
+  ],
+  "risk_score_data": [
+    { "id": "P02", "name": "Function Index",  "score": 88 },
+    { "id": "P03", "name": "ROWNUM",          "score": 92 },
+    { "id": "P09", "name": "JOIN No Index",   "score": 78 },
+    { "id": "P12", "name": "CONNECT BY",      "score": 85 },
+    { "id": "P14", "name": "Outer Join (+)",  "score": 80 },
+    { "id": "P17", "name": "MERGE INTO",      "score": 83 },
+    { "id": "P01", "name": "Implicit Cast",   "score": 55 },
+    { "id": "P10", "name": "Nested Subquery", "score": 60 },
+    { "id": "P04", "name": "NVL",             "score": 30 },
+    { "id": "P19", "name": "DUAL",            "score": 20 }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "summary": {
+    "statement_count": 6,
+    "total_pattern_count": 2,
+    "max_severity": "LOW",
+    "severity_counts": {
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 2
+    },
+    "failure_types": [
+      "CHAR_PADDING_COMPARISON",
+      "UNICODE_TYPE_MAPPING"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t30",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "DROP TABLE IF EXISTS t30_new",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle Unicode 타입\nCREATE TABLE t30 (\n    name NVARCHAR2(50),\n    code NCHAR(10)\n)",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P30"
+      ],
+      "failure_types": [
+        "UNICODE_TYPE_MAPPING"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 1
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [
+        {
+          "id": "P30",
+          "name": "NCHAR/NVARCHAR2 Type",
+          "severity": "LOW",
+          "failure_type": "UNICODE_TYPE_MAPPING",
+          "description": "Oracle NCHAR/NVARCHAR2 stores Unicode; MySQL handles this via charset",
+          "impact": "문자셋 매핑 누락 시 한글·이모지 저장 오류 또는 데이터 잘림",
+          "quant_signal": "멀티바이트 문자 INSERT/SELECT 결과 byte 수 불일치"
+        }
+      ],
+      "recommendations": [
+        "Map to CHAR/VARCHAR with CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL charset 명시\nCREATE TABLE t30_new (\n    name VARCHAR(50) CHARACTER SET utf8mb4,\n    code CHAR(10) CHARACTER SET utf8mb4\n)",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P07"
+      ],
+      "failure_types": [
+        "CHAR_PADDING_COMPARISON"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 1
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [
+        {
+          "id": "P07",
+          "name": "CHAR Padding",
+          "severity": "LOW",
+          "failure_type": "CHAR_PADDING_COMPARISON",
+          "description": "Trailing spaces may affect comparisons",
+          "impact": "공백 패딩으로 비교 결과 왜곡",
+          "quant_signal": "= 비교 건수 차이, TRIM 적용 시 변화"
+        }
+      ],
+      "recommendations": [
+        "Use VARCHAR or TRIM in predicates"
+      ]
+    },
+    {
+      "statement": "-- P30.sql에 추가  \nINSERT INTO t30_new VALUES ('홍길동', 'A001')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t30_new VALUES ('김철수', 'B002')",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

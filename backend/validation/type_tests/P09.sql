@@ -1,0 +1,20 @@
+DROP TABLE IF EXISTS a;
+DROP TABLE IF EXISTS b;
+
+CREATE TABLE a (
+    id INT,
+    val INT
+);
+
+CREATE TABLE b (
+    id INT,
+    val INT
+);
+
+INSERT INTO a VALUES (1,1),(2,2),(3,3);
+INSERT INTO b VALUES (1,1),(2,2),(3,3);
+
+EXPLAIN
+SELECT *
+FROM a
+JOIN b ON a.id = b.id;

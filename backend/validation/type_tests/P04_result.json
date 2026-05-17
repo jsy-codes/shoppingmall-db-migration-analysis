@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 1,
+    "max_severity": "LOW",
+    "severity_counts": {
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 1
+    },
+    "failure_types": [
+      "FUNCTION_COMPATIBILITY"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS t4",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE t4 (\n    id INT,\n    val INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO t4 VALUES\n(1,NULL),\n(2,10)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- Oracle\nSELECT NVL(val,0) FROM t4",
+      "pattern_count": 1,
+      "pattern_ids": [
+        "P04"
+      ],
+      "failure_types": [
+        "FUNCTION_COMPATIBILITY"
+      ],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 1
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [
+        {
+          "id": "P04",
+          "name": "NVL Function",
+          "severity": "LOW",
+          "failure_type": "FUNCTION_COMPATIBILITY",
+          "description": "NVL is not supported in MySQL",
+          "impact": "함수 비호환으로 실행 에러 발생",
+          "quant_signal": "실행 시 function not found 에러"
+        }
+      ],
+      "recommendations": [
+        "Replace with IFNULL or COALESCE"
+      ]
+    },
+    {
+      "statement": "-- MySQL\nSELECT IFNULL(val,0) FROM t4",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    }
+  ]
+}

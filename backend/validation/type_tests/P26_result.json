@@ -1,0 +1,147 @@
+{
+  "summary": {
+    "statement_count": 5,
+    "total_pattern_count": 4,
+    "max_severity": "HIGH",
+    "severity_counts": {
+      "HIGH": 3,
+      "MEDIUM": 1,
+      "LOW": 0
+    },
+    "failure_types": [
+      "HIERARCHY_CYCLE_DETECTION_MIGRATION",
+      "HIERARCHY_QUERY_MIGRATION",
+      "JOIN_FULL_SCAN",
+      "NESTED_QUERY_DEGRADATION"
+    ],
+    "note": "RiskScore is intentionally excluded. Use prediction model for scoring."
+  },
+  "details": [
+    {
+      "statement": "DROP TABLE IF EXISTS tree",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "CREATE TABLE tree (\n    id        INT PRIMARY KEY,\n    name      VARCHAR(100),\n    parent_id INT\n)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "INSERT INTO tree VALUES\n(1, '본사',   NULL),\n(2, '영업팀', 1),\n(3, '개발팀', 1),\n(4, '프론트', 3),\n(5, '백엔드', 3)",
+      "pattern_count": 0,
+      "pattern_ids": [],
+      "failure_types": [],
+      "severity_counts": {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "LOW",
+      "matched_patterns": [],
+      "recommendations": []
+    },
+    {
+      "statement": "-- ❌ Oracle 계층 쿼리\nSELECT id, parent_id\nFROM tree\nCONNECT BY NOCYCLE PRIOR id = parent_id",
+      "pattern_count": 2,
+      "pattern_ids": [
+        "P12",
+        "P26"
+      ],
+      "failure_types": [
+        "HIERARCHY_CYCLE_DETECTION_MIGRATION",
+        "HIERARCHY_QUERY_MIGRATION"
+      ],
+      "severity_counts": {
+        "HIGH": 2,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P12",
+          "name": "CONNECT BY Hierarchy",
+          "severity": "HIGH",
+          "failure_type": "HIERARCHY_QUERY_MIGRATION",
+          "description": "CONNECT BY needs recursive CTE rewrite",
+          "impact": "계층 쿼리 비호환으로 기능 실패",
+          "quant_signal": "CONNECT BY 구문 오류"
+        },
+        {
+          "id": "P26",
+          "name": "CONNECT BY NOCYCLE",
+          "severity": "HIGH",
+          "failure_type": "HIERARCHY_CYCLE_DETECTION_MIGRATION",
+          "description": "CONNECT BY NOCYCLE cycle detection has no direct MySQL equivalent",
+          "impact": "순환 참조 탐지 누락 시 재귀 CTE 무한루프 발생 가능",
+          "quant_signal": "재귀 CTE 실행 시 max_recursion 한계 도달 여부 확인"
+        }
+      ],
+      "recommendations": [
+        "Rewrite as WITH RECURSIVE",
+        "Rewrite as WITH RECURSIVE with explicit visited-node SET tracking"
+      ]
+    },
+    {
+      "statement": "-- ✅ MySQL WITH RECURSIVE\nWITH RECURSIVE tree_cte AS (\n    SELECT id, parent_id FROM tree WHERE parent_id IS NULL\n    UNION ALL\n    SELECT t.id, t.parent_id\n    FROM tree t\n    JOIN tree_cte c ON t.parent_id = c.id\n)\nSELECT * FROM tree_cte",
+      "pattern_count": 2,
+      "pattern_ids": [
+        "P09",
+        "P10"
+      ],
+      "failure_types": [
+        "JOIN_FULL_SCAN",
+        "NESTED_QUERY_DEGRADATION"
+      ],
+      "severity_counts": {
+        "HIGH": 1,
+        "MEDIUM": 1,
+        "LOW": 0
+      },
+      "max_severity": "HIGH",
+      "matched_patterns": [
+        {
+          "id": "P09",
+          "name": "JOIN Without Index",
+          "severity": "HIGH",
+          "failure_type": "JOIN_FULL_SCAN",
+          "description": "JOIN may degrade without join-key index",
+          "impact": "조인 시 풀스캔/대량 rows 탐색 발생",
+          "quant_signal": "EXPLAIN rows 급증, type=ALL"
+        },
+        {
+          "id": "P10",
+          "name": "Nested Subquery",
+          "severity": "MEDIUM",
+          "failure_type": "NESTED_QUERY_DEGRADATION",
+          "description": "Deep nested subqueries can degrade optimizer behavior",
+          "impact": "중첩 서브쿼리로 최적화 제한",
+          "quant_signal": "실행시간 증가, DEPENDENT SUBQUERY 노출"
+        }
+      ],
+      "recommendations": [
+        "Add index on join keys",
+        "Rewrite with JOIN/CTE where possible"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS t6;
+
+CREATE TABLE t6 (
+    name VARCHAR(5)
+);
+
+INSERT INTO t6 VALUES
+('ABCDE');
+
+-- overflow
+INSERT INTO t6 VALUES
+('ABCDEFG');
