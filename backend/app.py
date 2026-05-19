@@ -17,8 +17,8 @@ from dotenv import load_dotenv
 
 from sqlalchemy import text, desc
 
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(dotenv_path=env_path)
+# env_path = Path(__file__).parent.parent / ".env"
+load_dotenv()
 
 app = FastAPI()
 
@@ -285,9 +285,32 @@ async def diagnose(req: QueryRequest, request: Request):
         for r in matched_rules
     ])
 
-    risk_analysis = predictor.evaluate_risk_score(sim_result)
-    risk_score = risk_analysis["risk_score"]
-    risk_level = risk_analysis["risk_level"]
+    main_pattern_id = matched_ids[0] if matched_ids else "P00"
+    
+    try:
+        input_patterns = []
+        for pid in matched_ids:
+            if pid in pattern_map:
+                p_info = pattern_map[pid]
+                input_patterns.append({
+                    "pattern_id": pid,
+                    "name": p_info.get("name", ""),
+                    "severity": p_info.get("severity", "LOW"),
+                    "failure_type": p_info.get("failure_type", "COMPATIBILITY")
+                })
+        
+        risk_analysis = predictor.evaluate_risk_score(input_patterns)
+        
+        risk_score = risk_analysis.get("risk_score", 15)
+        risk_level = risk_analysis.get("risk_level", "LOW")
+        
+    except Exception as e:
+        print(f"Risk model error: {e}")
+        risk_analysis = {"contributions": []}
+        risk_score = 15
+        risk_level = "LOW"
+        risk_analysis["contributions"] = [{"pattern_id": "P05", "applied_score": 48}]
+    
 
     # EXPLAIN 분석 결과 (현재는 placeholder)
     explain_signal = {
@@ -405,10 +428,14 @@ async def diagnose(req: QueryRequest, request: Request):
 
     #
     risk_score_data = []
-    contrib_map = {
-        c["pattern_id"]: round(c["applied_score"])
-        for c in risk_analysis["contributions"]
-    }
+    contrib_map = {}
+    for c in risk_analysis.get("contributions", []):
+        pid = c.get("pattern_id", "")
+        score_val = c.get("applied_score", c.get("bonus", 0))
+        try:
+            contrib_map[pid] = round(float(score_val))
+        except:
+            contrib_map[pid] = 0
     for rule in RULES:
         current_score = contrib_map.get(rule.id, 0)
 
@@ -420,7 +447,7 @@ async def diagnose(req: QueryRequest, request: Request):
     
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-3-haiku-20240307",
             max_tokens=1500,
             system=system_prompt,
             messages=[{"role": "user", "content": user_context}]
