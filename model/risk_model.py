@@ -54,12 +54,20 @@ Oracle → MySQL 마이그레이션 위험도 점수 계산 모델
        - CATEGORY_BONUS float → int 타입 통일 (_bonus 리턴타입 일치)
        - 출력 포맷 복원: applied={:5.1f}, decay_note 출력 연결
 """
-
+#risk_model.py
+# model/risk_model.py
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Optional
+
+from model.explain_parser import parse_explain_json
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))  # model/ 추가
+
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -165,75 +173,40 @@ GRID_SEARCH_PARAMS: dict[str, list] = {
     "BONUS":      list(range(1, 16)),  # 1 ~ 15
 }
 
-
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. EXPLAIN JSON 파서 (quant_signal 추출)
-#    MySQL 8.0 EXPLAIN FORMAT=JSON 결과를 파싱해 위험 신호를 정량화한다.
-#    현재는 단일 테이블 쿼리 기준 초기 골격 (W2에서 nested/join 확장 예정).
-#
-#    반환 키:
-#      is_full_scan   (bool)  — access_type == "ALL"
-#      no_index_flag  (bool)  — key == null
-#      rows_examined  (int)   — rows_examined_per_scan
+# 5. EXPLAIN JSON 파서 (quant_signal 추출) — v2 (W2 D 구현)
+#    MySQL 8.0 EXPLAIN FORMAT=JSON → 위험 신호 정량화
+#    단일 테이블 / JOIN(nested_loop) / 서브쿼리(attached_subqueries) 지원
 # ══════════════════════════════════════════════════════════════════════════════
 
-def parse_explain_json(json_string: str) -> dict:
+def _extract_tables(query_block: dict) -> list[dict]:
     """
-    MySQL EXPLAIN FORMAT=JSON 결과를 파싱해 quant_signal 딕셔너리를 반환한다.
-
-    Parameters
-    ----------
-    json_string : str
-        EXPLAIN FORMAT=JSON 출력 문자열
-
-    Returns
-    -------
-    dict
-        {
-          "is_full_scan":  bool,   # type=ALL 여부
-          "no_index_flag": bool,   # key=NULL 여부
-          "rows_examined": int,    # rows_examined_per_scan
-        }
-        파싱 실패 시 빈 dict 반환.
+    query_block 에서 모든 table 노드를 재귀적으로 수집.
+    지원 구조:
+      · "table": {...}                    — 단일 테이블
+      · "nested_loop": [{table}, ...]     — JOIN
+      · "attached_subqueries": [...]      — 서브쿼리
     """
-    try:
-        data = json.loads(json_string)
-        query_block = data.get("query_block", {})
+    tables: list[dict] = []
 
-        quant_signal: dict = {
-            "is_full_scan":  False,
-            "no_index_flag": False,
-            "rows_examined": 0,
-        }
+    if "table" in query_block:
+        tables.append(query_block["table"])
+        # 해당 테이블에 딸린 서브쿼리도 재귀 수집
+        for sub in query_block["table"].get("attached_subqueries", []):
+            tables.extend(_extract_tables(sub.get("query_block", {})))
 
-        if "table" in query_block:
-            table_info = query_block["table"]
+    if "nested_loop" in query_block:
+        for node in query_block["nested_loop"]:
+            tables.extend(_extract_tables(node))
 
-            # 1. Full Table Scan: access_type == "ALL"
-            if table_info.get("access_type") == "ALL":
-                quant_signal["is_full_scan"] = True
+    return tables
 
-            # 2. 인덱스 미사용: key == null
-            if table_info.get("key") is None:
-                quant_signal["no_index_flag"] = True
-
-            # 3. 예상 스캔 행 수
-            quant_signal["rows_examined"] = int(
-                table_info.get("rows_examined_per_scan", 0)
-            )
-
-        return quant_signal
-
-    except Exception as e:
-        # 라이브러리 코드이므로 stderr 로 출력 (stdout 오염 방지)
-        import sys
-        print(f"[parse_explain_json] 파싱 에러: {e}", file=sys.stderr)
-        return {}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. 데이터 클래스
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class PatternContribution:
@@ -244,7 +217,10 @@ class PatternContribution:
     category:       str
     floor:          int
     bonus:          int
-    applied_score:  float   # 감쇠 적용 후 실제 기여 점수
+    applied_score:  float
+    # ── W2 신규 ──────────────────────────────────────────────────
+    quant_signal:   dict  = field(default_factory=dict)
+    quant_bonus:    int   = 0   # parse_explain_json 기반 추가 보너스
 
 
 @dataclass
@@ -274,6 +250,7 @@ class RiskResult:
             "detected_patterns": detected_patterns,
 
             # ── 신규 키 (app.py 차트 데이터·디버그용) ──────────────────────
+            # RiskResult.to_dict() 내 contributions 부분
             "contributions": [
                 {
                     "pattern_id":    c.pattern_id,
@@ -284,6 +261,8 @@ class RiskResult:
                     "floor":         c.floor,
                     "bonus":         c.bonus,
                     "applied_score": round(c.applied_score, 1),
+                    "quant_bonus":   c.quant_bonus,       # ← 신규
+                    "quant_signal":  c.quant_signal,       # ← 신규
                 }
                 for c in self.contributions
             ],
@@ -325,56 +304,38 @@ class RiskPredictor:
     def __init__(self, decay_rate: float = DECAY_RATE):
         self.decay = decay_rate
 
-    def evaluate_risk_score(self, sim_result: dict) -> dict:
-        """
-        consistency_simulator.evaluate_sql() 반환값을 입력으로 받는다.
+    def evaluate_risk_score(
+        self,
+        sim_result: dict,
+        explain_json_str: str | None = None,   # ← W2 신규
+    ) -> dict:
+        quant = parse_explain_json(explain_json_str) if explain_json_str else None
+        return self._compute(sim_result, quant).to_dict()
 
-        Parameters
-        ----------
-        sim_result : dict
-            {
-              "summary": {"max_severity": str, "severity_counts": dict, ...},
-              "details": [{"matched_patterns": [...], ...}, ...]
-            }
-
-        Returns
-        -------
-        dict  — RiskResult.to_dict() 참고
-        """
-        return self._compute(sim_result).to_dict()
-
-    # ── 내부 ─────────────────────────────────────────────────────────────────
-
-    def _compute(self, sim_result: dict) -> RiskResult:
+    def _compute(self, sim_result: dict, quant: dict | None = None) -> RiskResult:
         summary      = sim_result.get("summary", {})
         details      = sim_result.get("details", [])
         max_severity = _norm_sev(summary.get("max_severity", "LOW"))
 
         patterns = self._collect(details)
-
         if not patterns:
             return RiskResult(
                 risk_score=0, risk_level="LOW", max_severity=max_severity,
                 base_score=0.0, multi_category_bonus=0, unique_categories=[],
-                note="탐지된 위험 패턴 없음 — 이관 위험도 낮음",
+                note="탐지된 위험 패턴 없음",
             )
 
-        contributions, base = self._aggregate(patterns)
-        cats     = sorted({c.category for c in contributions})
-        cat_b    = MULTI_CATEGORY_BONUS.get(len(cats), 0)
-        score    = min(100, max(0, round(base + cat_b)))
-        level    = self._level(score)
+        contributions, base = self._aggregate(patterns, quant)   # quant 전달
+        cats  = sorted({c.category for c in contributions})
+        cat_b = MULTI_CATEGORY_BONUS.get(len(cats), 0)
+        score = min(100, max(0, round(base + cat_b)))
+        level = self._level(score)
 
         return RiskResult(
-            risk_score           = score,
-            risk_level           = level,
-            max_severity         = max_severity,
-            base_score           = base,
-            multi_category_bonus = cat_b,
-            unique_categories    = cats,
-            contributions        = contributions,
+            risk_score=score, risk_level=level, max_severity=max_severity,
+            base_score=base, multi_category_bonus=cat_b, unique_categories=cats,
+            contributions=contributions,
         )
-
     def _collect(self, details: list[dict]) -> list[dict]:
         """
         모든 statement 의 matched_patterns 를 수집.
@@ -404,16 +365,27 @@ class RiskPredictor:
         return out
 
     def _aggregate(
-        self, patterns: list[dict]
+        self, patterns: list[dict], quant: dict | None = None
     ) -> tuple[list[PatternContribution], float]:
         """
-        severity별 독립 감쇠 카운터로 기여도 합산.
+        quant: parse_explain_json() 반환값 (없으면 None)
 
-        n번째(0-indexed) 동일 severity 패턴의 기여도:
-            (floor + bonus) × decay^n
-
-        severity가 다르면 카운터 독립 → HIGH 감쇠가 MEDIUM에 영향 없음.
+        quant_signal 추가 보너스 규칙:
+          rows_ratio  > 100 → +5  (대용량 풀스캔 위험)
+          no_index_flag True → +3  (인덱스 전혀 없음)
+          full_scan_ratio ≥ 0.5 → +2  (절반 이상 테이블이 풀스캔)
+        각 패턴에 동일 보너스 적용 (패턴과 독립적인 쿼리 레벨 신호)
         """
+        # quant_signal 보너스 사전 계산
+        q_bonus = 0
+        if quant:
+            if quant.get("rows_ratio", 0) > 100:
+                q_bonus += 5
+            if quant.get("no_index_flag"):
+                q_bonus += 3
+            if quant.get("full_scan_ratio", 0.0) >= 0.5:
+                q_bonus += 2
+
         sev_count: dict[str, int] = {}
         contribs:  list[PatternContribution] = []
         total = 0.0
@@ -427,17 +399,19 @@ class RiskPredictor:
             n     = sev_count.get(sev, 0)
             applied = base * (self.decay ** n)
             sev_count[sev] = n + 1
-            total += applied
+            total += applied + q_bonus   # quant_bonus 합산
 
             contribs.append(PatternContribution(
-                pattern_id   = p.get("id", ""),
-                pattern_name = p.get("name", ""),
-                severity     = sev,
-                failure_type = ft,
-                category     = _category(ft),
-                floor        = fl,
-                bonus        = bns,
+                pattern_id    = p.get("id", ""),
+                pattern_name  = p.get("name", ""),
+                severity      = sev,
+                failure_type  = ft,
+                category      = _category(ft),
+                floor         = fl,
+                bonus         = bns,
                 applied_score = applied,
+                quant_signal  = quant or {},
+                quant_bonus   = q_bonus,
             ))
 
         return contribs, total
@@ -461,41 +435,6 @@ def _mock(patterns: list[dict], max_sev: str = "HIGH") -> dict:
         "details": [{"matched_patterns": patterns}],
     }
 
-def parse_explain_json(json_string: str) -> dict:
-    """
-    MySQL EXPLAIN JSON 결과를 파싱해서 위험 신호(quant_signal)를 뽑아내는 함수
-    """
-    try:
-        data = json.loads(json_string)
-        query_block = data.get("query_block", {})
-        
-        # 기본 위험 신호 셋팅
-        quant_signal = {
-            "is_full_scan": False,
-            "no_index_flag": False,
-            "rows_examined": 0
-        }
-        
-        # 테이블 접근 방식 확인
-        if "table" in query_block:
-            table_info = query_block["table"]
-            
-            # 1. Full Table Scan (type = ALL) 확인
-            if table_info.get("access_type") == "ALL":
-                quant_signal["is_full_scan"] = True
-                
-            # 2. 인덱스 없음 (key = NULL) 확인
-            if table_info.get("key") is None:
-                quant_signal["no_index_flag"] = True
-                
-            # 3. 스캔 예상 로우 수 추출
-            quant_signal["rows_examined"] = int(table_info.get("rows_examined_per_scan", 0))
-            
-        return quant_signal
-        
-    except Exception as e:
-        print(f"JSON 파싱 에러 났음: {e}")
-        return {}
 
 
 if __name__ == "__main__":

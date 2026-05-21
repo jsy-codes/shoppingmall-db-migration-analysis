@@ -4,7 +4,7 @@
 주의: 이 모듈은 "정합성/호환성 패턴 탐지" 전용이다.
 RiskScore 계산은 별도 예측 모델(김채운 파트)에서 수행한다.
 """
-
+#consistency_simulator.py
 from __future__ import annotations
 
 import argparse

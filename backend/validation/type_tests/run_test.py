@@ -9,7 +9,7 @@ conn = mysql.connector.connect(
     database="type_test"
 )
 
-# ✅ 여기 수정
+# ✅ 여기 수정 run_test.py
 cursor = conn.cursor(buffered=True)
 
 BASE_DIR = os.path.dirname(__file__)

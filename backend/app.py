@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from sqlalchemy import text, desc
-
+#app.py
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 

@@ -1,7 +1,7 @@
 import mysql.connector
 import csv
 import os
-
+#check_consistency.py
 conn = mysql.connector.connect(
     host="localhost",
     user="root",
