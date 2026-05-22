@@ -12,6 +12,23 @@ import PredictionLogDashboard, { PredictionLogTabs } from './components/Predicti
 // const IS_MOCK = import.meta.env.VITE_MOCK === 'true';
 const IS_MOCK = false;
 
+const API_BASE = 'http://localhost:8000';
+
+const getAnonId = () => {
+  let anonId = localStorage.getItem('anon_id');
+  if (!anonId) {
+    anonId = `anon_${Math.random().toString(36).slice(2, 14)}`;
+    localStorage.setItem('anon_id', anonId);
+  }
+  return anonId;
+};
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('auth_token');
+  if (token) return { Authorization: `Bearer ${token}` };
+  return { 'X-Anon-Id': getAnonId() };
+};
+
 // ─── 위험도 순위 (공통 상수) ───────────────────────────────────
 const RISK_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
@@ -1026,7 +1043,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
             <LogOut size={15} />
           </button>
         ) : (
-          <a href="http://localhost:8000/login" title="Google로 로그인"
+          <a href={`${API_BASE}/login`} title="Google로 로그인"
             className={`p-2 rounded-lg transition-all flex items-center justify-center ${t.iconBtn}`}>
             <LogIn size={16} />
           </a>
@@ -1117,7 +1134,7 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
               </button>
             </div>
           ) : (
-            <a href="http://localhost:8000/login"
+            <a href={`${API_BASE}/login`}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all w-full ${t.iconBtn}`}>
               <LogIn size={13} /> Google로 로그인
             </a>
@@ -1155,27 +1172,11 @@ export default function App() {
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
   const handleCloseCatalog = useCallback(() => setShowCatalog(false), []);
-    // anon_id를 localStorage에 고정
-  const getAnonId = () => {
-    let anonId = localStorage.getItem('anon_id');
-    if (!anonId) {
-      anonId = `anon_${Math.random().toString(36).slice(2, 14)}`;
-      localStorage.setItem('anon_id', anonId);
-    }
-    return anonId;
-  };
-
-  // 모든 fetch에 붙일 헤더
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('auth_token');
-    if (token) return { Authorization: `Bearer ${token}` };
-    return { 'X-Anon-Id': getAnonId() };
-  };
   // ─── 히스토리 갱신 함수 (초기 로딩 + 진단 완료 후 재사용) ───
 const refreshHistory = useCallback(async () => {
   try {
     const res = await fetch(
-      'http://localhost:8000/history?limit=30&offset=0',
+      `${API_BASE}/history?limit=30&offset=0`,
       { headers: getAuthHeaders() }
     );
     if (res.ok) {
@@ -1187,14 +1188,13 @@ const refreshHistory = useCallback(async () => {
   // ─── 배치 결과 전체를 하나의 세션으로 저장 ─────────────────
 const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   try {
-    console.log("SAVE SESSION CALLED");
     const resultsWithSql = allResults.map((r, i) => ({
       ...r,
       query_sql: sqlList[i] ?? ''
     }));
 
     const res = await fetch(
-      "http://localhost:8000/session",
+      `${API_BASE}/session`,
       {
         method: "POST",
         headers: {
@@ -1206,7 +1206,6 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
     );
 
     const data = await res.json();
-    console.log("SESSION RESPONSE:", data);
   } catch (err) {
     console.error("SESSION ERROR:", err);
   }
@@ -1229,8 +1228,8 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
   const loadAll = async () => {
     try {
       const [meRes, histRes] = await Promise.all([
-        fetch('http://localhost:8000/me', { headers: getAuthHeaders() }),
-        fetch('http://localhost:8000/history?limit=30&offset=0', { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/me`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/history?limit=30&offset=0`, { headers: getAuthHeaders() }),
       ]);
       if (meRes.ok) {
         const meData = await meRes.json();
@@ -1268,7 +1267,7 @@ const saveSession = useCallback(async (allResults, originalQuery, sqlList) => {
 
 const handleDeleteHistory = useCallback(async (id) => {
   try {
-    await fetch(`http://localhost:8000/history/${id}`, {
+    await fetch(`${API_BASE}/history/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -1405,8 +1404,6 @@ const handleDeleteHistory = useCallback(async (id) => {
     else setApiStatus('local');
 
     setLoading(false);
-    console.log("successCount:", successCount);
-    console.log("IS_MOCK:", IS_MOCK);
     if (!IS_MOCK && successCount > 0) saveSession(analysisResults, query, sqls);
   };
 

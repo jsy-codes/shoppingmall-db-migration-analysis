@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, ReferenceLine, Legend,
 } from 'recharts';
 import { AlertTriangle, Shield, Info, TrendingDown, Activity, Search, Zap } from 'lucide-react';
 import mockData from '../data/mock_prediction_log.json';
+
+const API_BASE = 'http://localhost:8000';
+
+async function fetchLogs() {
+  const res = await fetch(`${API_BASE}/logs`);
+  if (!res.ok) throw new Error('logs fetch failed');
+  return res.json();
+}
 
 const TABS = [
   { id: 'error',  label: '오차율 현황',          icon: <Activity size={14} /> },
@@ -29,13 +37,16 @@ function RiskBadge({ risk }) {
 }
 
 // ── 탭 1: 오차율 현황 테이블 ─────────────────────────────────────
-function ErrorRateTab({ isDarkMode }) {
+function ErrorRateTab({ isDarkMode, logs }) {
   const t = isDarkMode
     ? { row: 'hover:bg-[#1e1e1e]', border: 'border-[#2d2d2d]', sub: 'text-[#888]' }
     : { row: 'hover:bg-zinc-50',   border: 'border-zinc-200',   sub: 'text-zinc-400' };
 
-  const avgError = (mockData.logs.reduce((s, l) => s + l.error_rate, 0) / mockData.logs.length).toFixed(2);
-  const overThreshold = mockData.logs.filter(l => l.error_rate > 3.0).length;
+  const validLogs = logs.filter(l => l.error_rate != null);
+  const avgError = validLogs.length
+    ? (validLogs.reduce((s, l) => s + l.error_rate, 0) / validLogs.length).toFixed(2)
+    : '0.00';
+  const overThreshold = validLogs.filter(l => l.error_rate > 3.0).length;
 
   return (
     <div className="space-y-4">
@@ -43,7 +54,7 @@ function ErrorRateTab({ isDarkMode }) {
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: '평균 오차율', value: `${avgError}%`, sub: '전체 패턴 기준', color: parseFloat(avgError) <= 3 ? 'text-green-400' : 'text-red-400' },
-          { label: '기록 수',     value: mockData.logs.length, sub: '총 진단 로그', color: 'text-blue-400' },
+          { label: '기록 수',     value: logs.length, sub: '총 진단 로그', color: 'text-blue-400' },
           { label: '3% 초과',    value: `${overThreshold}개`, sub: '패턴 수',       color: overThreshold > 0 ? 'text-red-400' : 'text-green-400' },
         ].map(card => (
           <div key={card.label} className={`rounded-xl p-3 border ${isDarkMode ? 'bg-[#161616] border-[#2d2d2d]' : 'bg-white border-zinc-200'}`}>
@@ -65,19 +76,21 @@ function ErrorRateTab({ isDarkMode }) {
             </tr>
           </thead>
           <tbody>
-            {mockData.logs.map((log, i) => (
-              <tr key={log.id} className={`transition-colors ${t.row} ${i !== mockData.logs.length - 1 ? `border-b ${t.border}` : ''}`}>
+            {logs.map((log, i) => (
+              <tr key={log.pattern_id + i} className={`transition-colors ${t.row} ${i !== logs.length - 1 ? `border-b ${t.border}` : ''}`}>
                 <td className="px-3 py-2 font-mono text-xs text-blue-400">{log.pattern_id}</td>
                 <td className={`px-3 py-2 text-xs ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-700'}`}>{log.pattern_name}</td>
                 <td className="px-3 py-2"><RiskBadge risk={log.risk} /></td>
                 <td className={`px-3 py-2 text-xs font-medium ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800'}`}>{log.predicted_score}</td>
-                <td className={`px-3 py-2 text-xs ${isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500'}`}>{log.before_ms.toLocaleString()}</td>
-                <td className="px-3 py-2 text-xs text-green-400">{log.after_ms}</td>
+                <td className={`px-3 py-2 text-xs ${isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500'}`}>{log.before_ms != null ? log.before_ms.toLocaleString() : '-'}</td>
+                <td className="px-3 py-2 text-xs text-green-400">{log.after_ms ?? '-'}</td>
                 <td className="px-3 py-2">
-                  <span className={`text-xs font-semibold ${log.error_rate > 3.0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {log.error_rate.toFixed(2)}%
-                    {log.error_rate > 3.0 && <span className="ml-1 text-[10px]">⚠</span>}
-                  </span>
+                  {log.error_rate != null ? (
+                    <span className={`text-xs font-semibold ${log.error_rate > 3.0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {log.error_rate.toFixed(2)}%
+                      {log.error_rate > 3.0 && <span className="ml-1 text-[10px]">⚠</span>}
+                    </span>
+                  ) : <span className="text-xs text-zinc-400">-</span>}
                 </td>
               </tr>
             ))}
@@ -89,8 +102,8 @@ function ErrorRateTab({ isDarkMode }) {
 }
 
 // ── 탭 2: 패턴별 실측 비교 막대 차트 ────────────────────────────
-function CompareTab({ isDarkMode }) {
-  const chartData = mockData.logs.map(l => ({
+function CompareTab({ isDarkMode, logs }) {
+  const chartData = logs.map(l => ({
     name: l.pattern_id,
     before: l.before_ms,
     after: l.after_ms,
@@ -297,10 +310,25 @@ function QuantSignalTab({ isDarkMode }) {
 // ── 탭 내용만 (BatchSummary 내장용) ─────────────────────────────
 export function PredictionLogTabs({ isDarkMode }) {
   const [activeTab, setActiveTab] = useState('error');
+  const [logs, setLogs] = useState(mockData.logs);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLogs()
+      .then(setLogs)
+      .catch(() => setLogs(mockData.logs))
+      .finally(() => setLoading(false));
+  }, []);
 
   const theme = isDarkMode
     ? { tabActive: 'bg-[#1e1e1e] text-[#e0e0e0] border-[#3d3d3d]', tabInactive: 'text-[#666] hover:text-[#aaa] hover:bg-[#161616]' }
     : { tabActive: 'bg-white text-zinc-800 border-zinc-300',          tabInactive: 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'  };
+
+  if (loading) return (
+    <div className={`flex items-center justify-center h-32 text-xs ${isDarkMode ? 'text-[#666]' : 'text-zinc-400'}`}>
+      로딩 중...
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -318,8 +346,8 @@ export function PredictionLogTabs({ isDarkMode }) {
           </button>
         ))}
       </div>
-      {activeTab === 'error'   && <ErrorRateTab  isDarkMode={isDarkMode} />}
-      {activeTab === 'compare' && <CompareTab    isDarkMode={isDarkMode} />}
+      {activeTab === 'error'   && <ErrorRateTab  isDarkMode={isDarkMode} logs={logs} />}
+      {activeTab === 'compare' && <CompareTab    isDarkMode={isDarkMode} logs={logs} />}
       {activeTab === 'grid'    && <GridSearchTab isDarkMode={isDarkMode} />}
       {activeTab === 'quant'   && <QuantSignalTab isDarkMode={isDarkMode} />}
     </div>
@@ -329,6 +357,15 @@ export function PredictionLogTabs({ isDarkMode }) {
 // ── 메인 대시보드 ────────────────────────────────────────────────
 export default function PredictionLogDashboard({ isDarkMode, onClose }) {
   const [activeTab, setActiveTab] = useState('error');
+  const [logs, setLogs] = useState(mockData.logs);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLogs()
+      .then(setLogs)
+      .catch(() => setLogs(mockData.logs))
+      .finally(() => setLoading(false));
+  }, []);
 
   const theme = isDarkMode
     ? { bg: 'bg-[#121212]', card: 'bg-[#1a1a1a] border-[#2d2d2d]', text: 'text-[#e0e0e0]', sub: 'text-[#888]', tabActive: 'bg-[#1e1e1e] text-[#e0e0e0] border-[#3d3d3d]', tabInactive: 'text-[#666] hover:text-[#aaa] hover:bg-[#161616]' }
@@ -341,7 +378,7 @@ export default function PredictionLogDashboard({ isDarkMode, onClose }) {
         <div>
           <h1 className="text-lg font-bold">예측 로그 대시보드</h1>
           <p className={`text-xs mt-0.5 ${theme.sub}`}>
-            목업 데이터 기반 · W2에서 실 API(/logs, /stats) 연동 예정
+            {loading ? '데이터 로딩 중...' : `${logs.length}개 로그 · /logs API 연동`}
           </p>
         </div>
         <button
@@ -370,8 +407,8 @@ export default function PredictionLogDashboard({ isDarkMode, onClose }) {
 
       {/* 탭 콘텐츠 */}
       <div className={`rounded-2xl border p-5 ${theme.card}`}>
-        {activeTab === 'error'   && <ErrorRateTab    isDarkMode={isDarkMode} />}
-        {activeTab === 'compare' && <CompareTab      isDarkMode={isDarkMode} />}
+        {activeTab === 'error'   && <ErrorRateTab    isDarkMode={isDarkMode} logs={logs} />}
+        {activeTab === 'compare' && <CompareTab      isDarkMode={isDarkMode} logs={logs} />}
         {activeTab === 'grid'    && <GridSearchTab   isDarkMode={isDarkMode} />}
         {activeTab === 'quant'   && <QuantSignalTab  isDarkMode={isDarkMode} />}
       </div>
