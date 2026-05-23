@@ -14,11 +14,16 @@ import os
 import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-
 from sqlalchemy import text, desc
-#app.py
+
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
+ROOT_DIR = Path(__file__).parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+BASE_DIR = Path(__file__).parent
+if str(BASE_DIR) not in sys.path:   
+    sys.path.append(str(BASE_DIR))
 
 app = FastAPI()
 
@@ -54,67 +59,12 @@ oauth.register(
     client_kwargs={'scope': 'openid email profile'}
 )
 
-ROOT_DIR = Path(__file__).parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
-BASE_DIR = Path(__file__).parent
-if str(BASE_DIR) not in sys.path:   
-    sys.path.append(str(BASE_DIR))
-
-from database import init_db, SessionLocal, DiagnoseLog, PredictionLog
-
-from backend.validation.consistency_simulator import load_rules, evaluate_sql
-
-# risk_model.py 안의 RiskPredictor 클래스 객체 생성
-from model.risk_model import RiskPredictor
-predictor = RiskPredictor()
-
-RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
-RULES = load_rules(RULES_PATH)
-# try:
-#     rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
-#     RULES_STR = json.dumps(rules_data, ensure_ascii=False)
-# except Exception as e:
-#     with open(RULES_PATH, 'r', encoding='utf-8') as f:
-#         RULES_STR = f.read()
-
-rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
-RULES_STR = json.dumps(rules_data, ensure_ascii=False) 
-
 class QueryRequest(BaseModel):
     sql: str
 
 class SessionRequest(BaseModel):
     query_sql: str
     results: list
-
-# ─── JWT로 유저 확인 ───────────────────────────────────────────
-def get_user_id(request: Request) -> str:
-    # 1. JWT 토큰 확인 (로그인 유저)
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        token = auth[7:]
-        try:
-            payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-            email = payload.get("email")
-            if email:
-                print(f"[AUTH] JWT OK → {email}")
-                return email
-        except Exception as e:
-            print(f"[AUTH] JWT error: {e}")
-
-    # 2. 비로그인: 프론트 localStorage의 anon_id 사용
-    anon_id = request.headers.get("X-Anon-Id")
-    if anon_id:
-        print(f"[AUTH] anon → {anon_id}")
-        return anon_id
-
-    # 3. 아무것도 없으면 임시 anon (히스토리 저장 안 됨)
-    fallback = f"anon_{uuid.uuid4().hex[:12]}"
-    print(f"[AUTH] fallback → {fallback}")
-    return fallback
-
-
 
 # ─── 로그인 관련 ───────────────────────────────────────────────
 @app.get("/login")
@@ -144,6 +94,32 @@ async def logout(request: Request):
     request.session.clear()
     return {"ok": True}
 
+# JWT로 유저 확인
+def get_user_id(request: Request) -> str:
+    # 1. JWT 토큰 확인 (로그인 유저)
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+        try:
+            payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+            email = payload.get("email")
+            if email:
+                print(f"[AUTH] JWT OK → {email}")
+                return email
+        except Exception as e:
+            print(f"[AUTH] JWT error: {e}")
+
+    # 2. 비로그인: 프론트 localStorage의 anon_id 사용
+    anon_id = request.headers.get("X-Anon-Id")
+    if anon_id:
+        print(f"[AUTH] anon → {anon_id}")
+        return anon_id
+
+    # 3. 아무것도 없으면 임시 anon (히스토리 저장 안 됨)
+    fallback = f"anon_{uuid.uuid4().hex[:12]}"
+    print(f"[AUTH] fallback → {fallback}")
+    return fallback
+
 @app.post("/session")
 async def save_session(body: SessionRequest, request: Request):
     user_email = get_user_id(request)
@@ -171,6 +147,7 @@ async def me(request: Request):
     return {"email": email}
 
 # ─── DB 관련 ───────────────────────────────────────────────────
+from database import init_db, SessionLocal, DiagnoseLog, PredictionLog
 init_db()
 
 def get_db():
@@ -248,14 +225,91 @@ async def get_logs():
     finally:
         db.close()
 
-#@app.post("/stats") 3주차 까지
+#@app.post("/stats") 3주차 까지?
 #async def ():
+
+# ─── consistency_simulator.py ───────────────────────────────────────────────────
+from backend.validation.consistency_simulator import load_rules, evaluate_sql
+
+RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
+RULES = load_rules(RULES_PATH)
+
+rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
+RULES_STR = json.dumps(rules_data, ensure_ascii=False) 
+
+# ─── risk_model.py ───────────────────────────────────────────────────
+from model.risk_model import RiskPredictor
+predictor = RiskPredictor()
+
+# ─── experiments.py ───────────────────────────────────────────────────
+from model.experiments import DBRunner
+
+def compare_sql_time(original_sql: str, converted_sql: str):
+    db = DBRunner()
+
+    try:
+        before_ms = db.measure_ms(original_sql)
+        after_ms = db.measure_ms(converted_sql)
+
+        improvement_rate = None
+
+        if before_ms > 0 and after_ms >= 0:
+            improvement_rate = round(
+                (before_ms - after_ms) / before_ms * 100,
+                2
+            )
+
+        return {
+            "original_sql_ms": before_ms,
+            "converted_sql_ms": after_ms,
+            "improvement_rate": improvement_rate,
+        }
+
+    finally:
+        db.close()
+
+# ─── explain_parser.py ───────────────────────────────────────────────────
+# MySQL 8.0 사용하는 가정시 사용 가능
+from model.explain_parser import parse_explain_json
+def get_explain_signal_from_mysql(sql: str) -> dict:
+    db = DBRunner()
+
+    try:
+        explain_json = db.get_explain_json(sql)
+        if not explain_json:
+            print(f"[EXPLAIN LOG] DB 결과가 비어있습니다. 입력된 SQL에 오타가 있거나 테이블이 없는 것 같습니다 -> SQL: {sql[:50]}...")
+            return {
+                "full_scan_ratio": 0.0,
+                "no_index_flag": 0,
+                "rows_ratio": 1.0
+            }
+        
+        parsed = parse_explain_json(explain_json)
+    
+        explain_signal = {
+            "full_scan_ratio": parsed.get("full_scan_ratio", 0.0),
+            "no_index_flag": 1 if parsed.get("no_index_flag", False) else 0,
+            "rows_ratio": parsed.get("rows_ratio", 1.0)
+        }
+        return explain_signal
+    
+    # 현재 SQLite 환경이거나 문법이 맞지 않아 에러(Exception)가 발생하면 이 블록으로 들어옵니다.
+    except Exception as e:
+        print(f"[EXPLAIN LOG] 현재 환경(SQLite 등) 문제로 고정된 시뮬레이션용 가상 값을 반환합니다. (에러내용: {e})")
+        explain_signal = {
+            "full_scan_ratio": 0.0,
+            "no_index_flag": 0,
+            "rows_ratio": 1.0
+        }
+        return explain_signal
+    
+    finally:
+        db.close()
+
 
 # ─── AI 진단 관련 ──────────────────────────────────────────────
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest, request: Request):
-    #user_email = get_user_id(request)
-
     # consistency_simulator가 탐지한 패턴 결과
     sim_result = evaluate_sql(req.sql, RULES)
 
@@ -265,17 +319,9 @@ async def diagnose(req: QueryRequest, request: Request):
             pattern_map[pattern["id"]] = pattern
 
     matched_ids = list(pattern_map.keys())
-    # matched_ids = list(set(
-    #     p["id"] for detail in sim_result["details"]
-    #     for p in detail["matched_patterns"]
-    # ))
     
     max_severity = sim_result["summary"]["max_severity"]
 
-    # matched_rules = [
-    #     r for r in RULES
-    #     if r.id in matched_ids
-    # ]
     matched_rules = [
         r for r in RULES
         if r.id in pattern_map
@@ -289,39 +335,10 @@ async def diagnose(req: QueryRequest, request: Request):
     risk_score = risk_analysis["risk_score"]
     risk_level = risk_analysis["risk_level"]
 
-    # EXPLAIN 분석 결과 (현재는 placeholder)
-    explain_signal = {
-        "full_scan_ratio": 0.75,
-        "no_index_flag": 1,
-        "rows_ratio": 3.2
-    }
-    
-    # system_prompt = f"""
-    # 당신은 Oracle에서 MySQL로의 이관 전문가입니다. 
-    # 제공된 [이관 규칙 가이드라인]를 바탕으로 [사전 분석 결과]에 명시된 패턴을 중점적으로 사용자의 SQL을 분석하여 최적의 솔루션을 제공하세요.
-
-    # [이관 규칙 가이드라인]
-    # {RULES_STR}
-    
-    # [분석 및 생성 원칙]
-    # 1. 스크립트 보존: 사용자가 입력한 모든 SQL 문장(INSERT 등)을 생략 없이 전체 보존하여 변환하세요.
-    # 2. 기술적 차이 명시: `reason` 항목에는 "Oracle은 [A] 방식을 쓰지만, MySQL은 [B] 방식으로 동작하므로 [C] 문제가 발생함"과 같이 아키텍처적 차이를 구체적으로 설명하세요.
-    # 3. 실행 즉시성: `recommended_ddl`에 제공되는 코드는 사용자가 복사하여 MySQL Workbench에서 즉시 실행했을 때, 테이블 생성부터 데이터 삽입, 조회까지 에러 없이 한 번에 성공해야 합니다.
-    # 4. 대표 규칙 선정: [사전 분석 결과]의 `matched_ids` 중 가장 위험도가 높거나(HIGH > MEDIUM > LOW) 핵심적인 패턴 ID 하나를 선택하여 `rule_id`에 할당하세요.
-
-    # [응답 지침]
-    # 1. 언어: 반드시 한국어로 응답할 것.
-    # 2. 형식: JSON 외의 서문이나 맺음말 등 어떠한 텍스트도 출력하지 말 것.
-    # 3. 성능 개선: `estimated_improvement`에는 예상되는 실행 시간 단축이나 자원 소모 감소량을 수치(%)로 포함하세요.
-    
-    # 반드시 아래 JSON 형식으로만 응답하세요:
-    # {{
-    #     "reason": "상세 원인 설명",
-    #     "recommended_ddl": "MySQL용 전체 수정 스크립트",
-    #     "estimated_improvement": "예상 성능 향상치(%)와 근거",
-    #     "rule_id": "가장 핵심적인 패턴 ID (예: P03)"
-    # }}
-    # """
+    # [EXPLAIN]
+    # full_scan={explain_signal['full_scan_ratio']}
+    # no_index={explain_signal['no_index_flag']}
+    # rows_ratio={explain_signal['rows_ratio']}
 
     system_prompt = f"""
     당신은 Oracle→MySQL 이관 전문가입니다.
@@ -329,29 +346,26 @@ async def diagnose(req: QueryRequest, request: Request):
     [탐지 규칙]
     {RULES_STR}
 
-    [EXPLAIN]
-    full_scan={explain_signal['full_scan_ratio']}
-    no_index={explain_signal['no_index_flag']}
-    rows_ratio={explain_signal['rows_ratio']}
-
     [지침]
     - 입력 SQL 전체 유지
     - MySQL 호환 형태로 변환
     - Oracle/MySQL 차이를 기술적으로 설명
     - recommended_ddl은 즉시 실행 가능해야 함
+    - "converted_sql"에는 반드시 실행 가능한 SELECT SQL만 작성
     - matched_ids 중 핵심 패턴 하나를 rule_id로 선택
+    - JSON 외 텍스트 작성 금지
     - 반드시 한국어 JSON만 출력
 
     응답 형식:
     {{
         "reason": "상세 원인 설명",
         "recommended_ddl": "MySQL용 전체 수정 스크립트",
+        "converted_sql": "변환된 MySQL SELECT SQL만 작성",
         "estimated_improvement": "예상 성능 향상치(%)와 근거",
         "rule_id": "가장 핵심적인 패턴 ID (예: P03)"
     }}
     """
 
-    #위 분석 결과를 참고하여 상세 설명과 수정된 DDL을 작성하세요.
     user_context = f"""
     [사전 분석 결과]
     - 감지된 패턴 ID: {matched_ids}
@@ -403,7 +417,6 @@ async def diagnose(req: QueryRequest, request: Request):
     finally:
         db_perf.close()
 
-    #
     risk_score_data = []
     contrib_map = {
         c["pattern_id"]: round(c["applied_score"])
@@ -432,7 +445,14 @@ async def diagnose(req: QueryRequest, request: Request):
         if not match:
             return {"error": "Claude JSON parsing failed"}
         ai_json = json.loads(match.group(1))
-        #ai_json = json.loads(re.search(r'(\{.*\})', raw_text, re.DOTALL).group(1))
+
+        # 실행시간 측정
+        print("DEBUG: [EXPERIMENT] 원본 SQL 및 변환 DDL 실행 시간 측정 시작...")
+        execution_result = compare_sql_time(req.sql, ai_json.get("converted_sql", ""))
+        print(f"DEBUG: [EXPERIMENT RESULT] -> {execution_result}")
+
+        # EXPLAIN 분석 결과
+        explain_signal = get_explain_signal_from_mysql(ai_json.get("converted_sql", ""))
 
         final_result = {
             "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"),
@@ -468,11 +488,11 @@ async def diagnose(req: QueryRequest, request: Request):
                     # just 리스크 점수? (V?)
                     predicted_score=float(risk_score),
                     # 이관 전 실행시간 ( )
-                    before_ms=None,
-                    #before_ms=float(execution_result["before_ms"]),
+                    #before_ms=None,
+                    before_ms=float(execution_result["original_sql_ms"]),
                     # 이관(변환) 후 실행시간 ( )
-                    after_ms=None,
-                    # after_ms=float(execution_result["after_ms"]),
+                    #after_ms=None,
+                    after_ms=float(execution_result["converted_sql_ms"]),
                     # 오차율 ( )
                     error_rate=0.0,
                     # 기록 시각 (V)
@@ -488,5 +508,6 @@ async def diagnose(req: QueryRequest, request: Request):
             db_log.close()
 
         return final_result
+    
     except Exception as e:
         return {"error": str(e)}
