@@ -436,6 +436,41 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # ===================================================================
+    if args.grid_search:
+        import itertools
+        import json
+        
+        print("Grid Search 실행 및 프론트엔드 시각화 데이터 추출 시작...")
+        history_data = []
+        iteration = 1
+        
+        # GRID_SEARCH_PARAMS 의 모든 조합 탐색
+        for decay, bonus in itertools.product(GRID_SEARCH_PARAMS["DECAY_RATE"], GRID_SEARCH_PARAMS["BONUS"]):
+            # 모델에 파라미터 주입
+            predictor = RiskPredictor(decay_rate=decay, bonus_weight=bonus/10.0)
+            
+            # TODO: 실제 DB 연동 테스트 코드가 들어가야 하나, 일단 프론트엔드(E) 연동 규격부터 맞춤
+            # (프론트 차트 테스트용 더미 오차율 계산 - 추후 실제 결과로 교체)
+            simulated_error_rate = abs((decay * 10) - (bonus * 0.5)) + 1.5 
+            
+            # 프론트엔드가 요구하는 데이터 규격(API 응답 형태)
+            history_data.append({
+                "iteration": iteration,
+                "decay_rate": decay,
+                "bonus": bonus,
+                "error_rate": round(simulated_error_rate, 2)
+            })
+            iteration += 1
+            
+        # 프론트엔드가 바로 차트로 그릴 수 있게 JSON 파일로 내보내기
+        out_path = ROOT / "backend" / "grid_search_history.json"
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(history_data, f, ensure_ascii=False, indent=4)
+            
+        print(f"시각화 연동용 데이터가 추출되었습니다: {out_path}")
+        sys.exit(0)
+
     if args.pattern:
         if args.pattern not in QUERY_PAIRS:
             print(f"[오류] {args.pattern} 쿼리 쌍이 QUERY_PAIRS에 없음")

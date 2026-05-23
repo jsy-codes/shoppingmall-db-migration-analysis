@@ -301,8 +301,9 @@ class RiskPredictor:
         낮출수록 추가 패턴 영향이 작아짐.
     """
 
-    def __init__(self, decay_rate: float = DECAY_RATE):
+    def __init__(self, decay_rate: float = DECAY_RATE, bonus_weight: float = 1.0):
         self.decay = decay_rate
+        self.bonus_weight = bonus_weight
 
     def evaluate_risk_score(
         self,
@@ -394,7 +395,7 @@ class RiskPredictor:
             sev   = p["severity"]
             ft    = p.get("failure_type", "")
             fl    = SEVERITY_FLOOR.get(sev, 10)
-            bns   = _bonus(ft)
+            bns   = int(_bonus(ft) * self.bonus_weight)
             base  = fl + bns
             n     = sev_count.get(sev, 0)
             applied = base * (self.decay ** n)
