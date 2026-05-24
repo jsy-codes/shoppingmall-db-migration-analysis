@@ -261,8 +261,8 @@ class RiskResult:
                     "floor":         c.floor,
                     "bonus":         c.bonus,
                     "applied_score": round(c.applied_score, 1),
-                    "quant_bonus":   c.quant_bonus,
-                    "quant_signal":  c.quant_signal,
+                    "quant_bonus":   c.quant_bonus,       # ← 신규
+                    "quant_signal":  c.quant_signal,       # ← 신규
                 }
                 for c in self.contributions
             ],
@@ -301,16 +301,13 @@ class RiskPredictor:
         낮출수록 추가 패턴 영향이 작아짐.
     """
 
-    def __init__(self, decay_rate: float = DECAY_RATE, bonus_weight: float = 1.0, pattern_weights: dict | None = None):
+    def __init__(self, decay_rate: float = DECAY_RATE):
         self.decay = decay_rate
-        self.bonus_weight = bonus_weight
-        # [보정] 오차 초과 패턴 실측 최적 가중치 비율로 정밀 튜닝
-        self.pattern_weights = pattern_weights or {"P04": 0.35, "P05": 0.85}
 
     def evaluate_risk_score(
         self,
         sim_result: dict,
-        explain_json_str: str | None = None,
+        explain_json_str: str | None = None,   # ← W2 신규
     ) -> dict:
         quant = parse_explain_json(explain_json_str) if explain_json_str else None
         return self._compute(sim_result, quant).to_dict()
@@ -396,20 +393,8 @@ class RiskPredictor:
         for p in patterns:
             sev   = p["severity"]
             ft    = p.get("failure_type", "")
-            pid   = p.get("id", "")
-
             fl    = SEVERITY_FLOOR.get(sev, 10)
-            
-            # [보정] rows_ratio ↔ SEVERITY_FLOOR 실제 선형 상관관계 분석 알고리즘 반영
-            if quant and fl < THRESHOLD_HIGH:
-                r_ratio = quant.get("rows_ratio", 0)
-                if r_ratio > 50:
-                    # 검사 대상 행 수가 많아질수록 위험도 점수 하한선을 선형적으로 상향 조절
-                    fl = min(THRESHOLD_HIGH, int(fl + (r_ratio * 0.05)))
-
-            # 패턴별 오차율 보정치 적용
-            pw    = self.pattern_weights.get(pid, 1.0)
-            bns   = int(_bonus(ft) * self.bonus_weight * pw)
+            bns   = _bonus(ft)
             base  = fl + bns
             n     = sev_count.get(sev, 0)
             applied = base * (self.decay ** n)
