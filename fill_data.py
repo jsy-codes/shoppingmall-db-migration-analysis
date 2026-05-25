@@ -5,7 +5,7 @@ DB_CONFIG = {
     "host": "localhost",
     "port": 3306,
     "user": "root",
-    "password": "0827", 
+    "password": "1234", 
     "database": "bucket_store"
 }
 
@@ -23,7 +23,7 @@ try:
     cursor.executemany("INSERT IGNORE INTO orders (id, member_id, status, created_at) VALUES (%s, %s, %s, %s)", orders)
 
     conn.commit()
-    print("✅ 데이터 주입 완벽하게 끝났습니다! 이제 experiments.py 돌리십쇼!")
+    print("✅ 데이터 주입 완벽하게 끝났습니다! 이후, experiments.py 실행 권장")
 except Exception as e:
     print(f"❌ 에러 발생: {e}")
 finally:

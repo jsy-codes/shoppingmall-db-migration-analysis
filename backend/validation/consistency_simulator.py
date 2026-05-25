@@ -44,8 +44,11 @@ def split_statements(sql: str) -> list[str]:
     return [s.strip() for s in sql.split(";") if s.strip()]
 
 
+# 수정 후 — 따옴표 없는 정수 비교도 추가
 def _is_implicit_cast(sql: str) -> bool:
-    return bool(re.search(r"\b[A-Z_][A-Z0-9_]*\s*=\s*'\d+'", sql))
+    quoted   = bool(re.search(r"\b[A-Z_][A-Z0-9_]*\s*=\s*'\d+'", sql))   # INT컬럼 = '1'
+    unquoted = bool(re.search(r"\b[A-Z_][A-Z0-9_]*\s*=\s*\d+\b", sql))   # VARCHAR컬럼 = 1
+    return quoted or unquoted
 
 
 def _is_join_without_index(sql: str) -> bool:

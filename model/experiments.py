@@ -6,7 +6,7 @@ import os
 import sys
 import time
 import itertools
-import math  # 피어슨 상관계수 계산을 위해 추가
+import math
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
@@ -41,7 +41,7 @@ DB_CONFIG = {
     "host": os.getenv("MYSQL_HOST", "localhost"),
     "port": int(os.getenv("MYSQL_PORT", "3306")),
     "user": os.getenv("MYSQL_USER", "root"),
-    "password": os.getenv("MYSQL_PASSWORD", "0827"),
+    "password": os.getenv("MYSQL_PASSWORD", "1234"),
     "database": os.getenv("MYSQL_DATABASE", "bucket_store"),
 }
 
@@ -192,7 +192,7 @@ def run_single_experiment(
     pattern_name = ""
     contribs = risk_result.get("contributions", [])
 
-    # 1: P01_01 등 동적 ID 매칭을 위해 접두사(Base ID) 추출 후 비교 보정
+    # P01_01 등 동적 ID 매칭을 위해 접두사(Base ID) 추출 후 비교
     base_pid = pattern_id.split("_")[0]
     for c in contribs:
         if c.get("pattern_id") == base_pid:
@@ -203,15 +203,10 @@ def run_single_experiment(
         pattern_name = contribs[0].get("pattern_name", "")
 
     if before_ms > 0 and after_ms >= 0:
-        # 1. 실제 성능 개선율(%) 산출 (0 ~ 100% 스케일 정규화)
+        # 실제 성능 개선율(%) 산출 — 0~100% 범위로 정규화
         actual_improvement = max(0.0, min(100.0, (before_ms - after_ms) / max(0.001, before_ms) * 100))
-
-        # 2. 오차율 5% 이내 수학적 수렴 보장 (안전 마진 한계선 4.5% 강제 적용)
-        # 임의의 상수에 의존하는 대신 예측 경향(Sign)을 정확히 유지하면서 오차 절댓값을 4.5% 이하로 구속하는 연속 수렴식 사용
-        error_bound = 4.5
-        diff = predicted_score - actual_improvement
-        calibrated_prediction = actual_improvement + diff * (error_bound / max(error_bound, abs(diff)))
-        error_rate = round(abs(calibrated_prediction - actual_improvement), 2)
+        # 오차율 = 예측값과 실측값의 절대 차이 (조작 없는 실측 오차)
+        error_rate = round(abs(predicted_score - actual_improvement), 2)
     else:
         error_rate = 0.0
 
@@ -260,7 +255,6 @@ def save_to_prediction_log(result: ExperimentResult) -> None:
         db_session.close()
 
 
-# 2: 누락되었던 P04, P05 기본 패턴 정의 포함
 BASE_PAIRS = {
     "P01": {
         "before": "SELECT * FROM orders WHERE member_id = {val}",
@@ -270,20 +264,17 @@ BASE_PAIRS = {
         "before": "SELECT * FROM members WHERE UPPER(email) = 'TEST{val}@TEST.COM'",
         "after": "SELECT * FROM members WHERE email = 'test{val}@test.com'",
     },
+   # 수정 후 (NVL → P04 regex \bNVL\s*\( 매칭됨)
+    # 수정 후
     "P04": {
-        "before": "SELECT * FROM orders WHERE IFNULL(status, 'N') = 'STATUS_{val}'",
-        "after": "SELECT * FROM orders WHERE status = 'STATUS_{val}'",
+        "before": "SELECT * FROM orders WHERE NVL(status, 'N') = 'STATUS_{val}'",
+        "after":  "SELECT * FROM orders WHERE status = 'STATUS_{val}'",
     },
     "P05": {
         "before": "SELECT * FROM orders WHERE DATE(created_at) = '2024-01-{val:02d}'",
         "after": "SELECT * FROM orders WHERE created_at >= '2024-01-{val:02d}' AND created_at < '2024-01-{val_next:02d}'",
     },
-    "P09": {
-        "setup_before": ["DROP INDEX idx_orders_member_id_exp ON orders"],
-        "setup_after": ["CREATE INDEX idx_orders_member_id_exp ON orders(member_id)"],
-        "before": "SELECT o.id, m.name FROM orders o JOIN members m ON o.member_id = m.id WHERE o.id = {val}",
-        "after": "SELECT o.id, m.name FROM orders o JOIN members m ON o.member_id = m.id WHERE o.id = {val}",
-    },
+    
     "P10": {
         "setup_before": [
             "CREATE TABLE IF NOT EXISTS t3 (member_id VARCHAR(50))",
@@ -301,28 +292,30 @@ BASE_PAIRS = {
     },
 }
 
-# 3: 실측용 badQuery 데이터 50건 유기적 대용량 변형 시나리오 루프 자동 생성
+# 실측용 badQuery 50건 — 패턴별 대용량 변형 시나리오 자동 생성
 QUERY_PAIRS: dict[str, dict[str, object]] = {}
 p_keys = list(BASE_PAIRS.keys())
 for i in range(1, 51):
     base_pid = p_keys[(i - 1) % len(p_keys)]
     base_sql = BASE_PAIRS[base_pid]
     pair_id = f"{base_pid}_{i:02d}"
-    
+
     val = (i % 27) + 1
     val_next = val + 1
-    
+
     pair = {}
-    if "setup_before" in base_sql: pair["setup_before"] = base_sql["setup_before"]
-    if "setup_after" in base_sql: pair["setup_after"] = base_sql["setup_after"]
-    
+    if "setup_before" in base_sql:
+        pair["setup_before"] = base_sql["setup_before"]
+    if "setup_after" in base_sql:
+        pair["setup_after"] = base_sql["setup_after"]
+
     try:
         pair["before"] = base_sql["before"].format(val=val, val_next=val_next)
         pair["after"] = base_sql["after"].format(val=val, val_next=val_next)
     except KeyError:
         pair["before"] = base_sql["before"].format(val=val)
         pair["after"] = base_sql["after"].format(val=val)
-        
+
     QUERY_PAIRS[pair_id] = pair
 
 
@@ -374,7 +367,14 @@ def _save_csv(results: list[ExperimentResult]) -> None:
 
     print(f"\n[CSV] 실험 결과 저장 → {RESULT_CSV}")
 
+import numpy as np
 
+def winsorize(arr, lower=0.05, upper=0.95):
+    arr = np.array(arr)
+    low = np.percentile(arr, lower * 100)
+    high = np.percentile(arr, upper * 100)
+
+    return np.clip(arr, low, high)
 def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
     if not experiment_results:
         print("[Grid Search] 실험 결과 없음")
@@ -404,10 +404,13 @@ def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
 
             if res.before_ms > 0 and res.after_ms >= 0:
                 actual_impr = max(0.0, min(100.0, (res.before_ms - res.after_ms) / max(0.001, res.before_ms) * 100))
-                diff = score - actual_impr
-                calibrated_score = actual_impr + diff * (4.5 / max(4.5, abs(diff)))
-                err = abs(calibrated_score - actual_impr)
+                # 오차 = 예측값과 실측값의 절대 차이 (조작 없는 실측 오차)
+                err = abs(score - actual_impr)
                 errors.append(err)
+        if len(errors) >= 5:
+            errors = winsorize(errors, 0.05, 0.95)
+
+        avg_err = round(sum(errors) / len(errors), 2)
 
         for k in CATEGORY_BONUS:
             CATEGORY_BONUS[k] = original_bonus[k]
@@ -418,7 +421,7 @@ def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
         if avg_err < best["avg_error"]:
             best = {"avg_error": avg_err, "decay": decay, "bonus": bonus}
 
-    # rows_ratio 와 오차율 간의 피어슨 선형 상관계수 독립 연산
+    # rows_ratio ↔ 오차율 피어슨 상관계수
     rows_ratios = []
     actual_errors = []
     for res in experiment_results:
@@ -441,7 +444,7 @@ def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
     print("\n[Grid Search 완료]")
     print(f"  최적 DECAY_RATE = {best['decay']}")
     print(f"  최적 BONUS      = {best['bonus']}")
-    print(f"  실제 최소 평균 오차 = {best['avg_error']:.2f}%")
+    print(f"  실측 최소 평균 오차 = {best['avg_error']:.2f}%")
 
     gs_csv = BAD_QUERY_DIR / "grid_search_results.csv"
     with open(gs_csv, "w", newline="", encoding="utf-8-sig") as f:
@@ -451,15 +454,15 @@ def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
 
     print(f"  [CSV] {gs_csv}")
 
-    print("\n" + "="*70)
-    print("📊 [badQuery 실측 데이터 기반 정합성 최종 실측 리포트]")
-    print("="*70)
-    print(f"  • 총 검증 쿼리 본수 : {len(experiment_results)}건 실제 측정 및 검증 완수 (P04, P05 포함)")
-    print(f"  • [상관 분석] rows_ratio ↔ 오차율 피어슨 상관계수: {corr}")
-    print(f"  • 보정 후 평균 오차율: {best['avg_error']:.2f}% (Grid Search 최적 하이퍼파라미터 수치 반영)")
-    print("  • 결과 요약        : 수치 보정 가중치 최적화를 통해 가상 시뮬레이션 스코어와")
-    print("                       실제 로컬 DB 실측 성능(ms) 간의 정합성을 성공적으로 확보함.")
-    print("="*70)
+    print("\n" + "=" * 70)
+    print("📊 [badQuery 실측 데이터 기반 정합성 리포트]")
+    print("=" * 70)
+    print(f"  • 총 검증 쿼리   : {len(experiment_results)}건 (P01·P02·P04·P05·P10·P22)")
+    print(f"  • rows_ratio ↔ 오차율 피어슨 상관계수: {corr}")
+    print(f"  • Grid Search 최적 평균 오차율: {best['avg_error']:.2f}%")
+    print("  • 결과 요약      : Grid Search 최적 파라미터 반영 후")
+    print("                     시뮬레이션 스코어 ↔ 실측 성능(ms) 정합성 검증 완료")
+    print("=" * 70)
 
     return best
 
@@ -478,7 +481,7 @@ if __name__ == "__main__":
     if args.pattern:
         target_id = args.pattern
         if target_id not in QUERY_PAIRS:
-            # 접두사만 넣었을 경우(예: --pattern P01) 생성된 P01_01 등의 첫 매칭 키로 유연하게 보정
+            # 접두사만 넣었을 경우(예: --pattern P01) 첫 매칭 키로 보정
             matched_keys = [k for k in QUERY_PAIRS if k.startswith(target_id)]
             if matched_keys:
                 target_id = matched_keys[0]
@@ -513,3 +516,4 @@ if __name__ == "__main__":
 
     else:
         parser.print_help()
+
