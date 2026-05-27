@@ -1,6 +1,6 @@
 version: '3.8'
-
 services:
+
   mysql-testbed:
     image: mysql:8.0
     container_name: migration-test-db
@@ -16,5 +16,33 @@ services:
     command:
       - --default-authentication-plugin=mysql_native_password
 
+  mysql-dvdstore:
+    image: mysql:8.0
+    container_name: dvdstore-mysql
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DS3
+      TZ: Asia/Seoul
+    volumes:
+      - ds3_data:/var/lib/mysql
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --local-infile=1
+
+  oracle-testbed:
+    image: gvenzl/oracle-free:23-slim
+    container_name: oracle-testbed
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: root
+      TZ: Asia/Seoul
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+
 volumes:
   mysql_data:
+  ds3_data:
+  oracle_data:
