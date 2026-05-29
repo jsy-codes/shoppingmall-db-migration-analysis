@@ -29,6 +29,8 @@ class Rule:
     quant_signal: str
     pattern: str | None = None
     heuristic: str | None = None
+    consistency_grade: str | None = None   # ← 추가
+    consistency_note: str | None = None    # ← 추가
 
 
 def load_rules(path: Path) -> list[Rule]:
