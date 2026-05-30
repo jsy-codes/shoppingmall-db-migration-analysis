@@ -448,11 +448,33 @@ async def diagnose(req: QueryRequest, request: Request):
 
         # 실행시간 측정
         print("DEBUG: [EXPERIMENT] 원본 SQL 및 변환 DDL 실행 시간 측정 시작...")
-        execution_result = compare_sql_time(req.sql, ai_json.get("converted_sql", ""))
+        try:
+            execution_result = compare_sql_time(
+                req.sql,
+                ai_json.get("converted_sql", "")
+            )
+        except Exception as e:
+            print(f"[EXPERIMENT ERROR] 실행시간 측정 실패: {e}")
+
+            execution_result = {
+                "original_sql_ms": None,
+                "converted_sql_ms": None,
+                "improvement_rate": None,
+            }
         print(f"DEBUG: [EXPERIMENT RESULT] -> {execution_result}")
 
         # EXPLAIN 분석 결과
-        explain_signal = get_explain_signal_from_mysql(ai_json.get("converted_sql", ""))
+        try:
+            explain_signal = get_explain_signal_from_mysql(
+                ai_json.get("converted_sql", "")
+            )
+        except Exception as e:
+            print(f"[EXPERIMENT ERROR] EXPLAIN 분석 실패: {e}")
+            explain_signal = {
+                "full_scan_ratio": 0.0,
+                "no_index_flag": 0,
+                "rows_ratio": 1.0
+            }
 
         final_result = {
             "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"),
