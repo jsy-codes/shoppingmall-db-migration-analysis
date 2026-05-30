@@ -361,7 +361,8 @@ async def diagnose(req: QueryRequest, request: Request):
         "reason": "상세 원인 설명",
         "recommended_ddl": "MySQL용 전체 수정 스크립트",
         "converted_sql": "변환된 MySQL SELECT SQL만 작성",
-        "estimated_improvement": "예상 성능 향상치(%)와 근거",
+        "est_im_percent": "예상 성능 향상률((기존 실행시간 - 개선 후 실행시간) / 기존 실행시간) × 100 기준의 예상 성능 향상률(%)을 숫자로만 반환할 것.",
+        "estimated_improvement": "예상 성능 향상률(%포함)와 근거",
         "rule_id": "가장 핵심적인 패턴 ID (예: P03)"
     }}
     """
@@ -448,11 +449,48 @@ async def diagnose(req: QueryRequest, request: Request):
 
         # 실행시간 측정
         print("DEBUG: [EXPERIMENT] 원본 SQL 및 변환 DDL 실행 시간 측정 시작...")
-        execution_result = compare_sql_time(req.sql, ai_json.get("converted_sql", ""))
+        try:
+            execution_result = compare_sql_time(
+                req.sql,
+                ai_json.get("converted_sql", "")
+            )
+            try:
+                predicted = float(
+                    str(ai_json["est_im_percent"]).replace("%", "")
+                )
+                actual = execution_result["improvement_rate"]
+
+                improvement_gap = (
+                    round(abs(predicted - actual), 2)
+                    if actual is not None
+                    else None
+                )
+            except (ValueError, TypeError, KeyError):
+                improvement_gap = None
+            
+        except Exception as e:
+            print(f"[EXPERIMENT ERROR] 실행시간 측정 실패: {e}")
+
+            execution_result = {
+                "original_sql_ms": None,
+                "converted_sql_ms": None,
+                "improvement_rate": None,
+            }
+            improvement_gap = None
         print(f"DEBUG: [EXPERIMENT RESULT] -> {execution_result}")
 
         # EXPLAIN 분석 결과
-        explain_signal = get_explain_signal_from_mysql(ai_json.get("converted_sql", ""))
+        try:
+            explain_signal = get_explain_signal_from_mysql(
+                ai_json.get("converted_sql", "")
+            )
+        except Exception as e:
+            print(f"[EXPERIMENT ERROR] EXPLAIN 분석 실패: {e}")
+            explain_signal = {
+                "full_scan_ratio": 0.0,
+                "no_index_flag": 0,
+                "rows_ratio": 1.0
+            }
 
         final_result = {
             "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"),
@@ -481,20 +519,18 @@ async def diagnose(req: QueryRequest, request: Request):
                 new_pred = PredictionLog(
                     # 패턴 id (V)
                     pattern_id=perf["pattern"],
-                     # 패턴 이름 ( ? )
+                     # 패턴 이름 (V)
                     pattern_name=perf["label"],
                      # HIGH / MEDIUM / LOW (V)
                     risk=matched_pattern["severity"] if matched_pattern else "LOW",
-                    # just 리스크 점수? (V?)
+                    # just 리스크 점수? (V)
                     predicted_score=float(risk_score),
-                    # 이관 전 실행시간 ( )
-                    #before_ms=None,
+                    # 이관 전 실행시간 (V)
                     before_ms=float(execution_result["original_sql_ms"]),
-                    # 이관(변환) 후 실행시간 ( )
-                    #after_ms=None,
+                    # 이관(변환) 후 실행시간 (V)
                     after_ms=float(execution_result["converted_sql_ms"]),
-                    # 오차율 ( )
-                    error_rate=0.0,
+                    # 오차율 (V)
+                    error_rate=improvement_gap,
                     # 기록 시각 (V)
                     created_at=datetime.now()
                 )
