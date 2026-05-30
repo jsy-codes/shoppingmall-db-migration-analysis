@@ -168,6 +168,8 @@ MULTI_CATEGORY_BONUS: dict[int, int] = {2: 3, 3: 6, 4: 10}
 
 # Grid Search 파라미터 탐색 범위 (parameter_tuning.py 에서 실제 사용 예정)
 # 현재 파일에서는 직접 실행하지 않으며, 외부 튜닝 스크립트에서 import 해 사용.
+# [주의/요구사항] Grid Search가 실행시간 노이즈에 끌려다니지 않으려면 
+# PredictionLog DB에 각 패턴당 최소 5~10건 이상의 데이터 건수가 누적된 상태에서 측정해야 함.
 GRID_SEARCH_PARAMS: dict[str, list] = {
     "DECAY_RATE": [0.1, 0.2, 0.3, 0.4],
     "BONUS":      list(range(1, 16)),  # 1 ~ 15
