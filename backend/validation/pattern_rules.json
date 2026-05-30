@@ -9,7 +9,9 @@
     "description": "Implicit type conversion may disable index usage",
     "fix": "Use explicit CAST or align operand types",
     "impact": "타입 암묵 변환으로 인덱스 사용이 무력화될 수 있음",
-    "quant_signal": "EXPLAIN에서 key=NULL 또는 rows 급증"
+    "quant_signal": "EXPLAIN에서 key=NULL 또는 rows 급증",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "결과 row는 동일하나 인덱스 사용 여부가 달라져 성능 차이 발생 가능"
   },
   {
     "id": "P02",
@@ -21,7 +23,9 @@
     "description": "Function on indexed column may bypass index",
     "fix": "Use generated column + index or normalize stored values",
     "impact": "함수 적용으로 인덱스 탐색 대신 스캔 가능성 증가",
-    "quant_signal": "EXPLAIN type=ALL 가능성 증가"
+    "quant_signal": "EXPLAIN type=ALL 가능성 증가",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "대소문자 정규화 방식에 따라 결과 건수 차이 가능"
   },
   {
     "id": "P03",
@@ -33,7 +37,9 @@
     "description": "ROWNUM is Oracle-specific",
     "fix": "Rewrite using LIMIT/OFFSET",
     "impact": "페이징 변환 누락 시 결과 과다 조회/쿼리 실패",
-    "quant_signal": "반환 row 수 과다 또는 syntax error"
+    "quant_signal": "반환 row 수 과다 또는 syntax error",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 syntax error — LIMIT/OFFSET으로 전면 재작성 필요"
   },
   {
     "id": "P04",
@@ -45,7 +51,9 @@
     "description": "NVL is not supported in MySQL",
     "fix": "Replace with IFNULL or COALESCE",
     "impact": "함수 비호환으로 실행 에러 발생",
-    "quant_signal": "실행 시 function not found 에러"
+    "quant_signal": "실행 시 function not found 에러",
+    "consistency_grade": "AUTO",
+    "consistency_note": "IFNULL(col, val)로 1:1 치환 가능, 결과 동일 보장"
   },
   {
     "id": "P05",
@@ -57,7 +65,9 @@
     "description": "Oracle DATE includes time semantics",
     "fix": "Validate whether DATETIME/TIMESTAMP is required",
     "impact": "시간 정보 손실/불일치로 정합성 이슈 발생",
-    "quant_signal": "날짜 비교 결과 건수 차이"
+    "quant_signal": "날짜 비교 결과 건수 차이",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "범위 조건(>= AND <)으로 변환 시 결과 동일 — 변환 패턴 검증 필수"
   },
   {
     "id": "P06",
@@ -69,7 +79,9 @@
     "description": "VARCHAR2 type must be mapped",
     "fix": "Map to VARCHAR with explicit charset/collation",
     "impact": "문자 타입 매핑 오류로 길이/정렬 문제 발생",
-    "quant_signal": "insert/compare 결과 불일치"
+    "quant_signal": "insert/compare 결과 불일치",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "길이 초과 데이터 INSERT 시 에러 — 컬럼 길이 및 charset 재검토 필요"
   },
   {
     "id": "P07",
@@ -81,7 +93,9 @@
     "description": "Trailing spaces may affect comparisons",
     "fix": "Use VARCHAR or TRIM in predicates",
     "impact": "공백 패딩으로 비교 결과 왜곡",
-    "quant_signal": "= 비교 건수 차이, TRIM 적용 시 변화"
+    "quant_signal": "= 비교 건수 차이, TRIM 적용 시 변화",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "공백 패딩 비교 동작이 Oracle/MySQL 간 미묘하게 다름 — TRIM 적용 후 검증"
   },
   {
     "id": "P08",
@@ -93,7 +107,9 @@
     "description": "Function-based index is not direct in MySQL",
     "fix": "Use generated column and create index on it",
     "impact": "함수 기반 인덱스 누락으로 성능 저하",
-    "quant_signal": "EXPLAIN에서 possible_keys 감소"
+    "quant_signal": "EXPLAIN에서 possible_keys 감소",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "쿼리 결과는 동일하나 인덱스 미적용으로 성능 저하 — generated column 대체 필요"
   },
   {
     "id": "P09",
@@ -105,7 +121,9 @@
     "description": "JOIN may degrade without join-key index",
     "fix": "Add index on join keys",
     "impact": "조인 시 풀스캔/대량 rows 탐색 발생",
-    "quant_signal": "EXPLAIN rows 급증, type=ALL"
+    "quant_signal": "EXPLAIN rows 급증, type=ALL",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "결과 동일하나 조인 키 인덱스 누락 시 성능 급격히 저하"
   },
   {
     "id": "P10",
@@ -117,7 +135,9 @@
     "description": "Deep nested subqueries can degrade optimizer behavior",
     "fix": "Rewrite with JOIN/CTE where possible",
     "impact": "중첩 서브쿼리로 최적화 제한",
-    "quant_signal": "실행시간 증가, DEPENDENT SUBQUERY 노출"
+    "quant_signal": "실행시간 증가, DEPENDENT SUBQUERY 노출",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "CTE/JOIN 변환 후 결과 동일 여부 확인 — 옵티마이저 동작 차이로 미묘한 결과 차이 가능"
   },
   {
     "id": "P11",
@@ -129,7 +149,9 @@
     "description": "DECODE is Oracle-specific",
     "fix": "Rewrite using CASE WHEN",
     "impact": "분기 함수 비호환으로 결과/실행 오류 가능",
-    "quant_signal": "DECODE 사용 구문 변환 필요"
+    "quant_signal": "DECODE 사용 구문 변환 필요",
+    "consistency_grade": "AUTO",
+    "consistency_note": "CASE WHEN으로 1:1 구조 치환 가능, NULL 처리 동작 동일"
   },
   {
     "id": "P12",
@@ -141,7 +163,9 @@
     "description": "CONNECT BY needs recursive CTE rewrite",
     "fix": "Rewrite as WITH RECURSIVE",
     "impact": "계층 쿼리 비호환으로 기능 실패",
-    "quant_signal": "CONNECT BY 구문 오류"
+    "quant_signal": "CONNECT BY 구문 오류",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "WITH RECURSIVE로 전면 재작성 필요 — 변환 후 row count 및 계층 순서 검증 필수"
   },
   {
     "id": "P13",
@@ -153,7 +177,9 @@
     "description": "START WITH appears with Oracle hierarchical query",
     "fix": "Rewrite as base case in recursive CTE",
     "impact": "계층 시작조건 누락 시 결과집합 오류",
-    "quant_signal": "재귀 CTE 변환 후 row count 차이"
+    "quant_signal": "재귀 CTE 변환 후 row count 차이",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "재귀 CTE base case로 변환 — 시작 조건 누락 시 결과 전혀 달라짐"
   },
   {
     "id": "P14",
@@ -165,7 +191,9 @@
     "description": "Legacy Oracle outer join syntax is unsupported",
     "fix": "Rewrite using LEFT/RIGHT JOIN",
     "impact": "레거시 조인 문법 미지원으로 쿼리 실패",
-    "quant_signal": "(+) 포함 시 syntax error"
+    "quant_signal": "(+) 포함 시 syntax error",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 syntax error — LEFT/RIGHT JOIN으로 재작성 후 결과 검증 필수"
   },
   {
     "id": "P15",
@@ -177,7 +205,9 @@
     "description": "SYSDATE behavior differs by DB",
     "fix": "Use NOW() or CURRENT_TIMESTAMP",
     "impact": "현재시각 함수 의미 차이로 값 불일치 가능",
-    "quant_signal": "시간대/정밀도 차이"
+    "quant_signal": "시간대/정밀도 차이",
+    "consistency_grade": "AUTO",
+    "consistency_note": "NOW()로 단순 치환 가능 — 시간대 설정이 동일한 경우 결과 동일"
   },
   {
     "id": "P16",
@@ -189,7 +219,9 @@
     "description": "Timestamp precision/timezone semantics may differ",
     "fix": "Map to CURRENT_TIMESTAMP with precision check",
     "impact": "타임스탬프 정밀도/타임존 차이",
-    "quant_signal": "밀리초/타임존 보정 필요"
+    "quant_signal": "밀리초/타임존 보정 필요",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "밀리초 정밀도 및 타임존 처리 방식 차이 — CURRENT_TIMESTAMP(6) 등 명시적 정밀도 지정 필요"
   },
   {
     "id": "P17",
@@ -201,7 +233,9 @@
     "description": "MERGE syntax requires rewrite",
     "fix": "Rewrite using INSERT ... ON DUPLICATE KEY UPDATE",
     "impact": "MERGE 미지원으로 DML 동작 실패",
-    "quant_signal": "upsert 로직 재작성 필요"
+    "quant_signal": "upsert 로직 재작성 필요",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "INSERT ... ON DUPLICATE KEY UPDATE로 전면 재작성 — 다중 조건 MERGE는 로직 분리 필요"
   },
   {
     "id": "P18",
@@ -213,7 +247,9 @@
     "description": "MINUS is Oracle-specific",
     "fix": "Rewrite using NOT EXISTS/LEFT JOIN anti-join",
     "impact": "집합 연산자 미지원으로 결과 불일치",
-    "quant_signal": "MINUS 변환 후 row count 검증 필요"
+    "quant_signal": "MINUS 변환 후 row count 검증 필요",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "NOT EXISTS 또는 LEFT JOIN anti-join으로 재작성 — 변환 후 row count 반드시 비교"
   },
   {
     "id": "P19",
@@ -225,7 +261,9 @@
     "description": "FROM DUAL may be unnecessary or incompatible",
     "fix": "Use SELECT expression without DUAL where possible",
     "impact": "DUAL 의존성으로 호환성 저하",
-    "quant_signal": "DUAL 제거 시 동일 결과 확인"
+    "quant_signal": "DUAL 제거 시 동일 결과 확인",
+    "consistency_grade": "AUTO",
+    "consistency_note": "FROM DUAL 제거 후 SELECT 표현식만으로 동일 결과 — 단순 치환 가능"
   },
   {
     "id": "P20",
@@ -237,7 +275,9 @@
     "description": "TO_CHAR format model differs",
     "fix": "Rewrite with DATE_FORMAT and validate format tokens",
     "impact": "포맷 토큰 차이로 날짜 문자열 오류",
-    "quant_signal": "포맷 변환 후 파싱 실패 가능"
+    "quant_signal": "포맷 변환 후 파싱 실패 가능",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "DATE_FORMAT으로 대체 가능하나 포맷 토큰(YYYY→%Y 등) 매핑 후 출력값 비교 필수"
   },
   {
     "id": "P21",
@@ -249,7 +289,9 @@
     "description": "TO_DATE format parsing differs",
     "fix": "Rewrite with STR_TO_DATE and token mapping",
     "impact": "날짜 파싱 함수 차이로 값 오류",
-    "quant_signal": "STR_TO_DATE 포맷 매핑 필요"
+    "quant_signal": "STR_TO_DATE 포맷 매핑 필요",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "STR_TO_DATE로 대체 시 포맷 토큰 매핑 필요 — 파싱 결과 날짜값 비교 필수"
   },
   {
     "id": "P22",
@@ -261,7 +303,9 @@
     "description": "TRUNC(date) semantics differ",
     "fix": "Use DATE() or DATE_FORMAT depending on granularity",
     "impact": "날짜 절삭 함수 차이로 집계 기준 불일치",
-    "quant_signal": "일/월 단위 집계 건수 차이"
+    "quant_signal": "일/월 단위 집계 건수 차이",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "DATE() 또는 DATE_FORMAT으로 대체 가능 — 절삭 단위(일/월/년)별 결과 비교 필수"
   },
   {
     "id": "P23",
@@ -273,7 +317,9 @@
     "description": "Oracle SEQUENCE.NEXTVAL/CURRVAL is not supported in MySQL",
     "fix": "Replace with AUTO_INCREMENT or implement sequence-table workaround",
     "impact": "시퀀스 기반 PK 채번 로직 전면 재작성 필요, 채번 누락 시 PK 충돌",
-    "quant_signal": "NEXTVAL/CURRVAL 호출 시 즉시 syntax error"
+    "quant_signal": "NEXTVAL/CURRVAL 호출 시 즉시 syntax error",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 syntax error — AUTO_INCREMENT 또는 시퀀스 테이블 방식으로 전면 재작성 필요"
   },
   {
     "id": "P24",
@@ -285,7 +331,9 @@
     "description": "LISTAGG is Oracle-specific string aggregation; not available in MySQL",
     "fix": "Replace with GROUP_CONCAT(col ORDER BY ... SEPARATOR ...)",
     "impact": "문자열 집계 함수 비호환으로 실행 에러 발생",
-    "quant_signal": "GROUP_CONCAT 변환 후 구분자·정렬 결과 건수 검증 필요"
+    "quant_signal": "GROUP_CONCAT 변환 후 구분자·정렬 결과 건수 검증 필요",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 syntax error — GROUP_CONCAT으로 재작성 후 구분자·정렬 결과 비교 필수"
   },
   {
     "id": "P25",
@@ -297,7 +345,9 @@
     "description": "Oracle NUMBER(p,s) requires explicit mapping to MySQL numeric types",
     "fix": "Map NUMBER(p,0) to INT/BIGINT, NUMBER(p,s>0) to DECIMAL(p,s)",
     "impact": "타입 매핑 오류 시 소수점 손실 또는 범위 초과로 정합성 불일치",
-    "quant_signal": "DDL 컬럼 타입 변환 후 INSERT 데이터 정밀도 차이"
+    "quant_signal": "DDL 컬럼 타입 변환 후 INSERT 데이터 정밀도 차이",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 DDL syntax error — 정수/소수 여부에 따라 INT 또는 DECIMAL로 명시적 매핑 후 데이터 정밀도 검증"
   },
   {
     "id": "P26",
@@ -309,7 +359,9 @@
     "description": "CONNECT BY NOCYCLE cycle detection has no direct MySQL equivalent",
     "fix": "Rewrite as WITH RECURSIVE with explicit visited-node SET tracking",
     "impact": "순환 참조 탐지 누락 시 재귀 CTE 무한루프 발생 가능",
-    "quant_signal": "재귀 CTE 실행 시 max_recursion 한계 도달 여부 확인"
+    "quant_signal": "재귀 CTE 실행 시 max_recursion 한계 도달 여부 확인",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 syntax error — WITH RECURSIVE + visited SET 방식으로 재작성, 무한루프 방지 로직 필수"
   },
   {
     "id": "P27",
@@ -321,7 +373,9 @@
     "description": "REGEXP_LIKE is Oracle-specific; behavior differs from MySQL REGEXP",
     "fix": "Replace with col REGEXP 'pattern'; verify flag semantics (case sensitivity)",
     "impact": "정규식 매칭 플래그 차이로 결과 건수 불일치 가능",
-    "quant_signal": "정규식 매칭 결과 건수 Oracle vs MySQL 비교 필요"
+    "quant_signal": "정규식 매칭 결과 건수 Oracle vs MySQL 비교 필요",
+    "consistency_grade": "VERIFY",
+    "consistency_note": "REGEXP으로 대체 가능하나 대소문자 구분 플래그 차이로 결과 건수 불일치 가능 — 검증 필요"
   },
   {
     "id": "P28",
@@ -333,7 +387,9 @@
     "description": "PIVOT/UNPIVOT operators are Oracle-specific SQL extensions",
     "fix": "Rewrite using conditional aggregation: SUM(CASE WHEN col=val THEN ... END) GROUP BY",
     "impact": "피벗 로직 전면 재작성 필요, 동적 컬럼 수 변환 불가",
-    "quant_signal": "변환 후 컬럼 수 및 집계 값 일치 여부 검증"
+    "quant_signal": "변환 후 컬럼 수 및 집계 값 일치 여부 검증",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 syntax error — 조건부 집계(CASE WHEN)로 전면 재작성 필요, 동적 컬럼 불가"
   },
   {
     "id": "P29",
@@ -345,7 +401,9 @@
     "description": "WM_CONCAT is deprecated in Oracle 12c+ and not available in MySQL",
     "fix": "Replace with GROUP_CONCAT; note result order is not guaranteed without ORDER BY",
     "impact": "집계 함수 미지원으로 실행 에러 발생, 순서 보장 불가",
-    "quant_signal": "GROUP_CONCAT 변환 후 구분자·순서 검증 필요"
+    "quant_signal": "GROUP_CONCAT 변환 후 구분자·순서 검증 필요",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 function not found 에러 — GROUP_CONCAT으로 재작성, ORDER BY 명시하지 않으면 순서 미보장"
   },
   {
     "id": "P30",
@@ -357,6 +415,8 @@
     "description": "Oracle NCHAR/NVARCHAR2 stores Unicode; MySQL handles this via charset",
     "fix": "Map to CHAR/VARCHAR with CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
     "impact": "문자셋 매핑 누락 시 한글·이모지 저장 오류 또는 데이터 잘림",
-    "quant_signal": "멀티바이트 문자 INSERT/SELECT 결과 byte 수 불일치"
+    "quant_signal": "멀티바이트 문자 INSERT/SELECT 결과 byte 수 불일치",
+    "consistency_grade": "MANUAL",
+    "consistency_note": "MySQL에서 즉시 DDL syntax error — VARCHAR/CHAR + utf8mb4로 재작성 후 멀티바이트 문자 INSERT 결과 검증"
   }
 ]
