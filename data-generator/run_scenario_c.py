@@ -26,7 +26,7 @@ from datetime import datetime
 BASE_DIR    = Path(__file__).parent
 PROJECT_ROOT = BASE_DIR.parent
 OUT_DIR     = BASE_DIR / "test-results"
-DEFAULT_SQL = BASE_DIR / "bad_queries.sql"
+DEFAULT_SQL = BASE_DIR / "bad_queries_fixed.sql"
 
 # ── MySQL 접속 (bucketstore_dummy) ─────────────────────────────
 MYSQL_CONFIG = dict(
@@ -53,6 +53,11 @@ FAILURE_PATTERNS = [
     (r"Unknown column",             "COLUMN_NOT_FOUND",   "존재하지 않는 컬럼 참조 — 스키마 불일치 수정 필요"),
     (r"Table .* doesn't exist",     "TABLE_NOT_FOUND",    "존재하지 않는 테이블 참조"),
     (r"Incorrect integer value",    "TYPE_MISMATCH",      "타입 불일치 — 암묵적 형변환 오류"),
+    (r"LISTAGG|WM_CONCAT|PIVOT|REGEXP_LIKE",     "FUNCTION_NOT_FOUND", "Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요"),
+    (r"NEXTVAL|CURRVAL",     "SYNTAX_ERROR", "Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 변환 필요"),
+    (r"NUMBER\s*\(",  "SYNTAX_ERROR", "Oracle NUMBER 타입 미지원 — INT/DECIMAL로 변환 필요"),
+    (r"NVARCHAR2|NCHAR",   "SYNTAX_ERROR", "Oracle 유니코드 타입 미지원 — VARCHAR + utf8mb4로 변환 필요"),
+    (r"1305",   "FUNCTION_NOT_FOUND", "MySQL에 없는 함수 호출"),
 ]
 
 
@@ -82,6 +87,8 @@ def classify_ok(sql: str) -> tuple[str, str]:
         return "OK_SLOW", "CAST 형변환 실행됨 — 인덱스 우회 가능 (P07)"
     if re.search(r"\bCAST\s*\(.*AS\s+DATE", sql_upper):
         return "OK_SLOW", "CAST AS DATE 실행됨 — 시간 정보 손실 가능 (P05)"
+    if re.search(r"\bREGEXP_LIKE\s*\(", sql_upper):
+        return "OK_WRONG", "REGEXP_LIKE 실행되나 플래그 동작이 Oracle과 다름 — REGEXP로 변환 권장 (P27)"
 
     return "OK", "정상 실행"
 

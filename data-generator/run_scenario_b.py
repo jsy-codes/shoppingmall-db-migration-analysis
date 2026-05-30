@@ -54,7 +54,7 @@ BUCKET_MYSQL_CONFIG = dict(
 ORACLE_DSN = "system/root@localhost:1521/FREEPDB1"
 
 # ── 반복 횟수 / 허용 편차 ──────────────────────────────────────
-REPEAT    = 3
+REPEAT    = 5
 THRESHOLD = 5.0  # ±5%
 
 # ── 목표 적재 건수 ─────────────────────────────────────────────
@@ -75,28 +75,28 @@ DS3_QUERY_PAIRS = [
         "mysql":  "SELECT * FROM CUSTOMERS WHERE email LIKE '%@gmail.com%'",
     },
     {
-        "pattern": "P03", "risk": "HIGH",
-        "desc": "ROWNUM 페이징",
-        "oracle": None,  # Oracle 전용 구문이지만 개념적 before
-        "mysql":  "SELECT * FROM ORDERS ORDER BY orderdate DESC LIMIT 10",
+    "pattern": "P03", "risk": "HIGH",
+    "desc": "ROWNUM 페이징",
+    "oracle": "SELECT * FROM ORDERS WHERE ROWNUM <= 10",  # ← 추가
+    "mysql":  "SELECT * FROM ORDERS ORDER BY orderdate DESC LIMIT 10",
     },
     {
-        "pattern": "P04", "risk": "LOW",
-        "desc": "NVL 함수 null 치환",
-        "oracle": None,
-        "mysql":  "SELECT orderid, IFNULL(netamount, 0) FROM ORDERS WHERE customerid = 500",
+    "pattern": "P04", "risk": "LOW",
+    "desc": "NVL 함수 null 치환",
+    "oracle": "SELECT orderid, NVL(netamount, 0) FROM ORDERS WHERE customerid = 500",  # ← 추가
+    "mysql":  "SELECT orderid, IFNULL(netamount, 0) FROM ORDERS WHERE customerid = 500",
     },
     {
-        "pattern": "P05", "risk": "MEDIUM",
-        "desc": "DATE() 함수로 인덱스 무력화",
-        "oracle": "SELECT * FROM ORDERS WHERE TRUNC(orderdate) = TRUNC(SYSDATE - 30)",
-        "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= DATE(NOW() - INTERVAL 30 DAY)",
+    "pattern": "P05", "risk": "MEDIUM",
+    "desc": "DATE() 함수로 인덱스 무력화",
+    "oracle": "SELECT * FROM ORDERS WHERE orderdate >= SYSDATE - 30",
+    "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= DATE(NOW() - INTERVAL 30 DAY)",
     },
     {
-        "pattern": "P09", "risk": "HIGH",
-        "desc": "비인덱스 컬럼 JOIN",
-        "oracle": "SELECT c.firstname, o.totalamount FROM CUSTOMERS c JOIN ORDERS o ON c.country = o.orderdate",
-        "mysql":  "SELECT c.firstname, o.totalamount FROM CUSTOMERS c JOIN ORDERS o ON c.customerid = o.customerid LIMIT 100",
+    "pattern": "P09", "risk": "HIGH",
+    "desc": "비인덱스 컬럼 JOIN",
+    "oracle": "SELECT c.firstname, o.totalamount FROM CUSTOMERS c JOIN ORDERS o ON c.country = TO_CHAR(o.orderdate, 'YYYY-MM-DD') AND ROWNUM <= 100",
+    "mysql":  "SELECT c.firstname, o.totalamount FROM CUSTOMERS c JOIN ORDERS o ON c.customerid = o.customerid LIMIT 100",
     },
     {
         "pattern": "P10", "risk": "MEDIUM",
@@ -121,22 +121,22 @@ DS3_QUERY_PAIRS = [
         "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= NOW() - INTERVAL 365 DAY",
     },
     {
-        "pattern": "P20", "risk": "MEDIUM",
-        "desc": "TO_CHAR 월별 집계",
-        "oracle": None,
-        "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m'), COUNT(*), SUM(totalamount) FROM ORDERS GROUP BY DATE_FORMAT(orderdate, '%Y-%m')",
+    "pattern": "P20", "risk": "MEDIUM",
+    "desc": "TO_CHAR 월별 집계",
+    "oracle": "SELECT TO_CHAR(orderdate, 'YYYY-MM'), COUNT(*), SUM(totalamount) FROM ORDERS GROUP BY TO_CHAR(orderdate, 'YYYY-MM')",  # ← 추가
+    "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m'), COUNT(*), SUM(totalamount) FROM ORDERS GROUP BY DATE_FORMAT(orderdate, '%Y-%m')",
     },
     {
-        "pattern": "P21", "risk": "MEDIUM",
-        "desc": "TO_DATE 날짜 파싱",
-        "oracle": None,
-        "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= STR_TO_DATE('2024-01-01', '%Y-%m-%d')",
+    "pattern": "P21", "risk": "MEDIUM",
+    "desc": "TO_DATE 날짜 파싱",
+    "oracle": "SELECT * FROM ORDERS WHERE orderdate >= TO_DATE('2013-01-01', 'YYYY-MM-DD')",  # ← 추가
+    "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= STR_TO_DATE('2013-01-01', '%Y-%m-%d')",
     },
     {
-        "pattern": "P22", "risk": "MEDIUM",
-        "desc": "TRUNC 날짜 절삭",
-        "oracle": None,
-        "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m-01'), COUNT(*) FROM ORDERS GROUP BY DATE_FORMAT(orderdate, '%Y-%m-01')",
+    "pattern": "P22", "risk": "MEDIUM",
+    "desc": "TRUNC 날짜 절삭",
+    "oracle": "SELECT TRUNC(orderdate, 'MM'), COUNT(*) FROM ORDERS GROUP BY TRUNC(orderdate, 'MM')",  # ← 추가
+    "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m-01'), COUNT(*) FROM ORDERS GROUP BY DATE_FORMAT(orderdate, '%Y-%m-01')",
     },
 ]
 
@@ -418,27 +418,33 @@ def measure_mysql_query(conn, sql: str, runs: int = REPEAT) -> float | None:
 
 def measure_oracle_query(sql: str, runs: int = REPEAT) -> float | None:
     try:
-        import cx_Oracle
+        import oracledb
     except ImportError:
         return None
 
     try:
-        conn = cx_Oracle.connect(ORACLE_DSN)
-        cur  = conn.cursor()
+        conn  = oracledb.connect(user="system", password="root",
+                                 dsn="localhost:1521/FREEPDB1")
         times = []
         for _ in range(runs):
             try:
+                cur   = conn.cursor()          # ← 매번 새 커서 생성
                 start = time.perf_counter()
                 cur.execute(sql)
                 cur.fetchall()
                 times.append((time.perf_counter() - start) * 1000)
-            except Exception:
-                pass
+                cur.close()                    # ← 매번 커서 닫기
+            except Exception as e:
+                print(f"       Oracle 쿼리 실패: {e}")
+                try:
+                    cur.close()
+                except Exception:
+                    pass
         conn.close()
         return round(statistics.mean(times), 2) if times else None
-    except Exception:
+    except Exception as e:
+        print(f"       Oracle 연결 실패: {e}")
         return None
-
 
 # ══════════════════════════════════════════════════════════════
 # 6. 전체 측정 실행
@@ -453,8 +459,9 @@ def run_measurement(
     oracle_available = False
     if not skip_oracle:
         try:
-            import cx_Oracle
-            test = cx_Oracle.connect(ORACLE_DSN)
+            import oracledb
+            test = oracledb.connect(user="system", password="root",
+                            dsn="localhost:1521/FREEPDB1")
             test.close()
             oracle_available = True
             print(f"  ✅ Oracle 연결 성공 — before_ms 실측 가능")

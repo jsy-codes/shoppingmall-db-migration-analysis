@@ -377,7 +377,7 @@ def get_predicted_score(sql: str) -> tuple[float, list[str]]:
 # MySQL 실행시간 측정
 # ══════════════════════════════════════════════════════════════
 
-def measure_sql(conn, sql: str, runs: int = 3) -> float | None:
+def measure_sql(conn, sql: str, runs: int = 5) -> float | None:
     """SQL을 runs회 실행하여 평균 ms 반환. 실패 시 None."""
     times = []
     with conn.cursor() as cur:
@@ -419,7 +419,7 @@ def measure_sql(conn, sql: str, runs: int = 3) -> float | None:
 
 def run_measurements(
     rule_map: dict,
-    runs: int = 3,
+    runs: int = 5,
     use_simulate: bool = True,
     verbose: bool = True,
 ) -> list[dict]:
@@ -472,7 +472,8 @@ def run_measurements(
 
         # error_rate: before 대비 after 차이 비율
         if before_ms and after_ms and before_ms > 0:
-            error_rate = round(abs(before_ms - after_ms) / before_ms, 4)
+                actual_improvement = (before_ms - after_ms) / before_ms * 100
+                error_rate = round(abs(predicted_score - actual_improvement), 4)
         else:
             error_rate = 0.0
 
@@ -660,7 +661,7 @@ def check_reproducibility(rule_map: dict, runs: int = 3, use_simulate: bool = Tr
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="badQuery 50종 before/after 실측")
-    parser.add_argument("--runs",           type=int, default=3)
+    parser.add_argument("--runs",           type=int, default=5)
     parser.add_argument("--out",            type=str, default=str(DEFAULT_CSV))
     parser.add_argument("--skip-db",        action="store_true", help="DB 적재 생략")
     parser.add_argument("--skip-simulate",  action="store_true", help="/simulate 호출 생략")

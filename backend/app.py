@@ -547,3 +547,85 @@ async def diagnose(req: QueryRequest, request: Request):
     
     except Exception as e:
         return {"error": str(e)}
+    
+
+#     # ── app.py 에 추가할 consistency 관련 코드 ────────────────────
+# # 위치: RULES = load_rules(RULES_PATH) 바로 아래에 붙여넣기
+
+# # consistency_grade 맵 사전 로딩 (pattern_rules.json에서 읽음)
+# CONSISTENCY_MAP: dict[str, dict] = {
+#     r["id"]: {
+#         "grade": r.get("consistency_grade", "VERIFY"),
+#         "note":  r.get("consistency_note", ""),
+#     }
+#     for r in rules_data  # rules_data는 기존에 있는 변수 그대로 사용
+# }
+
+# GRADE_LABEL = {
+#     "AUTO":   "🟢 AUTO — 자동 변환, 결과 동일 보장",
+#     "VERIFY": "🟡 VERIFY — 변환 후 결과 검증 필요",
+#     "MANUAL": "🔴 MANUAL — 수동 재작성 필요",
+# }
+
+# # ── /diagnose 엔드포인트 final_result 딕셔너리에 아래 블록 추가 ──
+# # final_result = { ... } 안에 "consistency" 키를 추가하면 됨:
+# #
+# #   "consistency": build_consistency(matched_ids),
+# #
+# # 아래 함수를 @app.post("/diagnose") 위에 정의해두세요.
+
+# def build_consistency(matched_ids: list[str]) -> dict:
+#     """
+#     탐지된 패턴 ID 목록으로 정합성 등급 및 조치 가이드를 생성.
+#     가장 엄격한 등급(MANUAL > VERIFY > AUTO)을 대표 등급으로 사용.
+#     """
+#     RANK = {"AUTO": 1, "VERIFY": 2, "MANUAL": 3}
+
+#     details = []
+#     worst_grade = "AUTO"
+
+#     for pid in matched_ids:
+#         info  = CONSISTENCY_MAP.get(pid, {"grade": "VERIFY", "note": ""})
+#         grade = info["grade"]
+#         note  = info["note"]
+
+#         details.append({
+#             "pattern_id":    pid,
+#             "grade":         grade,
+#             "grade_label":   GRADE_LABEL.get(grade, grade),
+#             "note":          note,
+#         })
+
+#         if RANK.get(grade, 2) > RANK.get(worst_grade, 1):
+#             worst_grade = grade
+
+#     action_guide = {
+#         "AUTO":   "변환 스크립트를 자동 적용할 수 있습니다. 별도 검증 불필요.",
+#         "VERIFY": "변환 후 SELECT 결과를 원본과 비교하여 row 수·값 일치 여부를 확인하세요.",
+#         "MANUAL": "자동 변환이 불가능합니다. DBA 또는 개발자가 직접 재작성해야 합니다.",
+#     }
+
+#     return {
+#         "overall_grade":  worst_grade,
+#         "grade_label":    GRADE_LABEL.get(worst_grade, worst_grade),
+#         "action":         action_guide.get(worst_grade, ""),
+#         "pattern_detail": details,
+#     }
+
+
+# # ── 실제 final_result 수정 예시 (기존 코드에서 final_result 딕셔너리를 찾아 아래처럼 수정) ──
+# #
+# # final_result = {
+# #     "rule_id": ...,
+# #     "risk_level": ...,
+# #     "risk_score": ...,
+# #     "matched_pattern_ids": matched_ids,
+# #     "reason": ...,
+# #     "recommended_ddl": ...,
+# #     "estimated_improvement": ...,
+# #     "simulator_detail": ...,
+# #     "performance_data": ...,
+# #     "risk_score_data": ...,
+# #     "explain_signal": ...,
+# #     "consistency": build_consistency(matched_ids),   # ← 이 줄만 추가
+# # }

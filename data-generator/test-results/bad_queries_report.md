@@ -1,373 +1,413 @@
 # 시나리오 C — bad_queries.sql MySQL 에러 검증 리포트
-> 생성: 2026-05-26 23:38:39
+> 생성: 2026-05-30 15:11:21
 > 대상: bucketstore_dummy (MySQL 8.0)
 
 ## 요약
-- 전체: 50건
-- 성공(OK/OK_SLOW/OK_WRONG): 13건
-- 에러(ERROR): 37건
-- **에러율: 74.0%**
+- 전체: 58건
+- 성공(OK/OK_SLOW/OK_WRONG): 17건
+- 에러(ERROR): 41건
+- **에러율: 70.7%**
 
 ## 실패 유형별 분류
 
 | 실패 유형 | 건수 | 의미 |
 |-----------|------|------|
-| SYNTAX_ERROR | 15 | MySQL이 아예 인식 못 하는 Oracle 전용 문법 |
-| FUNCTION_NOT_FOUND | 13 | MySQL에 없는 Oracle 전용 함수 |
-| UNKNOWN_ERROR | 9 | 분류되지 않은 기타 오류 |
+| SYNTAX_ERROR | 20 | MySQL이 아예 인식 못 하는 Oracle 전용 문법 |
+| FUNCTION_NOT_FOUND | 18 | MySQL에 없는 Oracle 전용 함수 |
+| UNKNOWN_ERROR | 3 | 분류되지 않은 기타 오류 |
 
 ## 전체 실행 결과
 
 | 번호 | 패턴 | 결과 | 실패 유형 | 수정 방향 | 설명 |
 |------|------|------|-----------|-----------|------|
-| Q01 | P01 | ✅ OK | - | 정상 실행 | MEMBERS 테이블의 문자열 id를 숫자로 조회 |
-| Q02 | P01 | ✅ OK | - | 정상 실행 | ORDERS 테이블의 문자열 member_id를 숫자로 |
-| Q03 | P02 | ✅ OK | - | 정상 실행 | PRODUCTS 테이블의 category_id를 문자열 |
-| Q04 | P02 | ✅ OK_SLOW | - | 인덱스 컬럼에 함수 적용 — 성능 저하 (P02) | 회원 이름 검색 시 UPPER 함수 사용 |
-| Q05 | P02 | ✅ OK_SLOW | - | 인덱스 컬럼에 함수 적용 — 성능 저하 (P02) | 이메일 검색 시 LOWER 함수 사용 |
-| Q06 | P03 | ✅ OK_SLOW | - | 인덱스 컬럼에 함수 적용 — 성능 저하 (P02) | 상품명 검색 시 SUBSTR(문자열 자르기) 함수 사용 |
-| Q07 | P03 | ❌ ERROR | SYNTAX_ERROR | ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요 | 최근 주문 10건 조회 시도 |
-| Q08 | P04 | ❌ ERROR | SYNTAX_ERROR | ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요 | 금액이 높은 결제 내역 5건 조회 시도 |
-| Q09 | P04 | ❌ ERROR | FUNCTION_NOT_FOUND | NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환 | 쿠폰 할인액이 null일 경우 0으로 치환 시도 |
-| Q10 | P05 | ❌ ERROR | FUNCTION_NOT_FOUND | NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환 | 상품 설명이 없을 경우 기본 텍스트 치환 시도 |
-| Q11 | P05 | ✅ OK_SLOW | - | CAST AS DATE 실행됨 — 시간 정보 손실 가능 (P05) | 오라클 방식의 DATE 타입 캐스팅 (주문일 기준) |
-| Q12 | P06 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 결제 완료일 기준 DATE 타입 비교 |
-| Q13 | P06 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | 임시 테이블 생성 시 VARCHAR2 명시 |
-| Q14 | P07 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | 형변환 시 VARCHAR2 사용 |
-| Q15 | P07 | ✅ OK_SLOW | - | CAST 형변환 실행됨 — 인덱스 우회 가능 (P07) | CHAR 타입 상태값에 대한 후행 공백 미처리 비교 ( |
-| Q16 | P08 | ✅ OK_SLOW | - | CAST 형변환 실행됨 — 인덱스 우회 가능 (P07) | CHAR 타입 결제수단 공백 비교 |
-| Q17 | P08 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 회원 이메일 소문자 변환 인덱스 생성 |
-| Q18 | P09 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 상품 카테고리 대문자 변환 인덱스 생성 |
-| Q19 | P09 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 회원 주소와 배송지가 같은 데이터 조인 (텍스트 컬럼  |
-| Q20 | P09 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 상품 설명과 주문 비고란이 일치하는 데이터 조인 |
-| Q21 | P10 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 결제 영수증 번호와 주문 번호 텍스트 매칭 조인 |
-| Q22 | P10 | ✅ OK | - | 정상 실행 | 특정 결제 금액 이상의 주문을 한 회원 조회 (3중첩) |
-| Q23 | P10 | ✅ OK | - | 정상 실행 | 특정 카테고리의 상품이 포함된 주문 건 조회 (3중첩) |
-| Q24 | P11 | ✅ OK | - | 정상 실행 | 미사용 쿠폰을 가진 회원의 주문 조회 (3중첩) |
-| Q25 | P11 | ❌ ERROR | FUNCTION_NOT_FOUND | DECODE 함수 미지원 — CASE WHEN으로 변환 | 주문 상태값 한글 변환 시도 |
-| Q26 | P12 | ❌ ERROR | FUNCTION_NOT_FOUND | DECODE 함수 미지원 — CASE WHEN으로 변환 | 결제 수단 한글 변환 시도 |
-| Q27 | P12 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 카테고리 계층 구조 조회 |
-| Q28 | P13 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 회원 추천인(다단계) 계층 조회 |
-| Q29 | P13 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 카테고리 최상위 노드 지정 조회 |
-| Q30 | P14 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 특정 회원을 시작점으로 하는 하위 추천인 조회 |
-| Q31 | P14 | ❌ ERROR | SYNTAX_ERROR | Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 | 주문이 없는 회원까지 모두 조회 (아우터 조인) |
-| Q32 | P15 | ❌ ERROR | SYNTAX_ERROR | Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 | 결제 내역이 없는 주문까지 모두 조회 |
-| Q33 | P15 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 어제부터 오늘까지 들어온 주문 조회 |
-| Q34 | P16 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 오늘 만료되는 쿠폰 조회 |
-| Q35 | P16 | ❌ ERROR | FUNCTION_NOT_FOUND | SYSTIMESTAMP 미지원 — NOW(6) 또는 CURRENT_TIM | 주문 수정 일자에 오라클 타임스탬프 기록 시도 |
-| Q36 | P17 | ❌ ERROR | FUNCTION_NOT_FOUND | SYSTIMESTAMP 미지원 — NOW(6) 또는 CURRENT_TIM | 결제 승인 일자 기록 시도 |
-| Q37 | P17 | ❌ ERROR | SYNTAX_ERROR | MERGE INTO 미지원 — INSERT ON DUPLICATE KEY | 회원 정보 Upsert 시도 |
-| Q38 | P18 | ❌ ERROR | SYNTAX_ERROR | MERGE INTO 미지원 — INSERT ON DUPLICATE KEY | 상품 재고 Upsert 시도 |
-| Q39 | P18 | ❌ ERROR | SYNTAX_ERROR | MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인 | 한 번도 주문하지 않은 회원 조회 |
-| Q40 | P18 | ❌ ERROR | SYNTAX_ERROR | MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인 | 한 번도 팔리지 않은 상품 조회 |
-| Q41 | P19 | ❌ ERROR | SYNTAX_ERROR | MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인 | 등록된 상품이 없는 빈 카테고리 조회 |
-| Q42 | P19 | ✅ OK_COMPAT | - | DUAL은 MySQL에서 실행 가능 (P19) | 단순 수식 연산 결과 조회 |
-| Q43 | P20 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | 오라클 방식 현재 날짜 단일 조회 |
-| Q44 | P20 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환 | 가입일을 YYYY-MM-DD 포맷의 문자열로 변환 시도 |
-| Q45 | P20 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환 | 주문 업데이트 일자를 YYYY/MM 포맷으로 조회 |
-| Q46 | P21 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환 | 결제 승인 일자를 MM-DD-YYYY 포맷으로 조회 |
-| Q47 | P21 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_DATE 함수 미지원 — STR_TO_DATE로 변환 | 문자열을 오라클 방식으로 날짜 파싱하여 검색 (주문) |
-| Q48 | P22 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_DATE 함수 미지원 — STR_TO_DATE로 변환 | 쿠폰 유효기간을 오라클 방식으로 파싱하여 비교 |
-| Q49 | P22 | ❌ ERROR | FUNCTION_NOT_FOUND | TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변 | 일자별 주문 건수 집계 시도 |
-| Q50 | P22 | ❌ ERROR | FUNCTION_NOT_FOUND | TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변 | 월별 결제 금액 합계 집계 시도 (TRUNC 사용) |
+| Q01 | P01 | ✅ OK | - | 정상 실행 | ORDERS.member_id(VARCHAR FK)에  |
+| Q02 | P01 | ✅ OK | - | 정상 실행 | PAYMENTS.id에 산술 연산(+0) → 인덱스 완 |
+| Q03 | P02 | ✅ OK | - | 정상 실행 | MEMBERS.id(VARCHAR PK)를 숫자 범위  |
+| Q04 | P02 | ✅ OK_SLOW | - | 인덱스 컬럼에 함수 적용 — 성능 저하 (P02) | MEMBERS.email에 UPPER + 양방향 와일드 |
+| Q05 | P02 | ✅ OK_SLOW | - | 인덱스 컬럼에 함수 적용 — 성능 저하 (P02) | PRODUCTS.product_name 앞 3자리 SU |
+| Q06 | P05 | ✅ OK | - | 정상 실행 | MEMBERS.name 공백 제거 후 검색 → 풀스캔 |
+| Q13 | P05 | ✅ OK | - | 정상 실행 | ORDERS.created_at을 DATE()로 감싸서 |
+| Q14 | P05 | ✅ OK_SLOW | - | CAST AS DATE 실행됨 — 시간 정보 손실 가능 (P05) | PAYMENTS.payment_date를 CAST로 형 |
+| Q15 | P07 | ✅ OK | - | 정상 실행 | ORDERS.created_at에 산술 연산 → 인덱스 |
+| Q17 | P07 | ✅ OK | - | 정상 실행 | ORDERS.status에 TRIM 적용 → 풀스캔 |
+| Q18 | P08 | ✅ OK | - | 정상 실행 | PAYMENTS.payment_method Oracle |
+| Q19 | P08 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | MEMBERS.email 소문자 함수 기반 인덱스 생성 |
+| Q20 | P03 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | PRODUCTS.product_name 대문자 함수 기 |
+| Q07 | P03 | ❌ ERROR | SYNTAX_ERROR | ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요 | 조건절과 결합된 ROWNUM |
+| Q08 | P03 | ❌ ERROR | SYNTAX_ERROR | ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요 | ORDER BY 수행 전 ROWNUM이 먼저 적용되는  |
+| Q09 | P04 | ❌ ERROR | SYNTAX_ERROR | ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요 | 서브쿼리 내 ROWNUM BETWEEN 페이징 실패 |
+| Q10 | P04 | ❌ ERROR | FUNCTION_NOT_FOUND | NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환 | ORDERS.member_id에 NVL → 인덱스 무력 |
+| Q11 | P04 | ❌ ERROR | FUNCTION_NOT_FOUND | NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환 | COUPONS.discount_amount에 NVL 후 |
+| Q12 | P11 | ❌ ERROR | FUNCTION_NOT_FOUND | NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환 | PRODUCTS 정렬 시 NVL → Filesort 부 |
+| Q27 | P11 | ❌ ERROR | FUNCTION_NOT_FOUND | DECODE 함수 미지원 — CASE WHEN으로 변환 | 집계 + GROUP BY 모두 DECODE 사용 |
+| Q28 | P24 | ❌ ERROR | FUNCTION_NOT_FOUND | DECODE 함수 미지원 — CASE WHEN으로 변환 | WHERE절 DECODE → 인덱스 우회 |
+| Q52 | P29 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | Oracle LISTAGG 집계 함수 사용 |
+| Q57 | P12 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | WM_CONCAT 문자열 집계 |
+| Q29 | P12 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 카테고리 무한 루프 위험 계층 조회 |
+| Q30 | P13 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 레벨 제한 계층 조회 |
+| Q31 | P26 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 최상위 카테고리부터 시작하는 계층 조회 (P12+P13 |
+| Q54 | P09 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | NOCYCLE 순환 방지 계층 조회 (P12+P26 복 |
+| Q21 | P09 | ✅ OK | - | 정상 실행 | MEMBERS.status ↔ ORDERS.status |
+| Q22 | P09 | ✅ OK | - | 정상 실행 | PRODUCTS.product_name LIKE로 CA |
+| Q23 | P14 | ✅ OK | - | 정상 실행 | DATE() 함수 씌워 조인 (P05+P09 복합) |
+| Q32 | P14 | ❌ ERROR | SYNTAX_ERROR | Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 | WHERE절 (+) 1:N 아우터 조인 |
+| Q33 | P14 | ❌ ERROR | SYNTAX_ERROR | Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 | 다중 테이블 아우터 조인 + 추가 조건 |
+| Q34 | P10 | ❌ ERROR | SYNTAX_ERROR | Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 | 카테고리-상품 아우터 조인 + 가격 조건 |
+| Q24 | P10 | ✅ OK | - | 정상 실행 | 3중 중첩 IN 절 → 풀스캔 유발 |
+| Q25 | P10 | ❌ ERROR | SYNTAX_ERROR | ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요 | SELECT절 상관 서브쿼리 + ROWNUM (P03+ |
+| Q26 | P15 | ✅ OK | - | 정상 실행 | 중첩 EXISTS → 복잡한 상태 체크로 옵티마이저 포 |
+| Q35 | P15 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | COUPONS.valid_until에 SYSDATE 날 |
+| Q36 | P16 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환 | SYSDATE + TO_CHAR 혼용 (P15+P20  |
+| Q37 | P16 | ❌ ERROR | FUNCTION_NOT_FOUND | SYSTIMESTAMP 미지원 — NOW(6) 또는 CURRENT_TIM | PAYMENTS.payment_date에 SYSTIME |
+| Q38 | P20 | ❌ ERROR | FUNCTION_NOT_FOUND | SYSTIMESTAMP 미지원 — NOW(6) 또는 CURRENT_TIM | ORDERS.created_at과 INTERVAL 연산 |
+| Q44 | P20 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환 | 일별 매출 집계 — 조건절+GROUP BY 모두 TO_ |
+| Q45 | P20 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환 | PAYMENTS.payment_date 시분초 포맷 정 |
+| Q46 | P21 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환 | PRODUCTS.price 숫자 포맷으로 변환해 비교 |
+| Q47 | P21 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_DATE 함수 미지원 — STR_TO_DATE로 변환 | PAYMENTS.payment_date에 TO_DATE |
+| Q48 | P22 | ❌ ERROR | FUNCTION_NOT_FOUND | TO_DATE 함수 미지원 — STR_TO_DATE로 변환 | ORDERS.created_at BETWEEN TO_D |
+| Q49 | P22 | ❌ ERROR | FUNCTION_NOT_FOUND | TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변 | ORDERS 월별 집계 TRUNC → 풀스캔 |
+| Q50 | P06 | ❌ ERROR | FUNCTION_NOT_FOUND | TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변 | PAYMENTS.payment_date TRUNC +  |
+| Q16 | P25 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | 임시 테이블 생성 시 VARCHAR2 사용 |
+| Q53 | P30 | ❌ ERROR | SYNTAX_ERROR | Oracle NUMBER 타입 미지원 — INT/DECIMAL로 변환 필 | Oracle NUMBER 타입으로 테이블 생성 |
+| Q58 | P17 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | Oracle NVARCHAR2/NCHAR 타입 선언 |
+| Q39 | P17 | ❌ ERROR | SYNTAX_ERROR | MERGE INTO 미지원 — INSERT ON DUPLICATE KEY | 재고 차감 MERGE INTO (WHEN MATCHED |
+| Q40 | P18 | ❌ ERROR | SYNTAX_ERROR | MERGE INTO 미지원 — INSERT ON DUPLICATE KEY | 회원 상태 MERGE INTO (WHEN NOT MAT |
+| Q41 | P18 | ❌ ERROR | SYNTAX_ERROR | MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인 | 주문 이력 없는 회원 도출 (MINUS) |
+| Q42 | P19 | ❌ ERROR | SYNTAX_ERROR | MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인 | 팔리지 않은 상품 도출 (MINUS) |
+| Q43 | P23 | ❌ ERROR | SYNTAX_ERROR | Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 | 시퀀스 NEXTVAL FROM DUAL (AUTO_IN |
+| Q51 | P27 | ❌ ERROR | SYNTAX_ERROR | Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 | Oracle SEQUENCE.NEXTVAL INSERT |
+| Q55 | P28 | ✅ OK_WRONG | - | REGEXP_LIKE 실행되나 플래그 동작이 Oracle과 다름 — RE | REGEXP_LIKE 대소문자 무시 플래그 사용 |
+| Q56 | P28 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | Oracle PIVOT으로 연도별 매출 집계 |
 
 ## 에러 항목 상세 — C(이현종) Claude 프롬프트 반영용
 
 아래 항목들은 Claude API 프롬프트의 `[이관 규칙 가이드라인]`에
 실제 에러 메시지와 수정 방향을 보강해야 합니다.
 
-### Q07 — P03 (SYNTAX_ERROR)
-- **설명**: 최근 주문 10건 조회 시도
-- **에러**: `Unknown column 'ROWNUM' in 'where clause'`
-- **수정 방향**: ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요
-```sql
-SELECT * FROM ORDERS WHERE ROWNUM <= 10 ORDER BY created_at DESC
-```
-
-### Q08 — P04 (SYNTAX_ERROR)
-- **설명**: 금액이 높은 결제 내역 5건 조회 시도
-- **에러**: `Unknown column 'ROWNUM' in 'where clause'`
-- **수정 방향**: ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요
-```sql
-SELECT * FROM PAYMENTS WHERE ROWNUM <= 5 ORDER BY amount DESC
-```
-
-### Q09 — P04 (FUNCTION_NOT_FOUND)
-- **설명**: 쿠폰 할인액이 null일 경우 0으로 치환 시도
-- **에러**: `FUNCTION bucketstore_dummy.NVL does not exist`
-- **수정 방향**: NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환
-```sql
-SELECT id, NVL(discount_amount, 0) FROM COUPONS
-```
-
-### Q10 — P05 (FUNCTION_NOT_FOUND)
-- **설명**: 상품 설명이 없을 경우 기본 텍스트 치환 시도
-- **에러**: `FUNCTION bucketstore_dummy.NVL does not exist`
-- **수정 방향**: NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환
-```sql
-SELECT product_name, NVL(description, '설명 없음') FROM PRODUCTS
-```
-
-### Q12 — P06 (UNKNOWN_ERROR)
-- **설명**: 결제 완료일 기준 DATE 타입 비교
-- **에러**: `Unknown column 'approved_at' in 'where clause'`
-- **수정 방향**: 에러 원인 수동 확인 필요
-```sql
-SELECT id FROM PAYMENTS WHERE approved_at = CAST('2025-02-15' AS DATE)
-```
-
-### Q13 — P06 (SYNTAX_ERROR)
-- **설명**: 임시 테이블 생성 시 VARCHAR2 명시
-- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
-- **수정 방향**: VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요
-```sql
-CREATE TEMPORARY TABLE temp_users (user_id VARCHAR2(50))
-```
-
-### Q14 — P07 (SYNTAX_ERROR)
-- **설명**: 형변환 시 VARCHAR2 사용
-- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
-- **수정 방향**: VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요
-```sql
-SELECT CAST(name AS VARCHAR2(100)) FROM MEMBERS
-```
-
-### Q17 — P08 (UNKNOWN_ERROR)
-- **설명**: 회원 이메일 소문자 변환 인덱스 생성
+### Q19 — P08 (UNKNOWN_ERROR)
+- **설명**: MEMBERS.email 소문자 함수 기반 인덱스 생성 시도
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: 에러 원인 수동 확인 필요
 ```sql
 CREATE INDEX idx_members_email_lower ON MEMBERS(LOWER(email))
 ```
 
-### Q18 — P09 (UNKNOWN_ERROR)
-- **설명**: 상품 카테고리 대문자 변환 인덱스 생성
+### Q20 — P03 (UNKNOWN_ERROR)
+- **설명**: PRODUCTS.product_name 대문자 함수 기반 인덱스 생성 시도
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: 에러 원인 수동 확인 필요
 ```sql
-CREATE INDEX idx_products_cat_upper ON PRODUCTS(UPPER(category_name))
+CREATE INDEX idx_prod_name_upper ON PRODUCTS(UPPER(product_name))
 ```
 
-### Q19 — P09 (UNKNOWN_ERROR)
-- **설명**: 회원 주소와 배송지가 같은 데이터 조인 (텍스트 컬럼 조인 부하)
-- **에러**: `Unknown column 'm.address' in 'on clause'`
-- **수정 방향**: 에러 원인 수동 확인 필요
+### Q07 — P03 (SYNTAX_ERROR)
+- **설명**: 조건절과 결합된 ROWNUM
+- **에러**: `Unknown column 'ROWNUM' in 'where clause'`
+- **수정 방향**: ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요
 ```sql
-SELECT m.name, o.total_amount FROM MEMBERS m JOIN ORDERS o ON m.address = o.shipping_address
+SELECT * FROM ORDERS WHERE status = 'PENDING' AND ROWNUM <= 100
 ```
 
-### Q20 — P09 (UNKNOWN_ERROR)
-- **설명**: 상품 설명과 주문 비고란이 일치하는 데이터 조인
-- **에러**: `Unknown column 'p.description' in 'on clause'`
-- **수정 방향**: 에러 원인 수동 확인 필요
+### Q08 — P03 (SYNTAX_ERROR)
+- **설명**: ORDER BY 수행 전 ROWNUM이 먼저 적용되는 논리적 오류
+- **에러**: `Unknown column 'ROWNUM' in 'where clause'`
+- **수정 방향**: ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요
 ```sql
-SELECT p.product_name FROM PRODUCTS p JOIN ORDER_ITEMS oi ON p.description = oi.remarks
+SELECT id, total_amount FROM ORDERS WHERE ROWNUM <= 10 ORDER BY total_amount DESC
 ```
 
-### Q21 — P10 (UNKNOWN_ERROR)
-- **설명**: 결제 영수증 번호와 주문 번호 텍스트 매칭 조인
-- **에러**: `Unknown column 'py.receipt_id' in 'on clause'`
-- **수정 방향**: 에러 원인 수동 확인 필요
+### Q09 — P04 (SYNTAX_ERROR)
+- **설명**: 서브쿼리 내 ROWNUM BETWEEN 페이징 실패
+- **에러**: `Every derived table must have its own alias`
+- **수정 방향**: ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요
 ```sql
-SELECT py.id, o.id FROM PAYMENTS py JOIN ORDERS o ON py.receipt_id = o.order_number
+SELECT * FROM (SELECT id, created_at FROM ORDERS ORDER BY created_at DESC) WHERE ROWNUM BETWEEN 11 AND 20
 ```
 
-### Q25 — P11 (FUNCTION_NOT_FOUND)
-- **설명**: 주문 상태값 한글 변환 시도
+### Q10 — P04 (FUNCTION_NOT_FOUND)
+- **설명**: ORDERS.member_id에 NVL → 인덱스 무력화 + 풀스캔
+- **에러**: `FUNCTION bucketstore_dummy.NVL does not exist`
+- **수정 방향**: NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환
+```sql
+SELECT * FROM ORDERS WHERE NVL(member_id, '0') = '10050'
+```
+
+### Q11 — P04 (FUNCTION_NOT_FOUND)
+- **설명**: COUPONS.discount_amount에 NVL 후 산술 연산
+- **에러**: `FUNCTION bucketstore_dummy.NVL does not exist`
+- **수정 방향**: NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환
+```sql
+SELECT id FROM COUPONS WHERE NVL(discount_amount, 0) + 1000 > 5000
+```
+
+### Q12 — P11 (FUNCTION_NOT_FOUND)
+- **설명**: PRODUCTS 정렬 시 NVL → Filesort 부하
+- **에러**: `FUNCTION bucketstore_dummy.NVL does not exist`
+- **수정 방향**: NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환
+```sql
+SELECT * FROM PRODUCTS ORDER BY NVL(stock_quantity, 0) DESC
+```
+
+### Q27 — P11 (FUNCTION_NOT_FOUND)
+- **설명**: 집계 + GROUP BY 모두 DECODE 사용
 - **에러**: `FUNCTION bucketstore_dummy.DECODE does not exist`
 - **수정 방향**: DECODE 함수 미지원 — CASE WHEN으로 변환
 ```sql
-SELECT id, DECODE(status, 'PENDING', '대기', 'COMPLETE', '완료', '기타') FROM ORDERS
+SELECT DECODE(status, 'COMPLETE', 1, 0) AS is_done, COUNT(*) FROM ORDERS GROUP BY DECODE(status, 'COMPLETE', 1, 0)
 ```
 
-### Q26 — P12 (FUNCTION_NOT_FOUND)
-- **설명**: 결제 수단 한글 변환 시도
+### Q28 — P24 (FUNCTION_NOT_FOUND)
+- **설명**: WHERE절 DECODE → 인덱스 우회
 - **에러**: `FUNCTION bucketstore_dummy.DECODE does not exist`
 - **수정 방향**: DECODE 함수 미지원 — CASE WHEN으로 변환
 ```sql
-SELECT id, DECODE(payment_method, 'CARD', '신용카드', 'CASH', '현금', '기타') FROM PAYMENTS
+SELECT * FROM PAYMENTS WHERE DECODE(payment_method, 'CARD', 1, 0) = 1
 ```
 
-### Q27 — P12 (SYNTAX_ERROR)
-- **설명**: 카테고리 계층 구조 조회
+### Q52 — P29 (FUNCTION_NOT_FOUND)
+- **설명**: Oracle LISTAGG 집계 함수 사용
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
+```sql
+SELECT LISTAGG(name, ',') WITHIN GROUP (ORDER BY name) FROM CATEGORIES
+```
+
+### Q57 — P12 (FUNCTION_NOT_FOUND)
+- **설명**: WM_CONCAT 문자열 집계
+- **에러**: `FUNCTION bucketstore_dummy.WM_CONCAT does not exist`
+- **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
+```sql
+SELECT WM_CONCAT(product_name) FROM PRODUCTS
+```
+
+### Q29 — P12 (SYNTAX_ERROR)
+- **설명**: 카테고리 무한 루프 위험 계층 조회
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요
 ```sql
 SELECT * FROM CATEGORIES CONNECT BY PRIOR id = parent_id
 ```
 
-### Q28 — P13 (SYNTAX_ERROR)
-- **설명**: 회원 추천인(다단계) 계층 조회
+### Q30 — P13 (SYNTAX_ERROR)
+- **설명**: 레벨 제한 계층 조회
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요
 ```sql
-SELECT * FROM MEMBERS CONNECT BY PRIOR id = referrer_id
+SELECT * FROM CATEGORIES CONNECT BY PRIOR id = parent_id AND LEVEL <= 3
 ```
 
-### Q29 — P13 (SYNTAX_ERROR)
-- **설명**: 카테고리 최상위 노드 지정 조회
+### Q31 — P26 (SYNTAX_ERROR)
+- **설명**: 최상위 카테고리부터 시작하는 계층 조회 (P12+P13 복합)
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요
 ```sql
 SELECT * FROM CATEGORIES START WITH parent_id IS NULL CONNECT BY PRIOR id = parent_id
 ```
 
-### Q30 — P14 (SYNTAX_ERROR)
-- **설명**: 특정 회원을 시작점으로 하는 하위 추천인 조회
+### Q54 — P09 (SYNTAX_ERROR)
+- **설명**: NOCYCLE 순환 방지 계층 조회 (P12+P26 복합)
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요
 ```sql
-SELECT * FROM MEMBERS START WITH id = 100 CONNECT BY PRIOR id = referrer_id
+SELECT id, parent_id FROM CATEGORIES CONNECT BY NOCYCLE PRIOR id = parent_id
 ```
 
-### Q31 — P14 (SYNTAX_ERROR)
-- **설명**: 주문이 없는 회원까지 모두 조회 (아우터 조인)
+### Q32 — P14 (SYNTAX_ERROR)
+- **설명**: WHERE절 (+) 1:N 아우터 조인
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 변환
 ```sql
 SELECT m.name, o.id FROM MEMBERS m, ORDERS o WHERE m.id = o.member_id (+)
 ```
 
-### Q32 — P15 (SYNTAX_ERROR)
-- **설명**: 결제 내역이 없는 주문까지 모두 조회
+### Q33 — P14 (SYNTAX_ERROR)
+- **설명**: 다중 테이블 아우터 조인 + 추가 조건
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 변환
 ```sql
-SELECT o.id, p.amount FROM ORDERS o, PAYMENTS p WHERE o.id = p.order_id (+)
+SELECT o.id, p.id FROM ORDERS o, PAYMENTS p WHERE o.id = p.order_id (+) AND p.payment_method (+) = 'CARD'
 ```
 
-### Q33 — P15 (UNKNOWN_ERROR)
-- **설명**: 어제부터 오늘까지 들어온 주문 조회
+### Q34 — P10 (SYNTAX_ERROR)
+- **설명**: 카테고리-상품 아우터 조인 + 가격 조건
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: Oracle (+) 조인 문법 미지원 — LEFT/RIGHT JOIN으로 변환
+```sql
+SELECT c.name, p.product_name FROM CATEGORIES c, PRODUCTS p WHERE c.id (+) = p.category_id AND p.price > 10000
+```
+
+### Q25 — P10 (SYNTAX_ERROR)
+- **설명**: SELECT절 상관 서브쿼리 + ROWNUM (P03+P10 복합)
+- **에러**: `Unknown column 'ROWNUM' in 'where clause'`
+- **수정 방향**: ROWNUM은 MySQL 미지원 — LIMIT으로 변환 필요
+```sql
+SELECT m.name, ( SELECT MAX(total_amount) FROM ORDERS o WHERE o.member_id = m.id AND ROWNUM = 1 ) FROM MEMBERS m
+```
+
+### Q35 — P15 (UNKNOWN_ERROR)
+- **설명**: COUPONS.valid_until에 SYSDATE 날짜 연산
 - **에러**: `Unknown column 'SYSDATE' in 'where clause'`
 - **수정 방향**: 에러 원인 수동 확인 필요
 ```sql
-SELECT * FROM ORDERS WHERE created_at >= SYSDATE - 1
+SELECT * FROM COUPONS WHERE valid_until >= SYSDATE - 7
 ```
 
-### Q34 — P16 (UNKNOWN_ERROR)
-- **설명**: 오늘 만료되는 쿠폰 조회
-- **에러**: `Unknown column 'SYSDATE' in 'where clause'`
-- **수정 방향**: 에러 원인 수동 확인 필요
+### Q36 — P16 (FUNCTION_NOT_FOUND)
+- **설명**: SYSDATE + TO_CHAR 혼용 (P15+P20 복합)
+- **에러**: `FUNCTION bucketstore_dummy.TO_CHAR does not exist`
+- **수정 방향**: TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환
 ```sql
-SELECT * FROM COUPONS WHERE valid_until = SYSDATE
+SELECT * FROM ORDERS WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') = TO_CHAR(created_at, 'YYYYMMDD')
 ```
 
-### Q35 — P16 (FUNCTION_NOT_FOUND)
-- **설명**: 주문 수정 일자에 오라클 타임스탬프 기록 시도
-- **에러**: `Unknown column 'updated_at' in 'field list'`
+### Q37 — P16 (FUNCTION_NOT_FOUND)
+- **설명**: PAYMENTS.payment_date에 SYSTIMESTAMP 업데이트
+- **에러**: `Unknown column 'SYSTIMESTAMP' in 'field list'`
 - **수정 방향**: SYSTIMESTAMP 미지원 — NOW(6) 또는 CURRENT_TIMESTAMP(6)으로 변환
 ```sql
-UPDATE ORDERS SET updated_at = SYSTIMESTAMP WHERE id = 1
+UPDATE PAYMENTS SET payment_date = SYSTIMESTAMP WHERE payment_method = 'CARD'
 ```
 
-### Q36 — P17 (FUNCTION_NOT_FOUND)
-- **설명**: 결제 승인 일자 기록 시도
-- **에러**: `Unknown column 'status' in 'where clause'`
+### Q38 — P20 (FUNCTION_NOT_FOUND)
+- **설명**: ORDERS.created_at과 INTERVAL 연산 혼용
+- **에러**: `Unknown column 'SYSTIMESTAMP' in 'where clause'`
 - **수정 방향**: SYSTIMESTAMP 미지원 — NOW(6) 또는 CURRENT_TIMESTAMP(6)으로 변환
 ```sql
-UPDATE PAYMENTS SET approved_at = SYSTIMESTAMP WHERE status = 'APPROVED'
+SELECT * FROM ORDERS WHERE created_at > SYSTIMESTAMP - INTERVAL '1' DAY
 ```
 
-### Q37 — P17 (SYNTAX_ERROR)
-- **설명**: 회원 정보 Upsert 시도
+### Q44 — P20 (FUNCTION_NOT_FOUND)
+- **설명**: 일별 매출 집계 — 조건절+GROUP BY 모두 TO_CHAR (풀스캔)
+- **에러**: `FUNCTION bucketstore_dummy.TO_CHAR does not exist`
+- **수정 방향**: TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환
+```sql
+SELECT TO_CHAR(created_at, 'YYYYMMDD'), SUM(total_amount) FROM ORDERS WHERE TO_CHAR(created_at, 'YYYYMMDD') LIKE '202505%' GROUP BY TO_CHAR(created_at, 'YYYYMMDD')
+```
+
+### Q45 — P20 (FUNCTION_NOT_FOUND)
+- **설명**: PAYMENTS.payment_date 시분초 포맷 정렬
+- **에러**: `FUNCTION bucketstore_dummy.TO_CHAR does not exist`
+- **수정 방향**: TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환
+```sql
+SELECT * FROM PAYMENTS ORDER BY TO_CHAR(payment_date, 'YYYY-MM-DD HH24:MI:SS') DESC
+```
+
+### Q46 — P21 (FUNCTION_NOT_FOUND)
+- **설명**: PRODUCTS.price 숫자 포맷으로 변환해 비교
+- **에러**: `FUNCTION bucketstore_dummy.TO_CHAR does not exist`
+- **수정 방향**: TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환
+```sql
+SELECT * FROM PRODUCTS WHERE TO_CHAR(price, '999,999') = '10,000'
+```
+
+### Q47 — P21 (FUNCTION_NOT_FOUND)
+- **설명**: PAYMENTS.payment_date에 TO_DATE 시간 포맷 비교
+- **에러**: `FUNCTION bucketstore_dummy.TO_DATE does not exist`
+- **수정 방향**: TO_DATE 함수 미지원 — STR_TO_DATE로 변환
+```sql
+SELECT * FROM PAYMENTS WHERE payment_date >= TO_DATE('2025-05-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+```
+
+### Q48 — P22 (FUNCTION_NOT_FOUND)
+- **설명**: ORDERS.created_at BETWEEN TO_DATE 연속 사용
+- **에러**: `FUNCTION bucketstore_dummy.TO_DATE does not exist`
+- **수정 방향**: TO_DATE 함수 미지원 — STR_TO_DATE로 변환
+```sql
+SELECT * FROM ORDERS WHERE created_at BETWEEN TO_DATE('20250101', 'YYYYMMDD') AND TO_DATE('20251231', 'YYYYMMDD')
+```
+
+### Q49 — P22 (FUNCTION_NOT_FOUND)
+- **설명**: ORDERS 월별 집계 TRUNC → 풀스캔
+- **에러**: `FUNCTION bucketstore_dummy.TRUNC does not exist`
+- **수정 방향**: TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변환
+```sql
+SELECT TRUNC(created_at, 'MM'), COUNT(*) FROM ORDERS GROUP BY TRUNC(created_at, 'MM')
+```
+
+### Q50 — P06 (FUNCTION_NOT_FOUND)
+- **설명**: PAYMENTS.payment_date TRUNC + SYSDATE (P22+P15 복합)
+- **에러**: `FUNCTION bucketstore_dummy.TRUNC does not exist`
+- **수정 방향**: TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변환
+```sql
+SELECT * FROM PAYMENTS WHERE TRUNC(payment_date) = TRUNC(SYSDATE - 1)
+```
+
+### Q16 — P25 (SYNTAX_ERROR)
+- **설명**: 임시 테이블 생성 시 VARCHAR2 사용
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요
+```sql
+CREATE TEMPORARY TABLE temp_vip_users (user_id VARCHAR2(50), grade VARCHAR2(10))
+```
+
+### Q53 — P30 (SYNTAX_ERROR)
+- **설명**: Oracle NUMBER 타입으로 테이블 생성
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: Oracle NUMBER 타입 미지원 — INT/DECIMAL로 변환 필요
+```sql
+CREATE TABLE t25 ( price NUMBER(10,2), count NUMBER )
+```
+
+### Q58 — P17 (SYNTAX_ERROR)
+- **설명**: Oracle NVARCHAR2/NCHAR 타입 선언
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요
+```sql
+CREATE TABLE t30 ( name NVARCHAR2(50), code NCHAR(10) )
+```
+
+### Q39 — P17 (SYNTAX_ERROR)
+- **설명**: 재고 차감 MERGE INTO (WHEN MATCHED) + DUAL (P17+P19 복합)
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: MERGE INTO 미지원 — INSERT ON DUPLICATE KEY UPDATE로 변환
 ```sql
-MERGE INTO MEMBERS m USING (SELECT 100 AS id, 'NEW' AS status FROM DUAL) d ON (m.id = d.id) WHEN MATCHED THEN UPDATE SET status = d.status
-```
-
-### Q38 — P18 (SYNTAX_ERROR)
-- **설명**: 상품 재고 Upsert 시도
-- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
-- **수정 방향**: MERGE INTO 미지원 — INSERT ON DUPLICATE KEY UPDATE로 변환
-```sql
-MERGE INTO PRODUCTS p USING (SELECT 50 AS id, 999 AS stock FROM DUAL) d ON (p.id = d.id) WHEN MATCHED THEN UPDATE SET stock = d.stock
-```
-
-### Q39 — P18 (SYNTAX_ERROR)
-- **설명**: 한 번도 주문하지 않은 회원 조회
-- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
-- **수정 방향**: MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인으로 변환
-```sql
-SELECT id FROM MEMBERS MINUS SELECT member_id FROM ORDERS
+MERGE INTO PRODUCTS p USING (SELECT 50 AS id, 10 AS qty FROM DUAL) d ON (p.id = d.id) WHEN MATCHED THEN UPDATE SET p.stock_quantity = p.stock_quantity - d.qty
 ```
 
 ### Q40 — P18 (SYNTAX_ERROR)
-- **설명**: 한 번도 팔리지 않은 상품 조회
+- **설명**: 회원 상태 MERGE INTO (WHEN NOT MATCHED) + DUAL (P17+P19 복합)
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: MERGE INTO 미지원 — INSERT ON DUPLICATE KEY UPDATE로 변환
+```sql
+MERGE INTO MEMBERS m USING (SELECT 'USR10050' AS id, 'ACTIVE' AS status FROM DUAL) d ON (m.id = d.id) WHEN NOT MATCHED THEN INSERT (id, name, email, status) VALUES (d.id, 'Unknown', 'unknown@test.com'
+```
+
+### Q41 — P18 (SYNTAX_ERROR)
+- **설명**: 주문 이력 없는 회원 도출 (MINUS)
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인으로 변환
+```sql
+SELECT id FROM MEMBERS MINUS SELECT member_id FROM ORDERS WHERE created_at > '2024-01-01'
+```
+
+### Q42 — P19 (SYNTAX_ERROR)
+- **설명**: 팔리지 않은 상품 도출 (MINUS)
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인으로 변환
 ```sql
 SELECT id FROM PRODUCTS MINUS SELECT product_id FROM ORDER_ITEMS
 ```
 
-### Q41 — P19 (SYNTAX_ERROR)
-- **설명**: 등록된 상품이 없는 빈 카테고리 조회
+### Q43 — P23 (SYNTAX_ERROR)
+- **설명**: 시퀀스 NEXTVAL FROM DUAL (AUTO_INCREMENT와 충돌)
+- **에러**: `Unknown table 'member_seq' in field list`
+- **수정 방향**: Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 변환 필요
+```sql
+SELECT member_seq.NEXTVAL FROM DUAL
+```
+
+### Q51 — P27 (SYNTAX_ERROR)
+- **설명**: Oracle SEQUENCE.NEXTVAL INSERT
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
-- **수정 방향**: MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인으로 변환
+- **수정 방향**: Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 변환 필요
 ```sql
-SELECT id FROM CATEGORIES MINUS SELECT category_id FROM PRODUCTS
+INSERT INTO ORDERS (id, member_id, status, total_amount) VALUES (my_seq.NEXTVAL, 'USR001', 'PENDING', 15000); SELECT my_seq.CURRVAL FROM DUAL
 ```
 
-### Q43 — P20 (UNKNOWN_ERROR)
-- **설명**: 오라클 방식 현재 날짜 단일 조회
-- **에러**: `Unknown column 'SYSDATE' in 'field list'`
-- **수정 방향**: 에러 원인 수동 확인 필요
+### Q56 — P28 (FUNCTION_NOT_FOUND)
+- **설명**: Oracle PIVOT으로 연도별 매출 집계
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
 ```sql
-SELECT SYSDATE FROM DUAL
-```
-
-### Q44 — P20 (FUNCTION_NOT_FOUND)
-- **설명**: 가입일을 YYYY-MM-DD 포맷의 문자열로 변환 시도
-- **에러**: `FUNCTION bucketstore_dummy.TO_CHAR does not exist`
-- **수정 방향**: TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환
-```sql
-SELECT TO_CHAR(created_at, 'YYYY-MM-DD') FROM MEMBERS
-```
-
-### Q45 — P20 (FUNCTION_NOT_FOUND)
-- **설명**: 주문 업데이트 일자를 YYYY/MM 포맷으로 조회
-- **에러**: `FUNCTION bucketstore_dummy.TO_CHAR does not exist`
-- **수정 방향**: TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환
-```sql
-SELECT TO_CHAR(updated_at, 'YYYY/MM') FROM ORDERS
-```
-
-### Q46 — P21 (FUNCTION_NOT_FOUND)
-- **설명**: 결제 승인 일자를 MM-DD-YYYY 포맷으로 조회
-- **에러**: `FUNCTION bucketstore_dummy.TO_CHAR does not exist`
-- **수정 방향**: TO_CHAR 함수 미지원 — DATE_FORMAT으로 변환
-```sql
-SELECT TO_CHAR(approved_at, 'MM-DD-YYYY') FROM PAYMENTS
-```
-
-### Q47 — P21 (FUNCTION_NOT_FOUND)
-- **설명**: 문자열을 오라클 방식으로 날짜 파싱하여 검색 (주문)
-- **에러**: `FUNCTION bucketstore_dummy.TO_DATE does not exist`
-- **수정 방향**: TO_DATE 함수 미지원 — STR_TO_DATE로 변환
-```sql
-SELECT * FROM ORDERS WHERE created_at = TO_DATE('2025/01/01', 'YYYY/MM/DD')
-```
-
-### Q48 — P22 (FUNCTION_NOT_FOUND)
-- **설명**: 쿠폰 유효기간을 오라클 방식으로 파싱하여 비교
-- **에러**: `FUNCTION bucketstore_dummy.TO_DATE does not exist`
-- **수정 방향**: TO_DATE 함수 미지원 — STR_TO_DATE로 변환
-```sql
-SELECT * FROM COUPONS WHERE valid_until > TO_DATE('2025-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
-```
-
-### Q49 — P22 (FUNCTION_NOT_FOUND)
-- **설명**: 일자별 주문 건수 집계 시도
-- **에러**: `FUNCTION bucketstore_dummy.TRUNC does not exist`
-- **수정 방향**: TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변환
-```sql
-SELECT TRUNC(created_at), COUNT(*) FROM ORDERS GROUP BY TRUNC(created_at)
-```
-
-### Q50 — P22 (FUNCTION_NOT_FOUND)
-- **설명**: 월별 결제 금액 합계 집계 시도 (TRUNC 사용)
-- **에러**: `FUNCTION bucketstore_dummy.TRUNC does not exist`
-- **수정 방향**: TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변환
-```sql
-SELECT TRUNC(approved_at, 'MM'), SUM(amount) FROM PAYMENTS GROUP BY TRUNC(approved_at, 'MM')
+SELECT * FROM ( SELECT member_id, status, total_amount FROM ORDERS ) PIVOT ( SUM(total_amount) FOR status IN ('PENDING', 'COMPLETE', 'CANCEL') )
 ```
