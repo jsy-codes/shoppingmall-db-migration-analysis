@@ -67,36 +67,51 @@ function ErrorRateTab({ isDarkMode, logs }) {
 
       {/* 테이블 */}
       <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200'}`}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className={`text-xs ${isDarkMode ? 'bg-[#161616] text-[#888]' : 'bg-zinc-50 text-zinc-400'}`}>
-              {['패턴 ID', '패턴명', '위험도', '예측 점수', '실행 전(ms)', '실행 후(ms)', '오차율(%)'].map(h => (
-                <th key={h} className={`px-3 py-2.5 text-left font-medium border-b ${t.border}`}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log, i) => (
-              <tr key={log.pattern_id + i} className={`transition-colors ${t.row} ${i !== logs.length - 1 ? `border-b ${t.border}` : ''}`}>
-                <td className="px-3 py-2 font-mono text-xs text-blue-400">{log.pattern_id}</td>
-                <td className={`px-3 py-2 text-xs ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-700'}`}>{log.pattern_name}</td>
-                <td className="px-3 py-2"><RiskBadge risk={log.risk} /></td>
-                <td className={`px-3 py-2 text-xs font-medium ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800'}`}>{log.predicted_score}</td>
-                <td className={`px-3 py-2 text-xs ${isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500'}`}>{log.before_ms != null ? log.before_ms.toLocaleString() : '-'}</td>
-                <td className="px-3 py-2 text-xs text-green-400">{log.after_ms ?? '-'}</td>
-                <td className="px-3 py-2">
-                  {log.error_rate != null ? (
-                    <span className={`text-xs font-semibold ${log.error_rate > 3.0 ? 'text-red-400' : 'text-green-400'}`}>
-                      {log.error_rate.toFixed(2)}%
-                      {log.error_rate > 3.0 && <span className="ml-1 text-[10px]">⚠</span>}
-                    </span>
-                  ) : <span className="text-xs text-zinc-400">-</span>}
-                </td>
+        {logs.length === 0 ? (
+          <div className={`flex flex-col items-center justify-center py-12 gap-2 ${isDarkMode ? 'text-[#555]' : 'text-zinc-300'}`}>
+            <Activity size={28} />
+            <p className="text-sm font-medium">아직 진단 기록이 없습니다</p>
+            <p className="text-xs">SQL을 입력하고 진단을 실행하면 여기에 기록됩니다</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className={`text-xs ${isDarkMode ? 'bg-[#161616] text-[#888]' : 'bg-zinc-50 text-zinc-400'}`}>
+                {['패턴 ID', '패턴명', '위험도', '예측 점수', '실행 전(ms)', '실행 후(ms)', '오차율(%)'].map(h => (
+                  <th key={h} className={`px-3 py-2.5 text-left font-medium border-b ${t.border}`}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {logs.map((log, i) => (
+                <tr key={log.pattern_id + i} className={`transition-colors ${t.row} ${i !== logs.length - 1 ? `border-b ${t.border}` : ''}`}>
+                  <td className="px-3 py-2 font-mono text-xs text-blue-400">{log.pattern_id}</td>
+                  <td className={`px-3 py-2 text-xs ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-700'}`}>{log.pattern_name}</td>
+                  <td className="px-3 py-2"><RiskBadge risk={log.risk} /></td>
+                  <td className={`px-3 py-2 text-xs font-medium ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800'}`}>{log.predicted_score}</td>
+                  <td className={`px-3 py-2 text-xs ${isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500'}`}>{log.before_ms != null ? log.before_ms.toLocaleString() : '-'}</td>
+                  <td className="px-3 py-2 text-xs text-green-400">{log.after_ms ?? '-'}</td>
+                  <td className="px-3 py-2">
+                    {log.error_rate != null ? (
+                      <span className={`text-xs font-semibold ${log.error_rate > 3.0 ? 'text-red-400' : 'text-green-400'}`}>
+                        {log.error_rate.toFixed(2)}%
+                        {log.error_rate > 3.0 && <span className="ml-1 text-[10px]">⚠</span>}
+                      </span>
+                    ) : <span className="text-xs text-zinc-400">-</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
+      {/* 실측 데이터 없음 안내 */}
+      {logs.length > 0 && logs.every(l => l.before_ms == null) && (
+        <div className={`rounded-xl border px-4 py-3 text-xs flex items-center gap-2 ${isDarkMode ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' : 'bg-yellow-50 border-yellow-200 text-yellow-700'}`}>
+          <AlertTriangle size={13} />
+          실행 시간(before/after ms) 데이터가 아직 없습니다. MySQL 실측 환경 연동 후 채워집니다.
+        </div>
+      )}
     </div>
   );
 }
@@ -123,43 +138,53 @@ function CompareTab({ isDarkMode, logs }) {
     );
   };
 
+  const hasRealData = chartData.some(d => d.before != null && d.before > 0);
+
   return (
     <div className="space-y-4">
       <p className={`text-xs ${isDarkMode ? 'text-[#888]' : 'text-zinc-400'}`}>
         패턴별 이관 전(before_ms) / 이관 후(after_ms) 실측 비교 · 오차율 3.0% 초과 시 빨간색 강조
       </p>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={chartData} barGap={2} barCategoryGap="30%">
-          <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#2d2d2d' : '#e5e7eb'} />
-          <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
-          <YAxis tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend wrapperStyle={{ fontSize: 11, color: isDarkMode ? '#888' : '#6b7280' }} />
-          <Bar dataKey="before" name="이관 전(ms)" radius={[3,3,0,0]}>
-            {chartData.map((entry, i) => (
-              <Cell key={i} fill={entry.error > 3.0 ? '#ef4444' : '#6366f1'} fillOpacity={0.8} />
-            ))}
-          </Bar>
-          <Bar dataKey="after" name="이관 후(ms)" fill="#22c55e" fillOpacity={0.7} radius={[3,3,0,0]} />
-        </BarChart>
-      </ResponsiveContainer>
-
-      {/* 오차율 막대 */}
-      <p className={`text-xs font-medium ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-600'}`}>패턴별 오차율</p>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={chartData} barCategoryGap="30%">
-          <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#2d2d2d' : '#e5e7eb'} />
-          <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
-          <YAxis tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} domain={[0, 5]} />
-          <Tooltip content={<CustomTooltip />} />
-          <ReferenceLine y={3.0} stroke="#ef4444" strokeDasharray="4 2" label={{ value: '3.0%', fill: '#ef4444', fontSize: 10 }} />
-          <Bar dataKey="error" name="오차율(%)" radius={[3,3,0,0]}>
-            {chartData.map((entry, i) => (
-              <Cell key={i} fill={entry.error > 3.0 ? '#ef4444' : '#22c55e'} fillOpacity={0.85} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      {!hasRealData && (
+        <div className={`flex flex-col items-center justify-center py-12 gap-2 rounded-xl border ${isDarkMode ? 'border-[#2d2d2d] text-[#555]' : 'border-zinc-200 text-zinc-300'}`}>
+          <TrendingDown size={28} />
+          <p className="text-sm font-medium">실측 데이터가 없습니다</p>
+          <p className="text-xs">MySQL 연동 후 진단을 실행하면 차트가 표시됩니다</p>
+        </div>
+      )}
+      {hasRealData && <>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={chartData} barGap={2} barCategoryGap="30%">
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#2d2d2d' : '#e5e7eb'} />
+            <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
+            <YAxis tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ fontSize: 11, color: isDarkMode ? '#888' : '#6b7280' }} />
+            <Bar dataKey="before" name="이관 전(ms)" radius={[3,3,0,0]}>
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill={entry.error > 3.0 ? '#ef4444' : '#6366f1'} fillOpacity={0.8} />
+              ))}
+            </Bar>
+            <Bar dataKey="after" name="이관 후(ms)" fill="#22c55e" fillOpacity={0.7} radius={[3,3,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+        {/* 오차율 막대 */}
+        <p className={`text-xs font-medium ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-600'}`}>패턴별 오차율</p>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={chartData} barCategoryGap="30%">
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#2d2d2d' : '#e5e7eb'} />
+            <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
+            <YAxis tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} domain={[0, 5]} />
+            <Tooltip content={<CustomTooltip />} />
+            <ReferenceLine y={3.0} stroke="#ef4444" strokeDasharray="4 2" label={{ value: '3.0%', fill: '#ef4444', fontSize: 10 }} />
+            <Bar dataKey="error" name="오차율(%)" radius={[3,3,0,0]}>
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill={entry.error > 3.0 ? '#ef4444' : '#22c55e'} fillOpacity={0.85} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </>}
     </div>
   );
 }
@@ -325,8 +350,12 @@ export function PredictionLogTabs({ isDarkMode }) {
     : { tabActive: 'bg-white text-zinc-800 border-zinc-300',          tabInactive: 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'  };
 
   if (loading) return (
-    <div className={`flex items-center justify-center h-32 text-xs ${isDarkMode ? 'text-[#666]' : 'text-zinc-400'}`}>
-      로딩 중...
+    <div className={`flex items-center justify-center gap-2 h-32 text-xs ${isDarkMode ? 'text-[#666]' : 'text-zinc-400'}`}>
+      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+      </svg>
+      로그 데이터 불러오는 중...
     </div>
   );
 
