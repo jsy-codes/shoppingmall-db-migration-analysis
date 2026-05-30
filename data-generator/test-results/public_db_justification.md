@@ -1,6 +1,6 @@
 # 공개 DB → 실무 대체 근거
 
-> 생성: 2026-05-26 23:44:24
+> 생성: 2026-05-30 15:12:13
 > 작성: 이동훈 (Data/A)
 > 반영 시나리오: A (Grocery Oracle) / B (DS3 MySQL) / C (bad_queries)
 
@@ -56,14 +56,14 @@ Grocery Market Oracle PLSQL은 실제 운영 수준의 Oracle 코드베이스로
 |------|------|
 | 측정 쿼리 수 | 10건 |
 | after_ms 측정 성공 | 10건 |
-| before+after 모두 측정 | 0건 |
-| after_ms 평균 | 2018.3ms |
-| 평균 성능 개선율 | +0.0% |
-| 측정 DB | bucketstore_dummy (fallback) |
+| before+after 모두 측정 | 10건 |
+| after_ms 평균 | 30.1ms |
+| 평균 성능 개선율 | -5.6% |
+| 측정 DB | DS3 |
 
 DS3는 CUSTOMERS, ORDERS, PRODUCTS, ORDERLINES, INVENTORY 테이블을 포함하며
 버킷스토어 스키마와 동일한 이커머스 구조다.
-이 실측값이 D(김채운)의 Grid Search 입력값으로 사용된다.
+이 실측값이 Grid Search 입력값으로 사용된다.
 
 **DS3 ↔ 버킷스토어 테이블 대응**
 
@@ -80,16 +80,16 @@ DS3는 CUSTOMERS, ORDERS, PRODUCTS, ORDERLINES, INVENTORY 테이블을 포함하
 
 | 패턴 | 설명 | before_ms | after_ms | 개선율 |
 |------|------|-----------|---------|--------|
-| P02 | UPPER(email) 인덱스 우회 | N/A | 4.72 | - |
-| P03 | ROWNUM 페이징 | N/A | 3.86 | - |
-| P04 | NVL null 치환 | N/A | 2.13 | - |
-| P05 | DATE() 인덱스 무력화 | N/A | 768.57 | - |
-| P09 | 비인덱스 컬럼 JOIN | N/A | 4.95 | - |
-| P10 | 3중 중첩 서브쿼리 | N/A | 1088.81 | - |
-| P15 | SYSDATE 날짜 연산 | N/A | 8150.68 | - |
-| P20 | TO_CHAR 월별 집계 | N/A | 525.41 | - |
-| P21 | TO_DATE 날짜 파싱 | N/A | 8654.41 | - |
-| P22 | TRUNC 날짜 절삭 | N/A | 979.41 | - |
+| P02 | UPPER(email) 인덱스 우회 | 19.91 | 11.55 | +42.0% |
+| P03 | ROWNUM 페이징 | 2.96 | 1.94 | +34.5% |
+| P04 | NVL 함수 null 치환 | 1.5 | 1.12 | +25.3% |
+| P05 | DATE() 함수로 인덱스 무력화 | 1.52 | 1.39 | +8.6% |
+| P09 | 비인덱스 컬럼 JOIN | 32432.76 | 3.17 | +100.0% |
+| P10 | 3중 중첩 서브쿼리 | 71.68 | 163.44 | -128.0% |
+| P15 | SYSDATE 날짜 연산 | 2.43 | 1.64 | +32.5% |
+| P20 | TO_CHAR 월별 집계 | 4.7 | 7.94 | -68.9% |
+| P21 | TO_DATE 날짜 파싱 | 96.82 | 102.7 | -6.1% |
+| P22 | TRUNC 날짜 절삭 | 3.18 | 6.22 | -95.6% |
 
 ---
 
@@ -97,41 +97,41 @@ DS3는 CUSTOMERS, ORDERS, PRODUCTS, ORDERLINES, INVENTORY 테이블을 포함하
 
 | 지표 | 수치 |
 |------|------|
-| 전체 쿼리 수 | 50건 |
-| 실행 성공 (OK) | 13건 |
-| 실행 에러 (ERROR) | 37건 |
-| 에러율 | 74.0% |
+| 전체 쿼리 수 | 58건 |
+| 실행 성공 (OK) | 17건 |
+| 실행 에러 (ERROR) | 41건 |
+| 에러율 | 70.7% |
 
 Oracle 전용 문법(ROWNUM, NVL, CONNECT BY, MERGE INTO 등)이
-실제 MySQL에서 74.0% 에러율로 실패함을 확인했다.
+실제 MySQL에서 70.7% 에러율로 실패함을 확인했다.
 이는 시뮬레이터의 패턴 탐지가 실제 에러와 일치함을 증명한다.
 
 **실패 유형별 분류**
 
 | 실패 유형 | 건수 | 의미 |
 |-----------|------|------|
-| SYNTAX_ERROR | 15건 | MySQL이 인식 못 하는 Oracle 전용 문법 |
-| FUNCTION_NOT_FOUND | 13건 | MySQL에 없는 Oracle 전용 함수 |
-| UNKNOWN_ERROR | 9건 | - |
+| SYNTAX_ERROR | 20건 | MySQL이 인식 못 하는 Oracle 전용 문법 |
+| FUNCTION_NOT_FOUND | 18건 | MySQL에 없는 Oracle 전용 함수 |
+| UNKNOWN_ERROR | 3건 | - |
 
 **패턴별 에러 발생 현황 (상위 5개)**
 
 | 패턴 | 에러 건수 |
 |------|---------|
-| P09 | 3건 |
-| P18 | 3건 |
+| P03 | 3건 |
+| P04 | 3건 |
 | P20 | 3건 |
-| P22 | 3건 |
-| P04 | 2건 |
+| P11 | 2건 |
+| P12 | 2건 |
 
 ---
 
 ## 종합 결론
 
 ```
-Grocery Oracle SQL  →  패턴 탐지 알고리즘 정확도 검증  →  B(정성윤) 전달
-DS3 MySQL           →  before/after 실행시간 실측       →  D(김채운) 전달
-bad_queries MySQL   →  에러 발생 패턴 실증              →  C(이현종) 전달
+Grocery Oracle SQL  →  패턴 탐지 알고리즘 정확도 검증
+DS3 MySQL           →  before/after 실행시간 실측
+bad_queries MySQL   →  에러 발생 패턴 실증
 ```
 
 위 세 가지 공개 DB 기반 검증으로 다음을 모두 확인했다.
