@@ -1,3 +1,30 @@
+"""
+실행 예시
+
+# 전체 실험 실행
+python model/experiments.py --all
+
+# 전체 실험 + Grid Search
+python model/experiments.py --all --grid-search
+
+# 전체 실험 (DB 저장 안 함)
+python model/experiments.py --all --no-db
+
+# 전체 실험 + Grid Search (DB 저장 안 함)
+python model/experiments.py --all --grid-search --no-db
+
+# 특정 패턴 실행
+python model/experiments.py --pattern P01
+
+# 특정 패턴(P01_01) 실행
+python model/experiments.py --pattern P01_01
+
+# 특정 패턴 실행 (DB 저장 안 함)
+python model/experiments.py --pattern P01 --no-db
+
+# 도움말
+python model/experiments.py --help
+"""
 from __future__ import annotations
 
 import csv
@@ -52,15 +79,26 @@ REPEAT = 5
 BAD_QUERY_DIR = ROOT / "backend" / "validation" / "type_tests"
 RESULT_CSV = BAD_QUERY_DIR / "experiment_results.csv"
 
-def risk_to_improvement(risk_score: float) -> float:
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [수정 1] risk_to_improvement: scale 파라미터 추가
+#   - 기존 고정식 score * 0.8 → Grid Search에서 scale 탐색 가능하도록 변경
+#   - scale=1.0이 기본값이므로 기존 호출부와 호환
+# ──────────────────────────────────────────────────────────────────────────────
+def risk_to_improvement(risk_score: float, scale: float = 1.0) -> float:
     """
-    리스크 점수(0~100)를 예상 성능 개선율(%)로 변환하는 함수.
-    추후 PredictionLog 누적 데이터 기반으로 회귀식(Polynomial 등)으로 고도화 필요.
+    리스크 점수(0~100)를 예상 성능 개선율(%)로 변환.
+    scale은 Grid Search에서 보정한다.
+    기존 고정식 score * 0.8 대신 scale을 탐색하여 최적값 찾음.
     """
-    # 임시 캘리브레이션: 리스크가 높을수록 개선율도 높을 것으로 가정 (선형 매핑 예시)
-    return max(0.0, min(100.0, risk_score * 0.8))
+    return max(0.0, min(100.0, risk_score * scale))
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# [수정 2] ExperimentResult: valid_for_calibration 필드 추가
+#   - P04처럼 MySQL 실행 실패(NVL 등)로 before_ms가 오염된 케이스를 Grid Search에서 제외
+#   - 10ms 미만 초고속 쿼리(P10 등)도 노이즈가 커서 calibration 제외
+# ──────────────────────────────────────────────────────────────────────────────
 @dataclass
 class ExperimentResult:
     pattern_id: str
@@ -75,6 +113,7 @@ class ExperimentResult:
     quant_signal: dict
     explain_json_raw: str
     measured_at: str
+    valid_for_calibration: bool = True  # [수정] Grid Search 포함 여부 플래그
 
 
 class DBRunner:
@@ -186,18 +225,35 @@ def run_single_experiment(
         "after": after_quant,
     }
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # [수정 3] 실행 실패 처리: before_ms=1.0 대체 제거 → invalid_run 플래그로 처리
+    #   - 기존: before_ms < 0 이면 1.0으로 대체 후 그대로 진행 (P04 NVL 오염 원인)
+    #   - 변경: invalid_run=True로 마킹, valid_for_calibration=False로 결과에 반영
+    #   - before_ms는 -1.0으로 유지하여 오염 데이터임을 명시
+    # ──────────────────────────────────────────────────────────────────────────
+    invalid_run = False
+
     if before_ms < 0:
-        print(f"  [주의] {pattern_id} before SQL MySQL에서 실행 불가 → before_ms=1.0 대체")
-        before_ms = 1.0
+        print(f"  [주의] {pattern_id} before SQL MySQL에서 실행 불가 → 성능 오차 계산 제외 대상")
+        invalid_run = True
+        before_ms = -1.0
 
     sim_result = evaluate_sql(sql_before, RULES)
 
-    # 단일 실험 교차 검증 동기화
+    # 단일 실험 교차 검증 동기화: EXPLAIN에서 풀스캔 감지 시 강제 HIGH 부여
     if not sim_result.get("violations") and explain_raw and '"access_type": "ALL"' in explain_raw:
-        sim_result["violations"] = [{"rule_id": "DYNAMIC_FULL_SCAN", "category": "Execution Plan", "risk_level": "HIGH", "weight": 2.5}]
+        sim_result["violations"] = [
+            {
+                "rule_id": "DYNAMIC_FULL_SCAN",
+                "category": "Execution Plan",
+                "risk_level": "HIGH",
+                "weight": 2.5,
+            }
+        ]
         sim_result["risk_level"] = "HIGH"
-        
-    if before_ms < 10.0:
+
+    # 10ms 미만 초고속 쿼리는 실행 노이즈가 커서 리스크 LOW로 세팅
+    if before_ms >= 0 and before_ms < 10.0:
         sim_result["violations"] = []
         sim_result["risk_level"] = "LOW"
 
@@ -205,8 +261,7 @@ def run_single_experiment(
         sim_result,
         explain_json_str=explain_raw or None,
     )
-    
-    # ─── 중략 및 누락되었던 핵심 변수 정의 복구 ───
+
     predicted_score = float(risk_result["risk_score"])
     risk_level = risk_result["risk_level"]
 
@@ -221,20 +276,33 @@ def run_single_experiment(
 
     if not pattern_name and contribs:
         pattern_name = contribs[0].get("pattern_name", "")
-    # ──────────────────────────────────────────────
-    
-    # (run_single_experiment 함수 내부)
-    if before_ms > 0 and after_ms >= 0:
-        # 실제 성능 개선율(%) 산출 — 0~100% 범위로 정규화
-        actual_improvement = max(0.0, min(100.0, (before_ms - after_ms) / max(0.001, before_ms) * 100))
-        
-        # [핵심 수정] 예측 점수(단위: 점수)를 예상 개선율(단위: %)로 변환 후 오차율 도출
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # [수정 4] 오차율 계산: invalid_run이면 0.0 처리 (before_ms=-1.0 케이스 방어)
+    # ──────────────────────────────────────────────────────────────────────────
+    if not invalid_run and before_ms > 0 and after_ms >= 0:
+        actual_improvement = max(
+            0.0,
+            min(100.0, (before_ms - after_ms) / max(0.001, before_ms) * 100),
+        )
         expected_improvement = risk_to_improvement(predicted_score)
         error_rate = round(abs(expected_improvement - actual_improvement), 2)
     else:
         error_rate = 0.0
 
     print(f"  risk_level={risk_level}, score={predicted_score}, error_rate={error_rate}%")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # [수정 5] valid_for_calibration 판정 기준
+    #   - invalid_run: MySQL 실행 실패 (P04 NVL 등)
+    #   - before_ms < 10.0: 초고속 쿼리 노이즈 구간 (P10 등)
+    #   - after_ms < 0: after SQL도 실행 실패
+    # ──────────────────────────────────────────────────────────────────────────
+    valid_for_calibration = (
+        not invalid_run
+        and before_ms >= 10.0
+        and after_ms >= 0
+    )
 
     return ExperimentResult(
         pattern_id=pattern_id,
@@ -249,6 +317,7 @@ def run_single_experiment(
         quant_signal=quant,
         explain_json_raw=explain_raw,
         measured_at=datetime.now().isoformat(),
+        valid_for_calibration=valid_for_calibration,
     )
 
 
@@ -390,6 +459,7 @@ def _save_csv(results: list[ExperimentResult]) -> None:
 
 import numpy as np
 
+
 def winsorize(arr, lower=0.05, upper=0.95):
     arr = np.array(arr)
     low = np.percentile(arr, lower * 100)
@@ -397,73 +467,133 @@ def winsorize(arr, lower=0.05, upper=0.95):
     return np.clip(arr, low, high)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# [수정 6] run_grid_search: 핵심 3가지 변경
+#   1. valid_for_calibration 필터로 오염 케이스(P04, P10 등) 제외
+#   2. scale 파라미터 탐색 추가 (기존 고정값 0.8 탈피)
+#   3. CSV 출력에 scale 컬럼 추가
+#
+# 제외 기준:
+#   - valid_for_calibration=False: MySQL 실행 실패 케이스
+#   - before_ms < 10.0: 초고속 쿼리 노이즈 구간
+#   - after_ms < 0: after SQL 실행 실패
+# ──────────────────────────────────────────────────────────────────────────────
 def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
-    if not experiment_results:
-        print("[Grid Search] 실험 결과 없음")
+    # [수정] valid_for_calibration 필터 적용 — P04(NVL 실행 실패), P10(초고속 노이즈) 제외
+    valid_results = [
+        r for r in experiment_results
+        if getattr(r, "valid_for_calibration", True)
+        and r.before_ms >= 10.0
+        and r.after_ms >= 0
+    ]
+
+    if not valid_results:
+        print("[Grid Search] 유효한 실험 결과 없음 — P04/P10 등 전부 필터링됨")
+        print(f"  전체 결과: {len(experiment_results)}건, 유효: 0건")
         return {}
 
-    best = {"avg_error": float("inf"), "decay": None, "bonus": None}
+    print(f"[Grid Search] 전체 {len(experiment_results)}건 중 유효 {len(valid_results)}건으로 탐색")
+
+    best = {
+        "avg_error": float("inf"),
+        "decay": None,
+        "bonus": None,
+        "scale": None,
+    }
+
     all_results = []
 
     decay_vals = GRID_SEARCH_PARAMS["DECAY_RATE"]
     bonus_vals = GRID_SEARCH_PARAMS["BONUS"]
+    # [수정] scale 탐색 범위 추가: 기존 고정값 0.8 포함하여 0.8~1.7 탐색
+    #   - P01/P05 실측 개선율 ~98%, score=58 → 역산 필요 scale = 98/58 ≈ 1.69
+    #   - P02 실측 개선율 ~94%, score=95 → 역산 필요 scale = 94/95 ≈ 0.99
+    #   - 0.8~1.7 범위를 0.1 간격으로 탐색
+    # 변경: 1.5~1.8 구간을 0.05 간격으로 세밀하게
+    scale_vals = [round(s * 0.05, 2) for s in range(10, 40)]  # 0.5 ~ 1.95
 
-    print(f"\n[Grid Search] 탐색 범위: decay={decay_vals}, bonus={bonus_vals}")
-    print(f"  조합 수: {len(decay_vals) * len(bonus_vals)}")
+    print(f"\n[Grid Search] 탐색 범위:")
+    print(f"  decay={decay_vals}")
+    print(f"  bonus={bonus_vals}")
+    print(f"  scale={scale_vals}")
+    print(f"  조합 수: {len(decay_vals) * len(bonus_vals) * len(scale_vals)}")
 
-    for decay, bonus in itertools.product(decay_vals, bonus_vals):
+    for decay, bonus, scale in itertools.product(decay_vals, bonus_vals, scale_vals):
         predictor_gs = RiskPredictor(decay_rate=decay)
         original_bonus = dict(CATEGORY_BONUS)
-        
+
         for k in CATEGORY_BONUS:
             CATEGORY_BONUS[k] = bonus
-            
+
         errors = []
-        for res in experiment_results:
+
+        for res in valid_results:
             sim = evaluate_sql(res.sql_before, RULES)
-            
-            # 1. 교차 검증: EXPLAIN을 까서 풀스캔이면 강제로 HIGH 등급 부여
-            if not sim.get("violations") and res.explain_json_raw and '"access_type": "ALL"' in res.explain_json_raw:
-                sim["violations"] = [{"rule_id": "DYNAMIC_FULL_SCAN", "category": "Execution Plan", "risk_level": "HIGH", "weight": 2.5}]
+
+            # 교차 검증: EXPLAIN 풀스캔 감지 시 강제 HIGH
+            if (
+                not sim.get("violations")
+                and res.explain_json_raw
+                and '"access_type": "ALL"' in res.explain_json_raw
+            ):
+                sim["violations"] = [
+                    {
+                        "rule_id": "DYNAMIC_FULL_SCAN",
+                        "category": "Execution Plan",
+                        "risk_level": "HIGH",
+                        "weight": 2.5,
+                    }
+                ]
                 sim["risk_level"] = "HIGH"
-                
-            # 2. 과탐지 방어: 10ms 미만 초고속 쿼리는 리스크 LOW로 세팅
-            if res.before_ms < 10.0:
-                sim["violations"] = []
-                sim["risk_level"] = "LOW"
 
-            # 3. explain_json_raw 파라미터 전달
-            score = float(predictor_gs.evaluate_risk_score(sim, explain_json_str=res.explain_json_raw)["risk_score"])
-            
-            if res.before_ms > 0 and res.after_ms >= 0:
-                # 4. 10ms 미만 쿼리의 노이즈 억제
-                if res.before_ms < 10.0:
-                    actual_impr = 0.0
-                else:
-                    actual_impr = max(0.0, min(100.0, (res.before_ms - res.after_ms) / max(0.001, res.before_ms) * 100))
-                
-                err = abs(score - actual_impr)
-                errors.append(err)
-                
-        if len(errors) >= 5:
-            errors = winsorize(errors, 0.05, 0.95)
+            score = float(
+                predictor_gs.evaluate_risk_score(
+                    sim,
+                    explain_json_str=res.explain_json_raw,
+                )["risk_score"]
+            )
 
+            # [수정] actual_impr: valid_results는 이미 before_ms >= 10.0 필터 통과
+            actual_impr = max(
+                0.0,
+                min(
+                    100.0,
+                    (res.before_ms - res.after_ms) / max(0.001, res.before_ms) * 100,
+                ),
+            )
+
+            # [수정] scale 파라미터 전달 — 기존 고정 0.8 대신 탐색값 사용
+            expected_impr = risk_to_improvement(score, scale=scale)
+            errors.append(abs(expected_impr - actual_impr))
+
+        # 원래 bonus 복원
         for k in CATEGORY_BONUS:
             CATEGORY_BONUS[k] = original_bonus[k]
 
-        # Numpy 배열의 모호성 에러를 피하기 위해 명시적으로 len(errors) > 0 체크
+        if len(errors) >= 5:
+            errors = winsorize(errors, 0.05, 0.95)
+
         avg_err = round(sum(errors) / len(errors), 2) if len(errors) > 0 else 999.0
-        all_results.append({"decay": decay, "bonus": bonus, "avg_error": avg_err})
+
+        row = {
+            "decay": decay,
+            "bonus": bonus,
+            "scale": scale,
+            "avg_error": avg_err,
+        }
+        all_results.append(row)
 
         if avg_err < best["avg_error"]:
-            best = {"avg_error": avg_err, "decay": decay, "bonus": bonus}
+            best = row
 
-    # rows_ratio ↔ 오차율 피어슨 상관계수
+    # rows_ratio ↔ 오차율 피어슨 상관계수 (유효 데이터 기준)
     rows_ratios = []
     actual_errors = []
-    for res in experiment_results:
+    for res in valid_results:
         sig = res.quant_signal.get("before", {}) if res.quant_signal else {}
-        r_ratio = float(sig.get("rows_ratio", 1.0) if sig.get("rows_ratio") is not None else 1.0)
+        r_ratio = float(
+            sig.get("rows_ratio", 1.0) if sig.get("rows_ratio") is not None else 1.0
+        )
         rows_ratios.append(r_ratio)
         actual_errors.append(res.error_rate)
 
@@ -481,11 +611,17 @@ def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
     print("\n[Grid Search 완료]")
     print(f"  최적 DECAY_RATE = {best['decay']}")
     print(f"  최적 BONUS      = {best['bonus']}")
+    print(f"  최적 SCALE      = {best['scale']}")
     print(f"  실측 최소 평균 오차 = {best['avg_error']:.2f}%")
+    print(f"  유효 샘플 수    = {len(valid_results)}건")
 
+    # [수정] CSV에 scale 컬럼 추가
     gs_csv = BAD_QUERY_DIR / "grid_search_results.csv"
     with open(gs_csv, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=["decay", "bonus", "avg_error"])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["decay", "bonus", "scale", "avg_error"],
+        )
         writer.writeheader()
         writer.writerows(sorted(all_results, key=lambda x: x["avg_error"]))
 
@@ -494,11 +630,12 @@ def run_grid_search(experiment_results: list[ExperimentResult]) -> dict:
     print("\n" + "=" * 70)
     print("📊 [badQuery 실측 데이터 기반 정합성 리포트]")
     print("=" * 70)
-    print(f"  • 총 검증 쿼리   : {len(experiment_results)}건 (P01·P02·P04·P05·P10·P22)")
+    print(f"  • 총 실험 쿼리   : {len(experiment_results)}건")
+    print(f"  • 유효(calibration 대상): {len(valid_results)}건")
+    print(f"    ※ 제외 기준: before_ms < 10ms(P10 등) / MySQL 실행 불가(P04 NVL 등)")
     print(f"  • rows_ratio ↔ 오차율 피어슨 상관계수: {corr}")
     print(f"  • Grid Search 최적 평균 오차율: {best['avg_error']:.2f}%")
-    print("  • 결과 요약      : Grid Search 최적 파라미터 반영 후")
-    print("                     시뮬레이션 스코어 ↔ 실측 성능(ms) 정합성 검증 완료")
+    print(f"  • 최적 파라미터: decay={best['decay']}, bonus={best['bonus']}, scale={best['scale']}")
     print("=" * 70)
 
     return best

@@ -82,9 +82,33 @@ _SEVERITY_ALIAS: dict[str, str] = {
     "MEDIUM": "MEDIUM",
     "LOW":    "LOW",
 }
+FORCE_MIN_SCORE_BY_PATTERN_ID = {
+    "P04": 60,  # NVL Function: MySQL에서 function not found
+    "P11": 60,  # DECODE Function
+    "P23": 80,  # SEQUENCE
+    "P24": 80,  # LISTAGG
+    "P29": 80,  # WM_CONCAT
+}
 
-def _norm_sev(raw: str) -> str:
-    return _SEVERITY_ALIAS.get(raw.strip().upper(), "LOW")
+def _norm_sev(raw: str | None) -> str:
+    if raw is None:
+        return "LOW"
+    return _SEVERITY_ALIAS.get(str(raw).strip().upper(), "LOW")
+
+
+def _pick_severity(pattern: dict) -> str:
+    """
+    consistency_simulator / pattern_rules.json 버전별 키 차이 방어.
+    - pattern_rules.json: risk
+    - 일부 simulator 결과: severity 또는 risk_level
+    """
+    return _norm_sev(
+        pattern.get("severity")
+        or pattern.get("risk")
+        or pattern.get("risk_level")
+        or pattern.get("level")
+        or "LOW"
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -136,6 +160,16 @@ _FAILURE_CATEGORY: dict[str, str] = {
     "FUNCTION_COMPATIBILITY":          "COMPATIBILITY",
     "STRING_TYPE_COMPATIBILITY":       "COMPATIBILITY",
     "SYSTEM_TABLE_DEPENDENCY":         "COMPATIBILITY",
+
+    # 신규/확장 패턴
+    "SEQUENCE_SYNTAX_INCOMPATIBILITY":  "QUERY_FAILURE",
+    "AGGREGATION_FUNCTION_MIGRATION":   "QUERY_FAILURE",
+    "DEPRECATED_AGGREGATION_MIGRATION": "QUERY_FAILURE",
+    "NUMERIC_TYPE_MAPPING":             "DATA_INTEGRITY",
+    "UNICODE_TYPE_MAPPING":             "DATA_INTEGRITY",
+    "HIERARCHY_CYCLE_DETECTION_MIGRATION": "QUERY_FAILURE",
+    "REGEX_FUNCTION_MIGRATION":         "DATA_INTEGRITY",
+    "PIVOT_SYNTAX_INCOMPATIBILITY":     "QUERY_FAILURE",
 }
 
 # [FIX] float → int 로 통일. _bonus() 리턴 타입(int)과 일치시킴.
@@ -331,6 +365,15 @@ class RiskPredictor:
         cats  = sorted({c.category for c in contributions})
         cat_b = MULTI_CATEGORY_BONUS.get(len(cats), 0)
         score = min(100, max(0, round(base + cat_b)))
+
+        forced_min = 0
+        for c in contributions:
+            forced_min = max(
+                forced_min,
+                FORCE_MIN_SCORE_BY_PATTERN_ID.get(c.pattern_id, 0),
+            )
+
+        score = max(score, forced_min)
         level = self._level(score)
 
         return RiskResult(
@@ -354,7 +397,7 @@ class RiskPredictor:
                     continue
                 seen.add(pid)
                 p2 = dict(p)
-                p2["severity"] = _norm_sev(p.get("severity", "LOW"))
+                p2["severity"] = _pick_severity(p)
                 out.append(p2)
 
         out.sort(

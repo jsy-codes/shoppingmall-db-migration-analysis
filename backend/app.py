@@ -5,6 +5,7 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 from pathlib import Path
+from typing import Any
 import json
 import re
 import sys
@@ -18,11 +19,13 @@ from sqlalchemy import text, desc
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
+
 ROOT_DIR = Path(__file__).parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
+
 BASE_DIR = Path(__file__).parent
-if str(BASE_DIR) not in sys.path:   
+if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
 app = FastAPI()
@@ -30,20 +33,26 @@ app = FastAPI()
 secret_key = os.getenv("SESSION_SECRET_KEY")
 if not secret_key:
     raise ValueError("SESSION_SECRET_KEY가 설정되지 않았습니다!")
-app.add_middleware(SessionMiddleware, secret_key=secret_key, same_site="lax", https_only=False) # local : https_only=False
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=secret_key,
+    same_site="lax",
+    https_only=False,  # local : https_only=False
+)
 
 anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 if not anthropic_key:
     raise ValueError("ANTHROPIC_API_KEY가 .env 파일에 없습니다.")
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-# http://localhost:5173 , http://localhost:5173
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173", 
+        "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://shoppingmall-ui.onrender.com"
+        "https://shoppingmall-ui.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -52,19 +61,22 @@ app.add_middleware(
 
 oauth = OAuth()
 oauth.register(
-    name='google',
+    name="google",
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'}
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
 )
+
 
 class QueryRequest(BaseModel):
     sql: str
 
+
 class SessionRequest(BaseModel):
     query_sql: str
     results: list
+
 
 # ─── 로그인 관련 ───────────────────────────────────────────────
 @app.get("/login")
@@ -72,31 +84,30 @@ async def login(request: Request):
     redirect_uri = "http://localhost:8000/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
+
 @app.get("/auth/callback")
 async def auth_callback(request: Request):
     token = await oauth.google.authorize_access_token(request)
-    user_info = token.get('userinfo')
-    email = user_info['email']
+    user_info = token.get("userinfo")
+    email = user_info["email"]
 
-    # JWT 발급
     jwt_token = jwt.encode(
         {"email": email, "exp": datetime.utcnow() + timedelta(days=7)},
         secret_key,
-        algorithm="HS256"
+        algorithm="HS256",
     )
 
-    return RedirectResponse(
-        url=f"http://localhost:5173?token={jwt_token}"
-    )
+    return RedirectResponse(url=f"http://localhost:5173?token={jwt_token}")
+
 
 @app.get("/logout")
 async def logout(request: Request):
     request.session.clear()
     return {"ok": True}
 
-# JWT로 유저 확인
+
 def get_user_id(request: Request) -> str:
-    # 1. JWT 토큰 확인 (로그인 유저)
+    """JWT 또는 anon_id 기반 사용자 식별."""
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         token = auth[7:]
@@ -109,27 +120,41 @@ def get_user_id(request: Request) -> str:
         except Exception as e:
             print(f"[AUTH] JWT error: {e}")
 
-    # 2. 비로그인: 프론트 localStorage의 anon_id 사용
     anon_id = request.headers.get("X-Anon-Id")
     if anon_id:
         print(f"[AUTH] anon → {anon_id}")
         return anon_id
 
-    # 3. 아무것도 없으면 임시 anon (히스토리 저장 안 됨)
     fallback = f"anon_{uuid.uuid4().hex[:12]}"
     print(f"[AUTH] fallback → {fallback}")
     return fallback
+
+
+# ─── DB 관련 ───────────────────────────────────────────────────
+from database import init_db, SessionLocal, DiagnoseLog, PredictionLog
+
+init_db()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 @app.post("/session")
 async def save_session(body: SessionRequest, request: Request):
     user_email = get_user_id(request)
     print(f"[SESSION] user_email: {user_email}")
+
     db = SessionLocal()
     try:
         new_log = DiagnoseLog(
             user_email=user_email,
             query_sql=body.query_sql,
-            ai_response=body.results
+            ai_response=body.results,
         )
         db.add(new_log)
         db.commit()
@@ -140,52 +165,53 @@ async def save_session(body: SessionRequest, request: Request):
     finally:
         db.close()
 
+
 @app.get("/me")
 async def me(request: Request):
     user_id = get_user_id(request)
     email = user_id if "@" in user_id else None
     return {"email": email}
 
-# ─── DB 관련 ───────────────────────────────────────────────────
-from database import init_db, SessionLocal, DiagnoseLog, PredictionLog
-init_db()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @app.delete("/history/{log_id}")
 async def delete_history(log_id: str, request: Request):
     user_email = get_user_id(request)
+
     db = SessionLocal()
     try:
-        log = db.query(DiagnoseLog).filter(
-            DiagnoseLog.id == log_id,
-            DiagnoseLog.user_email == user_email
-        ).first()
+        log = (
+            db.query(DiagnoseLog)
+            .filter(DiagnoseLog.id == log_id, DiagnoseLog.user_email == user_email)
+            .first()
+        )
+
         if not log:
             return {"ok": False}
+
         db.delete(log)
         db.commit()
         return {"ok": True}
     finally:
         db.close()
 
+
 @app.get("/history")
 async def get_history(request: Request, limit: int = 20, offset: int = 0):
     user_email = get_user_id(request)
+
     db = SessionLocal()
-    history = db.query(DiagnoseLog)\
-                .filter(DiagnoseLog.user_email == user_email)\
-                .order_by(desc(DiagnoseLog.created_at))\
-                .offset(offset)\
-                .limit(limit)\
-                .all()
+    history = (
+        db.query(DiagnoseLog)
+        .filter(DiagnoseLog.user_email == user_email)
+        .order_by(desc(DiagnoseLog.created_at))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
     db.close()
+
     return history
+
 
 @app.get("/db-check")
 def db_check():
@@ -195,18 +221,21 @@ def db_check():
         return {"ok": True}
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        db.close()
+
 
 @app.get("/logs")
 async def get_logs():
-
     db = SessionLocal()
 
     try:
-        # 일단 간단하게 불러오는 형식으로 구현함
-        logs = db.query(PredictionLog)\
-            .order_by(PredictionLog.created_at.desc())\
-            .limit(100)\
+        logs = (
+            db.query(PredictionLog)
+            .order_by(PredictionLog.created_at.desc())
+            .limit(100)
             .all()
+        )
 
         return [
             {
@@ -217,7 +246,7 @@ async def get_logs():
                 "before_ms": log.before_ms,
                 "after_ms": log.after_ms,
                 "error_rate": log.error_rate,
-                "created_at": log.created_at
+                "created_at": log.created_at,
             }
             for log in logs
         ]
@@ -225,24 +254,137 @@ async def get_logs():
     finally:
         db.close()
 
-#@app.post("/stats") 3주차 까지?
-#async def ():
 
-# ─── consistency_simulator.py ───────────────────────────────────────────────────
+# ─── consistency_simulator.py ───────────────────────────────────
 from backend.validation.consistency_simulator import load_rules, evaluate_sql
 
 RULES_PATH = BASE_DIR / "validation" / "pattern_rules.json"
 RULES = load_rules(RULES_PATH)
 
-rules_data = [r.__dict__ if hasattr(r, '__dict__') else r for r in RULES]
-RULES_STR = json.dumps(rules_data, ensure_ascii=False) 
+rules_data = [r.__dict__ if hasattr(r, "__dict__") else r for r in RULES]
+RULES_JSON_STR = json.dumps(rules_data, ensure_ascii=False)
 
-# ─── risk_model.py ───────────────────────────────────────────────────
+
+RULE_BY_ID: dict[str, dict[str, Any]] = {
+    r.get("id"): r
+    for r in rules_data
+    if isinstance(r, dict) and r.get("id")
+}
+
+SEVERITY_RANK = {"LOW": 1, "MEDIUM": 2, "MED": 2, "HIGH": 3}
+
+APP_FORCE_MIN_SCORE_BY_PATTERN_ID = {
+    "P04": 60,  # NVL: 자동 치환 가능하지만 MySQL에서는 즉시 실행 실패
+    "P11": 60,  # DECODE
+    "P23": 80,  # SEQUENCE
+    "P24": 80,  # LISTAGG
+    "P29": 80,  # WM_CONCAT
+}
+
+
+def _normalize_severity(value: Any) -> str:
+    raw = str(value or "LOW").strip().upper()
+    if raw == "MED":
+        return "MEDIUM"
+    if raw in {"HIGH", "MEDIUM", "LOW"}:
+        return raw
+    return "LOW"
+
+
+def normalize_sim_result_for_risk(sim_result: dict) -> dict:
+    """
+    consistency_simulator 결과를 risk_model 입력용으로 정규화한다.
+
+    필요한 이유:
+    - pattern_rules.json은 등급 키가 risk임
+    - simulator 결과는 버전에 따라 severity/risk/risk_level 중 하나만 가질 수 있음
+    - 이 정규화가 없으면 HIGH 패턴이 LOW처럼 계산되어 95점 → 35점처럼 떨어질 수 있음
+    """
+    normalized = json.loads(json.dumps(sim_result, ensure_ascii=False))
+
+    worst = "LOW"
+
+    for detail in normalized.get("details", []):
+        for pattern in detail.get("matched_patterns", []):
+            pid = pattern.get("id")
+            rule = RULE_BY_ID.get(pid, {})
+
+            severity = _normalize_severity(
+                pattern.get("severity")
+                or pattern.get("risk")
+                or pattern.get("risk_level")
+                or rule.get("risk")
+                or rule.get("severity")
+                or "LOW"
+            )
+
+            pattern["severity"] = severity
+            pattern["risk"] = severity
+
+            if not pattern.get("name") and rule.get("name"):
+                pattern["name"] = rule["name"]
+
+            if not pattern.get("failure_type") and rule.get("failure_type"):
+                pattern["failure_type"] = rule["failure_type"]
+
+            if not pattern.get("description") and rule.get("description"):
+                pattern["description"] = rule["description"]
+
+            if SEVERITY_RANK.get(severity, 1) > SEVERITY_RANK.get(worst, 1):
+                worst = severity
+
+    normalized.setdefault("summary", {})
+    normalized["summary"]["max_severity"] = worst
+    return normalized
+
+
+# ─── risk_model.py ──────────────────────────────────────────────
 from model.risk_model import RiskPredictor
-predictor = RiskPredictor()
 
-# ─── experiments.py ───────────────────────────────────────────────────
+# experiments.py --all --grid-search 결과를 .env로도 덮어쓸 수 있게 구성
+BEST_DECAY_RATE = float(os.getenv("BEST_DECAY_RATE", "0.1"))
+
+BEST_SCALE = float(os.getenv("BEST_SCALE", "1.7"))
+
+
+
+predictor = RiskPredictor(decay_rate=BEST_DECAY_RATE)
+
+
+# ─── experiments.py ─────────────────────────────────────────────
 from model.experiments import DBRunner
+
+
+def clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
+    return max(low, min(high, value))
+
+
+def predict_improvement_from_risk(risk_score: float, scale: float = BEST_SCALE) -> float:
+    """
+    Grid Search 보정값 기반 예상 개선율.
+    Claude의 est_im_percent가 아니라 서버 모델의 기준값으로 사용한다.
+    """
+    return round(clamp(float(risk_score) * scale), 2)
+
+
+def calculate_actual_improvement(before_ms: float | None, after_ms: float | None) -> float | None:
+    if before_ms is None or after_ms is None:
+        return None
+    if before_ms <= 0 or after_ms < 0:
+        return None
+
+    return round(clamp((before_ms - after_ms) / max(0.001, before_ms) * 100.0), 2)
+
+
+def calculate_improvement_gap(
+    predicted_improvement: float,
+    actual_improvement: float | None,
+) -> float | None:
+    if actual_improvement is None:
+        return None
+
+    return round(abs(predicted_improvement - actual_improvement), 2)
+
 
 def compare_sql_time(original_sql: str, converted_sql: str):
     db = DBRunner()
@@ -251,13 +393,7 @@ def compare_sql_time(original_sql: str, converted_sql: str):
         before_ms = db.measure_ms(original_sql)
         after_ms = db.measure_ms(converted_sql)
 
-        improvement_rate = None
-
-        if before_ms > 0 and after_ms >= 0:
-            improvement_rate = round(
-                (before_ms - after_ms) / before_ms * 100,
-                2
-            )
+        improvement_rate = calculate_actual_improvement(before_ms, after_ms)
 
         return {
             "original_sql_ms": before_ms,
@@ -268,206 +404,303 @@ def compare_sql_time(original_sql: str, converted_sql: str):
     finally:
         db.close()
 
-# ─── explain_parser.py ───────────────────────────────────────────────────
-# MySQL 8.0 사용하는 가정시 사용 가능
+
+# ─── explain_parser.py ──────────────────────────────────────────
 from model.explain_parser import parse_explain_json
-def get_explain_signal_from_mysql(sql: str) -> dict:
+
+
+def empty_explain_signal(error: str | None = None) -> dict[str, Any]:
+    return {
+        "full_scan_ratio": 0.0,
+        "no_index_flag": 0,
+        "rows_ratio": 1.0,
+        "filtered_min": 100.0,
+        "extra_flags": [],
+        "table_count": 0,
+        "full_scan_count": 0,
+        "explain_error": error,
+    }
+
+
+def get_explain_json_from_mysql(sql: str) -> str:
+    """
+    MySQL EXPLAIN FORMAT=JSON 원문 반환.
+    실패하면 빈 문자열 반환.
+    """
+    if not sql or not sql.strip():
+        return ""
+
     db = DBRunner()
 
     try:
-        explain_json = db.get_explain_json(sql)
-        if not explain_json:
-            print(f"[EXPLAIN LOG] DB 결과가 비어있습니다. 입력된 SQL에 오타가 있거나 테이블이 없는 것 같습니다 -> SQL: {sql[:50]}...")
-            return {
-                "full_scan_ratio": 0.0,
-                "no_index_flag": 0,
-                "rows_ratio": 1.0
-            }
-        
-        parsed = parse_explain_json(explain_json)
-    
-        explain_signal = {
-            "full_scan_ratio": parsed.get("full_scan_ratio", 0.0),
-            "no_index_flag": 1 if parsed.get("no_index_flag", False) else 0,
-            "rows_ratio": parsed.get("rows_ratio", 1.0)
-        }
-        return explain_signal
-    
-    # 현재 SQLite 환경이거나 문법이 맞지 않아 에러(Exception)가 발생하면 이 블록으로 들어옵니다.
+        return db.get_explain_json(sql)
     except Exception as e:
-        print(f"[EXPLAIN LOG] 현재 환경(SQLite 등) 문제로 고정된 시뮬레이션용 가상 값을 반환합니다. (에러내용: {e})")
-        explain_signal = {
-            "full_scan_ratio": 0.0,
-            "no_index_flag": 0,
-            "rows_ratio": 1.0
-        }
-        return explain_signal
-    
+        print(f"[EXPLAIN LOG] EXPLAIN 실행 실패: {e}")
+        return ""
     finally:
         db.close()
+
+
+def get_explain_signal_from_mysql(sql: str) -> dict[str, Any]:
+    """
+    SQL의 EXPLAIN FORMAT=JSON을 실행하고 quant_signal을 반환.
+    실패 시 프론트가 깨지지 않도록 기본값 반환.
+    """
+    explain_json = get_explain_json_from_mysql(sql)
+
+    if not explain_json:
+        print(
+            "[EXPLAIN LOG] DB 결과가 비어있습니다. "
+            f"입력 SQL에 오타가 있거나 테이블이 없을 수 있습니다 -> SQL: {sql[:80]}..."
+        )
+        return empty_explain_signal("EXPLAIN_EMPTY_OR_FAILED")
+
+    parsed = parse_explain_json(explain_json)
+
+    if not parsed:
+        return empty_explain_signal("PARSE_EMPTY_OR_FAILED")
+
+    return {
+        "full_scan_ratio": parsed.get("full_scan_ratio", 0.0),
+        "no_index_flag": 1 if parsed.get("no_index_flag", False) else 0,
+        "rows_ratio": parsed.get("rows_ratio", 1.0),
+        "filtered_min": parsed.get("filtered_min", 100.0),
+        "extra_flags": parsed.get("extra_flags", []),
+        "table_count": parsed.get("table_count", 0),
+        "full_scan_count": parsed.get("full_scan_count", 0),
+        "explain_error": None,
+    }
+
+
+def build_explain_prompt_block(
+    before_signal: dict[str, Any],
+    model_predicted_improvement: float,
+) -> str:
+    """
+    Claude system_prompt에 넣을 before EXPLAIN + 모델 예측 기준.
+    after SQL은 Claude가 converted_sql을 만든 뒤에야 알 수 있으므로
+    최종 응답에 별도로 포함한다.
+    """
+    return f"""
+[EXPLAIN 실행 계획 신호 - before SQL]
+full_scan_ratio={before_signal.get("full_scan_ratio", 0.0)}
+no_index_flag={before_signal.get("no_index_flag", 0)}
+rows_ratio={before_signal.get("rows_ratio", 1.0)}
+filtered_min={before_signal.get("filtered_min", 100.0)}
+table_count={before_signal.get("table_count", 0)}
+full_scan_count={before_signal.get("full_scan_count", 0)}
+extra_flags={before_signal.get("extra_flags", [])}
+
+[모델 기반 예상 개선율]
+model_predicted_improvement={model_predicted_improvement}%
+
+est_im_percent 산출 기준:
+- est_im_percent는 위 model_predicted_improvement 값을 우선 사용한다.
+- full_scan_ratio=1.0 + rows_ratio>10000이면 성능 개선 가능성이 높다고 설명한다.
+- full_scan_ratio=1.0 + rows_ratio<1000이면 개선 가능성이 있으나 데이터 규모가 작을 수 있다고 설명한다.
+- full_scan_ratio=0이면 성능 개선보다는 호환성/정합성 개선 중심으로 설명한다.
+- 숫자를 임의로 크게 바꾸지 말고 model_predicted_improvement와 크게 벗어나지 않게 한다.
+""".strip()
+
+
+def build_performance_fallback(pattern: dict[str, Any], risk_score: float) -> tuple[float, float, float]:
+    """
+    과거 PredictionLog가 없을 때 사용하는 fallback.
+    기존 HIGH/MEDIUM/LOW 하드코딩 대신 risk_score * BEST_SCALE을 사용.
+    """
+    avg_before = 100.0
+    predicted_improvement = predict_improvement_from_risk(risk_score)
+    avg_after = round(avg_before * (1.0 - predicted_improvement / 100.0), 1)
+    return avg_before, avg_after, predicted_improvement
+
+
+def safe_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 # ─── AI 진단 관련 ──────────────────────────────────────────────
 @app.post("/diagnose")
 async def diagnose(req: QueryRequest, request: Request):
-    # consistency_simulator가 탐지한 패턴 결과
-    sim_result = evaluate_sql(req.sql, RULES)
+    # 1. consistency_simulator가 탐지한 패턴 결과
+    raw_sim_result = evaluate_sql(req.sql, RULES)
+    sim_result = normalize_sim_result_for_risk(raw_sim_result)
 
-    pattern_map = {}
-    for detail in sim_result["details"]:
-        for pattern in detail["matched_patterns"]:
+    pattern_map: dict[str, dict[str, Any]] = {}
+    for detail in sim_result.get("details", []):
+        for pattern in detail.get("matched_patterns", []):
             pattern_map[pattern["id"]] = pattern
 
     matched_ids = list(pattern_map.keys())
-    
-    max_severity = sim_result["summary"]["max_severity"]
+    max_severity = sim_result.get("summary", {}).get("max_severity", "LOW")
 
-    matched_rules = [
-        r for r in RULES
-        if r.id in pattern_map
-    ]
-    RULES_STR = "\n".join([
-        f"{r.id} | {r.name} | {r.description}"
-        for r in matched_rules
-    ])
+    matched_rules = [r for r in RULES if r.id in pattern_map]
+    matched_rules_str = "\n".join(
+        [f"{r.id} | {r.name} | {r.description}" for r in matched_rules]
+    )
 
-    risk_analysis = predictor.evaluate_risk_score(sim_result)
-    risk_score = risk_analysis["risk_score"]
-    risk_level = risk_analysis["risk_level"]
+    # 2. before SQL EXPLAIN을 먼저 계산하고 RiskPredictor에 전달
+    before_explain_json = get_explain_json_from_mysql(req.sql)
+    before_explain_signal = (
+        get_explain_signal_from_mysql(req.sql)
+        if before_explain_json
+        else empty_explain_signal("EXPLAIN_EMPTY_OR_FAILED")
+    )
 
-    # [EXPLAIN]
-    # full_scan={explain_signal['full_scan_ratio']}
-    # no_index={explain_signal['no_index_flag']}
-    # rows_ratio={explain_signal['rows_ratio']}
+    risk_analysis = predictor.evaluate_risk_score(
+        sim_result,
+        explain_json_str=before_explain_json or None,
+    )
+    risk_score = float(risk_analysis.get("risk_score", 0.0))
+    risk_level = risk_analysis.get("risk_level", "LOW")
+
+    # 3. Grid Search scale 기반 모델 예측 개선율
+    model_predicted_improvement = predict_improvement_from_risk(risk_score)
+
+    explain_prompt_block = build_explain_prompt_block(
+        before_signal=before_explain_signal,
+        model_predicted_improvement=model_predicted_improvement,
+    )
 
     system_prompt = f"""
-    당신은 Oracle→MySQL 이관 전문가입니다.
+당신은 Oracle→MySQL 이관 전문가입니다.
 
-    [탐지 규칙]
-    {RULES_STR}
+[탐지 규칙]
+{matched_rules_str}
 
-    [지침]
-    - 입력 SQL 전체 유지
-    - MySQL 호환 형태로 변환
-    - Oracle/MySQL 차이를 기술적으로 설명
-    - recommended_ddl은 즉시 실행 가능해야 함
-    - "converted_sql"에는 반드시 실행 가능한 SELECT SQL만 작성
-    - matched_ids 중 핵심 패턴 하나를 rule_id로 선택
-    - JSON 외 텍스트 작성 금지
-    - 반드시 한국어 JSON만 출력
+{explain_prompt_block}
 
-    응답 형식:
-    {{
-        "reason": "상세 원인 설명",
-        "recommended_ddl": "MySQL용 전체 수정 스크립트",
-        "converted_sql": "변환된 MySQL SELECT SQL만 작성",
-        "est_im_percent": "예상 성능 향상률((기존 실행시간 - 개선 후 실행시간) / 기존 실행시간) × 100 기준의 예상 성능 향상률(%)을 숫자로만 반환할 것.",
-        "estimated_improvement": "예상 성능 향상률(%포함)와 근거",
-        "rule_id": "가장 핵심적인 패턴 ID (예: P03)"
-    }}
-    """
+[지침]
+- 입력 SQL 전체 유지
+- MySQL 호환 형태로 변환
+- Oracle/MySQL 차이를 기술적으로 설명
+- recommended_ddl은 즉시 실행 가능해야 함
+- "converted_sql"에는 반드시 실행 가능한 SELECT SQL만 작성
+- matched_ids 중 핵심 패턴 하나를 rule_id로 선택
+- est_im_percent는 모델 기반 예상 개선율 값을 우선 반영
+- JSON 외 텍스트 작성 금지
+- 반드시 한국어 JSON만 출력
+
+응답 형식:
+{{
+    "reason": "상세 원인 설명",
+    "recommended_ddl": "MySQL용 전체 수정 스크립트",
+    "converted_sql": "변환된 MySQL SELECT SQL만 작성",
+    "est_im_percent": "숫자만 반환",
+    "estimated_improvement": "예상 성능 향상률(%포함)와 근거",
+    "rule_id": "가장 핵심적인 패턴 ID (예: P03)"
+}}
+"""
 
     user_context = f"""
-    [사전 분석 결과]
-    - 감지된 패턴 ID: {matched_ids}
-    - 최고 위험 등급: {max_severity}
+[사전 분석 결과]
+- 감지된 패턴 ID: {matched_ids}
+- 최고 위험 등급: {max_severity}
+- 모델 위험 점수: {risk_score}
+- 모델 예상 개선율: {model_predicted_improvement}%
 
-    [대상 SQL]
-    {req.sql}
-    """
-    
+[대상 SQL]
+{req.sql}
+"""
+
+    # 4. 과거 PredictionLog 기반 performance_data 구성
     performance_data = []
     db_perf = SessionLocal()
+
     try:
         for pattern_id, pattern in pattern_map.items():
-
-            logs = db_perf.query(PredictionLog).filter(
-                PredictionLog.pattern_id == pattern_id
-            ).all()
+            logs = (
+                db_perf.query(PredictionLog)
+                .filter(PredictionLog.pattern_id == pattern_id)
+                .all()
+            )
 
             valid_logs = [
-                log for log in logs
+                log
+                for log in logs
                 if log.before_ms is not None and log.after_ms is not None
             ]
 
-            # 과거 데이터가 있으면 평균 사용
             if valid_logs:
                 avg_before = sum(log.before_ms for log in valid_logs) / len(valid_logs)
                 avg_after = sum(log.after_ms for log in valid_logs) / len(valid_logs)
-            # 없으면 fallback
+
+                improvement = calculate_actual_improvement(avg_before, avg_after)
+                if improvement is None:
+                    improvement = model_predicted_improvement
             else:
-                avg_before = 100.0
-                if pattern["severity"] == "HIGH":
-                    avg_after = 20.0
-                elif pattern["severity"] == "MEDIUM":
-                    avg_after = 50.0
-                else:
-                    avg_after = 70.0
+                avg_before, avg_after, improvement = build_performance_fallback(
+                    pattern,
+                    risk_score,
+                )
 
-            improvement = (
-                (avg_before - avg_after) / avg_before
-            ) * 100
+            performance_data.append(
+                {
+                    "pattern": pattern_id,
+                    "label": pattern["name"],
+                    "before": round(avg_before, 1),
+                    "after": round(avg_after, 1),
+                    "improvement": round(improvement, 1),
+                }
+            )
 
-            performance_data.append({
-                "pattern": pattern_id,
-                "label": pattern["name"],
-                "before": round(avg_before, 1),
-                "after": round(avg_after, 1),
-                "improvement": round(improvement, 1)
-            })
     finally:
         db_perf.close()
 
+    # 5. 위험 점수 차트 데이터
     risk_score_data = []
-    contrib_map = {
-        c["pattern_id"]: round(c["applied_score"])
-        for c in risk_analysis["contributions"]
-    }
-    for rule in RULES:
-        current_score = contrib_map.get(rule.id, 0)
+    contrib_map = {}
+    for c in risk_analysis.get("contributions", []):
+        pid = c["pattern_id"]
+        raw_score = round(c["applied_score"] + c.get("quant_bonus", 0))
+        contrib_map[pid] = max(
+            raw_score,
+            APP_FORCE_MIN_SCORE_BY_PATTERN_ID.get(pid, 0),
+        )
 
-        risk_score_data.append({
-            "id": rule.id,
-            "name": rule.name,
-            "score": current_score
-        })
-    
+    for rule in RULES:
+        risk_score_data.append(
+            {
+                "id": rule.id,
+                "name": rule.name,
+                "score": contrib_map.get(rule.id, 0),
+            }
+        )
+
     try:
+        # 6. Claude 호출
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=1500,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_context}]
+            messages=[{"role": "user", "content": user_context}],
         )
 
         raw_text = message.content[0].text
-        
-        match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
+
+        match = re.search(r"(\{.*\})", raw_text, re.DOTALL)
         if not match:
-            return {"error": "Claude JSON parsing failed"}
+            return {"error": "Claude JSON parsing failed", "raw": raw_text}
+
         ai_json = json.loads(match.group(1))
+        converted_sql = ai_json.get("converted_sql", "")
 
-        # 실행시간 측정
-        print("DEBUG: [EXPERIMENT] 원본 SQL 및 변환 DDL 실행 시간 측정 시작...")
+        # 7. 실행시간 측정
+        print("DEBUG: [EXPERIMENT] 원본 SQL 및 변환 SQL 실행 시간 측정 시작...")
+
         try:
-            execution_result = compare_sql_time(
-                req.sql,
-                ai_json.get("converted_sql", "")
-            )
-            try:
-                predicted = float(
-                    str(ai_json["est_im_percent"]).replace("%", "")
-                )
-                actual = execution_result["improvement_rate"]
+            execution_result = compare_sql_time(req.sql, converted_sql)
 
-                improvement_gap = (
-                    round(abs(predicted - actual), 2)
-                    if actual is not None
-                    else None
-                )
-            except (ValueError, TypeError, KeyError):
-                improvement_gap = None
-            
+            actual_improvement = execution_result.get("improvement_rate")
+            improvement_gap = calculate_improvement_gap(
+                model_predicted_improvement,
+                actual_improvement,
+            )
+
         except Exception as e:
             print(f"[EXPERIMENT ERROR] 실행시간 측정 실패: {e}")
 
@@ -476,156 +709,158 @@ async def diagnose(req: QueryRequest, request: Request):
                 "converted_sql_ms": None,
                 "improvement_rate": None,
             }
+            actual_improvement = None
             improvement_gap = None
+
         print(f"DEBUG: [EXPERIMENT RESULT] -> {execution_result}")
 
-        # EXPLAIN 분석 결과
+        # 8. after SQL EXPLAIN 분석
         try:
-            explain_signal = get_explain_signal_from_mysql(
-                ai_json.get("converted_sql", "")
-            )
+            after_explain_signal = get_explain_signal_from_mysql(converted_sql)
         except Exception as e:
-            print(f"[EXPERIMENT ERROR] EXPLAIN 분석 실패: {e}")
-            explain_signal = {
-                "full_scan_ratio": 0.0,
-                "no_index_flag": 0,
-                "rows_ratio": 1.0
-            }
+            print(f"[EXPERIMENT ERROR] after EXPLAIN 분석 실패: {e}")
+            after_explain_signal = empty_explain_signal("AFTER_EXPLAIN_FAILED")
 
+        # 9. 최종 응답 구성
         final_result = {
             "rule_id": ai_json.get("rule_id", matched_ids[0] if matched_ids else "P00"),
             "risk_level": risk_level,
             "risk_score": risk_score,
             "matched_pattern_ids": matched_ids,
-            "reason": ai_json["reason"],
-            "recommended_ddl": ai_json["recommended_ddl"],
-            "estimated_improvement": ai_json["estimated_improvement"],
-            "simulator_detail": sim_result["details"],
+            "reason": ai_json.get("reason", ""),
+            "recommended_ddl": ai_json.get("recommended_ddl", ""),
+            "converted_sql": converted_sql,
+
+            # Claude 응답값은 남기되, 실제 기준값은 model_predicted_improvement
+            "claude_est_im_percent": ai_json.get("est_im_percent"),
+            "est_im_percent": model_predicted_improvement,
+            "estimated_improvement": ai_json.get(
+                "estimated_improvement",
+                f"모델 기준 예상 성능 향상률은 약 {model_predicted_improvement}%입니다.",
+            ),
+            "model_predicted_improvement": model_predicted_improvement,
+            "actual_improvement": actual_improvement,
+            "improvement_gap": improvement_gap,
+
+            "execution_result": execution_result,
+            "simulator_detail": sim_result.get("details", []),
             "performance_data": performance_data,
             "risk_score_data": risk_score_data,
-            "explain_signal": explain_signal
+
+            # 기존 호환 키
+            "explain_signal": after_explain_signal,
+
+            # 신규 연결 키
+            "quant_signal": {
+                "before": before_explain_signal,
+                "after": after_explain_signal,
+            },
+            "risk_analysis": risk_analysis,
+            "grid_search_params": {
+                "decay": BEST_DECAY_RATE,
+                "scale": BEST_SCALE,
+            },
         }
 
-        # 토큰 사용량 확인
         usage = message.usage
-        print(f"DEBUG: [TOKEN USAGE] Input: {usage.input_tokens}, Output: {usage.output_tokens}")
+        print(
+            f"DEBUG: [TOKEN USAGE] Input: {usage.input_tokens}, "
+            f"Output: {usage.output_tokens}"
+        )
 
-        # PredictionLog DB 저장부분
+        # 10. PredictionLog 저장
         db_log = SessionLocal()
+
         try:
+            before_ms = safe_float(execution_result.get("original_sql_ms"))
+            after_ms = safe_float(execution_result.get("converted_sql_ms"))
+
             for perf in performance_data:
                 matched_pattern = pattern_map.get(perf["pattern"])
 
                 new_pred = PredictionLog(
-                    # 패턴 id (V)
                     pattern_id=perf["pattern"],
-                     # 패턴 이름 (V)
                     pattern_name=perf["label"],
-                     # HIGH / MEDIUM / LOW (V)
-                    risk=matched_pattern["severity"] if matched_pattern else "LOW",
-                    # just 리스크 점수? (V)
+                    risk=matched_pattern.get("severity", "LOW") if matched_pattern else "LOW",
                     predicted_score=float(risk_score),
-                    # 이관 전 실행시간 (V)
-                    before_ms=float(execution_result["original_sql_ms"]),
-                    # 이관(변환) 후 실행시간 (V)
-                    after_ms=float(execution_result["converted_sql_ms"]),
-                    # 오차율 (V)
+                    before_ms=before_ms,
+                    after_ms=after_ms,
                     error_rate=improvement_gap,
-                    # 기록 시각 (V)
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
                 db_log.add(new_pred)
+
             db_log.commit()
             print(f"DEBUG: PredictionLog 저장 완료 ({final_result['rule_id']})")
+
         except Exception as db_err:
             db_log.rollback()
             print(f"DEBUG: PredictionLog 저장 중 에러 -> {db_err}")
+
         finally:
             db_log.close()
 
         return final_result
-    
+
     except Exception as e:
         return {"error": str(e)}
-    
-
-#     # ── app.py 에 추가할 consistency 관련 코드 ────────────────────
-# # 위치: RULES = load_rules(RULES_PATH) 바로 아래에 붙여넣기
-
-# # consistency_grade 맵 사전 로딩 (pattern_rules.json에서 읽음)
-# CONSISTENCY_MAP: dict[str, dict] = {
-#     r["id"]: {
-#         "grade": r.get("consistency_grade", "VERIFY"),
-#         "note":  r.get("consistency_note", ""),
-#     }
-#     for r in rules_data  # rules_data는 기존에 있는 변수 그대로 사용
-# }
-
-# GRADE_LABEL = {
-#     "AUTO":   "🟢 AUTO — 자동 변환, 결과 동일 보장",
-#     "VERIFY": "🟡 VERIFY — 변환 후 결과 검증 필요",
-#     "MANUAL": "🔴 MANUAL — 수동 재작성 필요",
-# }
-
-# # ── /diagnose 엔드포인트 final_result 딕셔너리에 아래 블록 추가 ──
-# # final_result = { ... } 안에 "consistency" 키를 추가하면 됨:
-# #
-# #   "consistency": build_consistency(matched_ids),
-# #
-# # 아래 함수를 @app.post("/diagnose") 위에 정의해두세요.
-
-# def build_consistency(matched_ids: list[str]) -> dict:
-#     """
-#     탐지된 패턴 ID 목록으로 정합성 등급 및 조치 가이드를 생성.
-#     가장 엄격한 등급(MANUAL > VERIFY > AUTO)을 대표 등급으로 사용.
-#     """
-#     RANK = {"AUTO": 1, "VERIFY": 2, "MANUAL": 3}
-
-#     details = []
-#     worst_grade = "AUTO"
-
-#     for pid in matched_ids:
-#         info  = CONSISTENCY_MAP.get(pid, {"grade": "VERIFY", "note": ""})
-#         grade = info["grade"]
-#         note  = info["note"]
-
-#         details.append({
-#             "pattern_id":    pid,
-#             "grade":         grade,
-#             "grade_label":   GRADE_LABEL.get(grade, grade),
-#             "note":          note,
-#         })
-
-#         if RANK.get(grade, 2) > RANK.get(worst_grade, 1):
-#             worst_grade = grade
-
-#     action_guide = {
-#         "AUTO":   "변환 스크립트를 자동 적용할 수 있습니다. 별도 검증 불필요.",
-#         "VERIFY": "변환 후 SELECT 결과를 원본과 비교하여 row 수·값 일치 여부를 확인하세요.",
-#         "MANUAL": "자동 변환이 불가능합니다. DBA 또는 개발자가 직접 재작성해야 합니다.",
-#     }
-
-#     return {
-#         "overall_grade":  worst_grade,
-#         "grade_label":    GRADE_LABEL.get(worst_grade, worst_grade),
-#         "action":         action_guide.get(worst_grade, ""),
-#         "pattern_detail": details,
-#     }
 
 
-# # ── 실제 final_result 수정 예시 (기존 코드에서 final_result 딕셔너리를 찾아 아래처럼 수정) ──
-# #
-# # final_result = {
-# #     "rule_id": ...,
-# #     "risk_level": ...,
-# #     "risk_score": ...,
-# #     "matched_pattern_ids": matched_ids,
-# #     "reason": ...,
-# #     "recommended_ddl": ...,
-# #     "estimated_improvement": ...,
-# #     "simulator_detail": ...,
-# #     "performance_data": ...,
-# #     "risk_score_data": ...,
-# #     "explain_signal": ...,
-# #     "consistency": build_consistency(matched_ids),   # ← 이 줄만 추가
-# # }
+# ─── consistency 관련 옵션 코드 ───────────────────────────────
+# pattern_rules.json에 consistency_grade / consistency_note가 있을 때 사용 가능
+
+CONSISTENCY_MAP: dict[str, dict] = {
+    r.get("id"): {
+        "grade": r.get("consistency_grade", "VERIFY"),
+        "note": r.get("consistency_note", ""),
+    }
+    for r in rules_data
+    if isinstance(r, dict) and r.get("id")
+}
+
+GRADE_LABEL = {
+    "AUTO": "🟢 AUTO — 자동 변환, 결과 동일 보장",
+    "VERIFY": "🟡 VERIFY — 변환 후 결과 검증 필요",
+    "MANUAL": "🔴 MANUAL — 수동 재작성 필요",
+}
+
+
+def build_consistency(matched_ids: list[str]) -> dict:
+    """
+    탐지된 패턴 ID 목록으로 정합성 등급 및 조치 가이드를 생성.
+    가장 엄격한 등급(MANUAL > VERIFY > AUTO)을 대표 등급으로 사용.
+    """
+    rank = {"AUTO": 1, "VERIFY": 2, "MANUAL": 3}
+
+    details = []
+    worst_grade = "AUTO"
+
+    for pid in matched_ids:
+        info = CONSISTENCY_MAP.get(pid, {"grade": "VERIFY", "note": ""})
+        grade = info["grade"]
+        note = info["note"]
+
+        details.append(
+            {
+                "pattern_id": pid,
+                "grade": grade,
+                "grade_label": GRADE_LABEL.get(grade, grade),
+                "note": note,
+            }
+        )
+
+        if rank.get(grade, 2) > rank.get(worst_grade, 1):
+            worst_grade = grade
+
+    action_guide = {
+        "AUTO": "변환 스크립트를 자동 적용할 수 있습니다. 별도 검증 불필요.",
+        "VERIFY": "변환 후 SELECT 결과를 원본과 비교하여 row 수·값 일치 여부를 확인하세요.",
+        "MANUAL": "자동 변환이 불가능합니다. DBA 또는 개발자가 직접 재작성해야 합니다.",
+    }
+
+    return {
+        "overall_grade": worst_grade,
+        "grade_label": GRADE_LABEL.get(worst_grade, worst_grade),
+        "action": action_guide.get(worst_grade, ""),
+        "pattern_detail": details,
+    }

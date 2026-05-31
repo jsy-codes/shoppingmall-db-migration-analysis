@@ -44,7 +44,7 @@
   {
     "id": "P04",
     "name": "NVL Function",
-    "risk": "LOW",
+    "risk": "MEDIUM",
     "type": "regex",
     "pattern": "\\bNVL\\s*\\(",
     "failure_type": "FUNCTION_COMPATIBILITY",
@@ -72,7 +72,7 @@
   {
     "id": "P06",
     "name": "VARCHAR2 Usage",
-    "risk": "LOW",
+    "risk": "MEDIUM",
     "type": "regex",
     "pattern": "\\bVARCHAR2\\b",
     "failure_type": "STRING_TYPE_COMPATIBILITY",
@@ -86,7 +86,7 @@
   {
     "id": "P07",
     "name": "CHAR Padding",
-    "risk": "LOW",
+    "risk": "MEDIUM",
     "type": "regex",
     "pattern": "\\bCHAR\\s*\\(",
     "failure_type": "CHAR_PADDING_COMPARISON",
@@ -198,7 +198,7 @@
   {
     "id": "P15",
     "name": "SYSDATE Usage",
-    "risk": "LOW",
+    "risk": "MEDIUM",
     "type": "regex",
     "pattern": "\\bSYSDATE\\b",
     "failure_type": "FUNCTION_COMPATIBILITY",
@@ -254,7 +254,7 @@
   {
     "id": "P19",
     "name": "DUAL Table Dependency",
-    "risk": "LOW",
+    "risk": "MEDIUM",
     "type": "regex",
     "pattern": "\\bFROM\\s+DUAL\\b",
     "failure_type": "SYSTEM_TABLE_DEPENDENCY",
@@ -338,7 +338,7 @@
   {
     "id": "P25",
     "name": "NUMBER Type Declaration",
-    "risk": "LOW",
+    "risk": "MEDIUM",
     "type": "regex",
     "pattern": "\\bNUMBER\\b",
     "failure_type": "NUMERIC_TYPE_MAPPING",
@@ -408,7 +408,7 @@
   {
     "id": "P30",
     "name": "NCHAR/NVARCHAR2 Type",
-    "risk": "LOW",
+    "risk": "MEDIUM",
     "type": "regex",
     "pattern": "\\bN(CHAR|VARCHAR2)\\b",
     "failure_type": "UNICODE_TYPE_MAPPING",
