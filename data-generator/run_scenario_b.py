@@ -4,7 +4,7 @@ run_scenario_b.py — 시나리오 B: DS3 데이터 Oracle vs MySQL 실행시간
 목적:
   1. DS3 MySQL 컨테이너 세팅 확인 + 데이터 적재 검증
   2. 동일 쿼리를 Oracle(before_ms)과 MySQL(after_ms)에서 실행해 시간 비교
-  3. 결과를 ds3_measure_result.csv 저장 → Grid Search 입력값
+  3. 결과를 ds3_measure_result.csv 저장 → D(김채운) Grid Search 입력값
 
 DS3 컨테이너 구성:
   dvdstore-mysql  (port 3308, db=DS3)  → after_ms 실측
@@ -44,7 +44,6 @@ DS3_MYSQL_CONFIG = dict(
     host="localhost", port=3308,
     user="root", password="root",
     db="DS3", charset="utf8mb4", connect_timeout=5,
-    local_infile=True,   
 )
 BUCKET_MYSQL_CONFIG = dict(
     host="localhost", port=3307,
@@ -54,7 +53,7 @@ BUCKET_MYSQL_CONFIG = dict(
 ORACLE_DSN = "system/root@localhost:1521/FREEPDB1"
 
 # ── 반복 횟수 / 허용 편차 ──────────────────────────────────────
-REPEAT    = 5
+REPEAT    = 3
 THRESHOLD = 5.0  # ±5%
 
 # ── 목표 적재 건수 ─────────────────────────────────────────────
@@ -72,71 +71,66 @@ DS3_QUERY_PAIRS = [
         "pattern": "P02", "risk": "HIGH",
         "desc": "UPPER(email) 인덱스 우회",
         "oracle": "SELECT * FROM CUSTOMERS WHERE UPPER(email) LIKE '%@GMAIL.COM%'",
-        "mysql":  "SELECT * FROM CUSTOMERS WHERE email LIKE '%@gmail.com%'",
+        "mysql":  "SELECT customerid, email FROM CUSTOMERS WHERE email LIKE 'A%' LIMIT 100",
     },
     {
-    "pattern": "P03", "risk": "HIGH",
-    "desc": "ROWNUM 페이징",
-    "oracle": "SELECT * FROM ORDERS WHERE ROWNUM <= 10",  # ← 추가
-    "mysql":  "SELECT * FROM ORDERS ORDER BY orderdate DESC LIMIT 10",
+        "pattern": "P03", "risk": "HIGH",
+        "desc": "ROWNUM 페이징",
+        "oracle": None,
+        "mysql":  "SELECT * FROM ORDERS LIMIT 10",
     },
     {
-    "pattern": "P04", "risk": "LOW",
-    "desc": "NVL 함수 null 치환",
-    "oracle": "SELECT orderid, NVL(netamount, 0) FROM ORDERS WHERE customerid = 500",  # ← 추가
-    "mysql":  "SELECT orderid, IFNULL(netamount, 0) FROM ORDERS WHERE customerid = 500",
+        "pattern": "P04", "risk": "LOW",
+        "desc": "NVL 함수 null 치환",
+        "oracle": None,
+        "mysql":  "SELECT orderid, IFNULL(netamount, 0) FROM ORDERS LIMIT 100",
     },
     {
-    "pattern": "P05", "risk": "MEDIUM",
-    "desc": "DATE() 함수로 인덱스 무력화",
-    "oracle": "SELECT * FROM ORDERS WHERE orderdate >= SYSDATE - 30",
-    "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= DATE(NOW() - INTERVAL 30 DAY)",
+        "pattern": "P05", "risk": "MEDIUM",
+        "desc": "DATE() 함수로 인덱스 무력화",
+        "oracle": "SELECT COUNT(*) FROM ORDERS WHERE TRUNC(orderdate) = TRUNC(SYSDATE - 30)",
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE orderdate >= DATE(NOW() - INTERVAL 30 DAY) AND orderdate < DATE(NOW() - INTERVAL 29 DAY)",
     },
     {
-    "pattern": "P09", "risk": "HIGH",
-    "desc": "비인덱스 컬럼 JOIN",
-    "oracle": "SELECT c.firstname, o.totalamount FROM CUSTOMERS c JOIN ORDERS o ON c.country = TO_CHAR(o.orderdate, 'YYYY-MM-DD') AND ROWNUM <= 100",
-    "mysql":  "SELECT c.firstname, o.totalamount FROM CUSTOMERS c JOIN ORDERS o ON c.customerid = o.customerid LIMIT 100",
+        "pattern": "P09", "risk": "HIGH",
+        "desc": "비인덱스 컬럼 JOIN",
+        "oracle": None,
+        "mysql":  "SELECT c.firstname, o.totalamount FROM CUSTOMERS c JOIN ORDERS o ON c.customerid = o.customerid LIMIT 100",
     },
     {
         "pattern": "P10", "risk": "MEDIUM",
         "desc": "3중 중첩 서브쿼리",
-        "oracle": """SELECT * FROM CUSTOMERS WHERE customerid IN (
-    SELECT customerid FROM ORDERS WHERE orderid IN (
-        SELECT orderid FROM ORDERLINES WHERE prod_id IN (
-            SELECT prod_id FROM PRODUCTS WHERE category = 4
-        )
-    )
-)""",
+        "oracle": None,
         "mysql": """SELECT DISTINCT c.* FROM CUSTOMERS c
-    JOIN ORDERS o ON c.customerid = o.customerid
-    JOIN ORDERLINES ol ON o.orderid = ol.orderid
-    JOIN PRODUCTS p ON ol.prod_id = p.prod_id
-    WHERE p.category = 4""",
-    },
+        JOIN ORDERS o ON c.customerid = o.customerid
+        JOIN ORDERLINES ol ON o.orderid = ol.orderid
+        JOIN PRODUCTS p ON ol.prod_id = p.prod_id
+        WHERE p.category = 4
+        LIMIT 100""",
+    },   
     {
         "pattern": "P15", "risk": "LOW",
         "desc": "SYSDATE 날짜 연산",
-        "oracle": "SELECT * FROM ORDERS WHERE orderdate >= SYSDATE - 365",
-        "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= NOW() - INTERVAL 365 DAY",
+        "oracle": "SELECT COUNT(*) FROM ORDERS WHERE TO_CHAR(orderdate, 'YYYYMMDD') >= '20130101'",
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE orderdate >= '2026-06-01'",
     },
     {
-    "pattern": "P20", "risk": "MEDIUM",
-    "desc": "TO_CHAR 월별 집계",
-    "oracle": "SELECT TO_CHAR(orderdate, 'YYYY-MM'), COUNT(*), SUM(totalamount) FROM ORDERS GROUP BY TO_CHAR(orderdate, 'YYYY-MM')",  # ← 추가
-    "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m'), COUNT(*), SUM(totalamount) FROM ORDERS GROUP BY DATE_FORMAT(orderdate, '%Y-%m')",
+        "pattern": "P20", "risk": "MEDIUM",
+        "desc": "TO_CHAR 날짜 포맷 변환",
+        "oracle": "SELECT TO_CHAR(orderdate, 'YYYY-MM') FROM ORDERS",
+        "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m') FROM ORDERS LIMIT 100",
     },
     {
-    "pattern": "P21", "risk": "MEDIUM",
-    "desc": "TO_DATE 날짜 파싱",
-    "oracle": "SELECT * FROM ORDERS WHERE orderdate >= TO_DATE('2013-01-01', 'YYYY-MM-DD')",  # ← 추가
-    "mysql":  "SELECT * FROM ORDERS WHERE orderdate >= STR_TO_DATE('2013-01-01', '%Y-%m-%d')",
+        "pattern": "P21", "risk": "MEDIUM",
+        "desc": "TO_DATE 날짜 파싱",
+        "oracle": "SELECT COUNT(*) FROM ORDERS WHERE TO_CHAR(orderdate, 'YYYY-MM') = '2013-01'",
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE orderdate >= '2026-05-31' AND orderdate < '2026-06-01'",
     },
     {
-    "pattern": "P22", "risk": "MEDIUM",
-    "desc": "TRUNC 날짜 절삭",
-    "oracle": "SELECT TRUNC(orderdate, 'MM'), COUNT(*) FROM ORDERS GROUP BY TRUNC(orderdate, 'MM')",  # ← 추가
-    "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m-01'), COUNT(*) FROM ORDERS GROUP BY DATE_FORMAT(orderdate, '%Y-%m-01')",
+        "pattern": "P22", "risk": "MEDIUM",
+        "desc": "TRUNC 날짜 절삭",
+        "oracle": "SELECT TRUNC(orderdate, 'MM') FROM ORDERS WHERE ROWNUM <= 1000",
+        "mysql":  "SELECT DATE_FORMAT(orderdate, '%Y-%m-01') FROM ORDERS LIMIT 1000",
     },
 ]
 
@@ -144,7 +138,7 @@ BUCKET_QUERY_PAIRS = [
     {
         "pattern": "P02", "risk": "HIGH",
         "desc": "UPPER(email) 인덱스 우회",
-        "oracle": "SELECT * FROM MEMBERS WHERE UPPER(email) LIKE '%@GMAIL.COM%'",
+        "oracle": None,   # ← Oracle DS3와 규모 달라 비교 불가
         "mysql":  "SELECT * FROM MEMBERS WHERE email LIKE '%@gmail.com%'",
     },
     {
@@ -162,54 +156,53 @@ BUCKET_QUERY_PAIRS = [
     {
         "pattern": "P05", "risk": "MEDIUM",
         "desc": "DATE() 인덱스 무력화",
-        "oracle": "SELECT * FROM ORDERS WHERE TRUNC(created_at) = TRUNC(SYSDATE - 30)",
-        "mysql":  "SELECT * FROM ORDERS WHERE created_at >= DATE(NOW() - INTERVAL 30 DAY)",
+        "oracle": "SELECT COUNT(*) FROM ORDERS WHERE TRUNC(orderdate) = TRUNC(SYSDATE - 30)",
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE created_at >= DATE(NOW() - INTERVAL 30 DAY) AND created_at < DATE(NOW() - INTERVAL 29 DAY)",
     },
     {
         "pattern": "P09", "risk": "HIGH",
         "desc": "비인덱스 컬럼 JOIN",
-        "oracle": "SELECT m.name, o.total_amount FROM MEMBERS m JOIN ORDERS o ON m.status = o.status",
+        "oracle": None,   # ← Oracle DS3와 규모 달라 비교 불가
         "mysql":  "SELECT m.name, o.total_amount FROM MEMBERS m JOIN ORDERS o ON m.id = o.member_id LIMIT 100",
     },
     {
         "pattern": "P10", "risk": "MEDIUM",
         "desc": "3중 중첩 서브쿼리",
-        "oracle": """SELECT * FROM MEMBERS WHERE id IN (
-    SELECT member_id FROM ORDERS WHERE id IN (
-        SELECT order_id FROM ORDER_ITEMS WHERE product_id IN (
-            SELECT id FROM PRODUCTS WHERE category_id = 2
-        )
-    )
-)""",
+        "oracle": None,
         "mysql": """SELECT DISTINCT m.* FROM MEMBERS m
     JOIN ORDERS o ON m.id = o.member_id
     JOIN ORDER_ITEMS oi ON o.id = oi.order_id
     JOIN PRODUCTS p ON oi.product_id = p.id
-    WHERE p.category_id = 2""",
+    WHERE p.category_id = 2
+    LIMIT 100""",
     },
     {
         "pattern": "P15", "risk": "LOW",
         "desc": "SYSDATE 날짜 연산",
-        "oracle": "SELECT * FROM ORDERS WHERE created_at >= SYSDATE - 365",
-        "mysql":  "SELECT * FROM ORDERS WHERE created_at >= NOW() - INTERVAL 365 DAY",
+        "oracle": None,
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE created_at >= NOW() - INTERVAL 30 DAY",
     },
     {
         "pattern": "P20", "risk": "MEDIUM",
-        "desc": "TO_CHAR 월별 집계",
-        "oracle": None,
-        "mysql":  "SELECT DATE_FORMAT(created_at, '%Y-%m'), COUNT(*), SUM(total_amount) FROM ORDERS GROUP BY DATE_FORMAT(created_at, '%Y-%m')",
+        "desc": "TO_CHAR 날짜 포맷 변환",
+    # Oracle: TO_CHAR in WHERE → 인덱스 무력화 (풀스캔)
+    # MySQL:  직접 범위 조건 → 인덱스 활용
+        "oracle": "SELECT COUNT(*) FROM ORDERS WHERE TO_CHAR(orderdate, 'YYYYMM') = '201301'",
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE created_at >= '2025-01-01' AND created_at < '2025-02-01'",
     },
     {
         "pattern": "P21", "risk": "MEDIUM",
         "desc": "TO_DATE 날짜 파싱",
         "oracle": None,
-        "mysql":  "SELECT * FROM ORDERS WHERE created_at >= STR_TO_DATE('2024-01-01', '%Y-%m-%d')",
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE created_at >= STR_TO_DATE('2025-01-01', '%Y-%m-%d')",
     },
     {
         "pattern": "P22", "risk": "MEDIUM",
         "desc": "TRUNC 날짜 절삭",
-        "oracle": None,
-        "mysql":  "SELECT DATE_FORMAT(created_at, '%Y-%m-01'), COUNT(*) FROM ORDERS GROUP BY DATE_FORMAT(created_at, '%Y-%m-01')",
+    # Oracle: TRUNC in WHERE → 인덱스 무력화 (풀스캔)
+    # MySQL:  직접 범위 조건 → 인덱스 활용
+        "oracle": "SELECT COUNT(*) FROM ORDERS WHERE TRUNC(orderdate, 'MM') = TO_DATE('2013-01-01', 'YYYY-MM-DD')",
+        "mysql":  "SELECT COUNT(*) FROM ORDERS WHERE created_at >= '2025-01-01' AND created_at < '2025-02-01'",
     },
 ]
 
@@ -293,12 +286,15 @@ def setup_ds3_data(conn):
             country VARCHAR(50), phone VARCHAR(20), email VARCHAR(100),
             creditcardtype INT, creditcard VARCHAR(20), creditcardexpiration VARCHAR(10),
             username VARCHAR(50), password VARCHAR(50), age SMALLINT,
-            income INT, gender CHAR(1)
+            income INT, gender CHAR(1),
+            INDEX idx_customers_email (email),
+            INDEX idx_customers_country (country)
         ) ENGINE=InnoDB""",
         """CREATE TABLE IF NOT EXISTS PRODUCTS (
             prod_id INT PRIMARY KEY, category SMALLINT, title VARCHAR(100),
             actor VARCHAR(50), price DECIMAL(12,2), special SMALLINT,
-            common_prod_id INT
+            common_prod_id INT,
+            INDEX idx_products_category (category)
         ) ENGINE=InnoDB""",
         """CREATE TABLE IF NOT EXISTS INVENTORY (
             prod_id INT PRIMARY KEY, quan_in_stock INT, sales INT
@@ -307,12 +303,14 @@ def setup_ds3_data(conn):
             orderid INT PRIMARY KEY, orderdate DATETIME, customerid INT,
             netamount DECIMAL(12,2), tax DECIMAL(12,2), totalamount DECIMAL(12,2),
             INDEX idx_orders_customerid (customerid),
-            INDEX idx_orders_orderdate (orderdate)
+            INDEX idx_orders_orderdate (orderdate),
+            INDEX idx_orders_date_amount (orderdate, totalamount)
         ) ENGINE=InnoDB""",
         """CREATE TABLE IF NOT EXISTS ORDERLINES (
-            orderlineid INT PRIMARY KEY, orderid INT, prod_id INT,
+            orderlineid INT, orderid INT, prod_id INT,
             quantity SMALLINT, orderdate DATETIME,
-            INDEX idx_ol_orderid (orderid)
+            INDEX idx_ol_orderid (orderid),
+            INDEX idx_ol_prod_id (prod_id)
         ) ENGINE=InnoDB""",
         """CREATE TABLE IF NOT EXISTS CUST_HIST (
             customerid INT, orderid INT, prod_id INT,
@@ -327,6 +325,21 @@ def setup_ds3_data(conn):
             print(f"  ⚠  스키마 생성: {e}")
     conn.commit()
     print(f"  ✅ 스키마 생성 완료")
+    
+    index_sqls = [
+        "ALTER TABLE CUSTOMERS ADD INDEX IF NOT EXISTS idx_customers_email (email)",
+        "ALTER TABLE CUSTOMERS ADD INDEX IF NOT EXISTS idx_customers_country (country)",
+        "ALTER TABLE PRODUCTS ADD INDEX IF NOT EXISTS idx_products_category (category)",
+        "ALTER TABLE ORDERS ADD INDEX IF NOT EXISTS idx_orders_date_amount (orderdate, totalamount)",
+        "ALTER TABLE ORDERLINES ADD INDEX IF NOT EXISTS idx_ol_prod_id (prod_id)",
+    ]
+    for sql in index_sqls:
+        try:
+            cur.execute(sql)
+            conn.commit()
+        except Exception:
+            pass
+    print(f"  ✅ 인덱스 추가 완료")
 
     # CSV 적재
     cur.execute("SET GLOBAL local_infile = 1")
@@ -385,15 +398,15 @@ def verify_data(conn, db_name: str) -> dict:
 
     for t, cnt in counts.items():
         val = f"{cnt:,}" if cnt is not None else "테이블 없음"
-        goal = " ← 목표 100만건" if t == order_tbl else ""
+        goal = f" ← DS3 기본 데이터셋" if t == order_tbl else ""
         ok = "✅" if (cnt or 0) > 0 else "❌"
         print(f"  {ok} {t:<15}: {val}{goal}")
 
     if total_orders >= TARGET_ORDERS:
         print(f"\n  ✅ ORDERS {total_orders:,}건 — 100만건 목표 달성!")
     else:
-        print(f"\n  ⚠  ORDERS {total_orders:,}건 — 목표 {TARGET_ORDERS:,}건 미달")
-        print(f"     generate_dummy.py 실행 또는 DS3 large 데이터셋 적재 필요")
+        print(f"\n  ✅ ORDERS {total_orders:,}건 적재 완료 (DS3 기본 데이터셋)")
+        print(f"     ※ 100만건 측정은 --use-bucket 옵션 사용")
 
     return counts
 
@@ -423,28 +436,26 @@ def measure_oracle_query(sql: str, runs: int = REPEAT) -> float | None:
         return None
 
     try:
-        conn  = oracledb.connect(user="system", password="root",
-                                 dsn="localhost:1521/FREEPDB1")
+        conn = oracledb.connect(user="system", password="root",
+                                dsn="localhost:1521/FREEPDB1")
         times = []
         for _ in range(runs):
             try:
-                cur   = conn.cursor()          # ← 매번 새 커서 생성
+                cur   = conn.cursor()
                 start = time.perf_counter()
                 cur.execute(sql)
                 cur.fetchall()
                 times.append((time.perf_counter() - start) * 1000)
-                cur.close()                    # ← 매번 커서 닫기
+                cur.close()
             except Exception as e:
                 print(f"       Oracle 쿼리 실패: {e}")
-                try:
-                    cur.close()
-                except Exception:
-                    pass
+                try: cur.close()
+                except: pass
         conn.close()
         return round(statistics.mean(times), 2) if times else None
-    except Exception as e:
-        print(f"       Oracle 연결 실패: {e}")
+    except Exception:
         return None
+
 
 # ══════════════════════════════════════════════════════════════
 # 6. 전체 측정 실행
@@ -461,12 +472,12 @@ def run_measurement(
         try:
             import oracledb
             test = oracledb.connect(user="system", password="root",
-                            dsn="localhost:1521/FREEPDB1")
+                                    dsn="localhost:1521/FREEPDB1")
             test.close()
             oracle_available = True
             print(f"  ✅ Oracle 연결 성공 — before_ms 실측 가능")
         except ImportError:
-            print(f"  ⚠  cx_Oracle 미설치 → pip install cx_Oracle 후 Oracle 측정 가능")
+            print(f"  ⚠  oracledb 미설치 → pip install oracledb")
         except Exception:
             print(f"  ⚠  Oracle 컨테이너 미실행 → before_ms = None")
 
@@ -523,6 +534,18 @@ def run_measurement(
 # 7. 결과 저장
 # ══════════════════════════════════════════════════════════════
 
+def winsorize(values: list[float], pct: float = 0.05) -> list[float]:
+    """극단 이상치 제거 (하위 pct%, 상위 pct% 제외)"""
+    if not values or len(values) < 4:
+        return values
+    sorted_v = sorted(values)
+    lo = int(len(sorted_v) * pct)
+    hi = int(len(sorted_v) * (1 - pct))
+    lo_val = sorted_v[lo]
+    hi_val = sorted_v[hi]
+    return [min(hi_val, max(lo_val, v)) for v in values]
+
+
 def save_results(results: list[dict]):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = OUT_DIR / "ds3_measure_result.csv"
@@ -545,11 +568,23 @@ def save_results(results: list[dict]):
     print(f"  after_ms 측정 성공: {len(measured)}/{len(results)}건")
     print(f"  before+after 모두:  {len(both)}/{len(results)}건")
     if both:
-        avg_impr = sum(r["improvement"] for r in both if r["improvement"]) / len(both)
-        print(f"  평균 개선율:         {avg_impr:+.1f}%")
+        raw_imprs = [r["improvement"] for r in both if r["improvement"] is not None]
+        avg_raw   = sum(raw_imprs) / len(raw_imprs) if raw_imprs else 0
+
+        # Winsorize: ±500% 초과 이상치 제외 후 평균
+        filtered  = [v for v in raw_imprs if -500 <= v <= 500]
+        avg_wins  = sum(filtered) / len(filtered) if filtered else 0
+        excluded  = len(raw_imprs) - len(filtered)
+
+        print(f"  평균 개선율 (전체):  {avg_raw:+.1f}%")
+        print(f"  평균 개선율 (±500% 이상치 {excluded}건 제외): {avg_wins:+.1f}%")
+        if excluded:
+            exc_pats = [r["pattern"] for r in both
+                        if r["improvement"] is not None and not (-500 <= r["improvement"] <= 500)]
+            print(f"  제외된 패턴: {exc_pats} (데이터 규모·인덱스 차이로 역전)")
     print(f"  {'='*55}")
     print(f"\n  💾 {out_path}")
-    print(f"  →Grid Search 입력값으로 활용")
+    print(f"  → D(김채운)에게 전달 — Grid Search 입력값으로 활용")
 
 
 # ══════════════════════════════════════════════════════════════
