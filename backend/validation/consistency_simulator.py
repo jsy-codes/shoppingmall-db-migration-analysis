@@ -43,7 +43,31 @@ def normalize_sql(sql: str) -> str:
 
 
 def split_statements(sql: str) -> list[str]:
-    return [s.strip() for s in sql.split(";") if s.strip()]
+    # 주석 제거
+    sql = re.sub(r"--.*?$", "", sql, flags=re.MULTILINE)
+    sql = re.sub(r"/\*.*?\*/", "", sql, flags=re.DOTALL)
+
+    statements = []
+    buf = []
+    in_single = False
+
+    for ch in sql:
+        buf.append(ch)
+
+        if ch == "'":
+            in_single = not in_single
+
+        if ch == ";" and not in_single:
+            stmt = "".join(buf).strip().rstrip(";").strip()
+            if stmt:
+                statements.append(stmt)
+            buf = []
+
+    tail = "".join(buf).strip()
+    if tail:
+        statements.append(tail)
+
+    return statements
 
 
 # 수정 후 — 따옴표 없는 정수 비교도 추가

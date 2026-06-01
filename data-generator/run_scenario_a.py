@@ -44,6 +44,7 @@ DEFAULT_FILES = [
     "JTA_Create_Database.sql",
     "JTA_Packages.sql",
     "JTA_Test_Code.sql",
+    "oracle_pattern_fixtures.sql",
 ]
 
 # 중간평가 기준 수치 (JTA_Packages.sql 단독 기준)

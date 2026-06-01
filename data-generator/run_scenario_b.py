@@ -486,6 +486,8 @@ def run_measurement(
 
     results = []
     for q in query_pairs:
+        if q["oracle"] is None:
+            continue
         # before (Oracle)
         if q["oracle"] and oracle_available and not skip_oracle:
             before_ms = measure_oracle_query(q["oracle"])

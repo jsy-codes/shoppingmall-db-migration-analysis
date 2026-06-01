@@ -3,56 +3,56 @@ JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE e
 JTA_Create_Database.sql,"P05, P06, P25",3,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE jta_errors ( 	error_id NUMBER, 	date_time DATE, 	user_name VARCHAR2(255), 	code VARCHAR2(6), 	message VARCH"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE event_seq START WITH 1 INCREMENT BY 1 CACHE 10
 JTA_Create_Database.sql,"P05, P06, P25",3,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE jta_events (     event_id NUMBER,     user_name VARCHAR2(255),     date_time DATE CONSTRAINT ev_date_time_n"
-JTA_Create_Database.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,"CREATE TABLE authorized_ip_adresses (     ip_address VARCHAR2(20),     CONSTRAINT auth_ip_pk PRIMARY KEY (ip_address) )"
+JTA_Create_Database.sql,P06,1,MEDIUM,STRING_TYPE_COMPATIBILITY,"CREATE TABLE authorized_ip_adresses (     ip_address VARCHAR2(20),     CONSTRAINT auth_ip_pk PRIMARY KEY (ip_address) )"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE product_id_seq START WITH 1 INCREMENT BY 1 CACHE 10
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE products ( 	product_id NUMBER, 	category_id NUMBER CONSTRAINT prod_cat_id_nn NOT NULL, 	unit_measure VARCHA"
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE products ( 	product_id NUMBER, 	category_id NUMBER CONSTRAINT prod_cat_id_nn NOT NULL, 	unit_measure VARCHA"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE staff_id_seq START WITH 10 INCREMENT BY 1 NOCACHE
 JTA_Create_Database.sql,"P05, P06, P07, P15, P25",5,MEDIUM,"CHAR_PADDING_COMPARISON, FUNCTION_COMPATIBILITY, NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE staff (   staff_id NUMBER,   location_id NUMBER CONSTRAINT staff_location_nn NOT NULL,   job_id NUMBER CONS"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE job_id_seq START WITH 10 INCREMENT BY 1 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE job_posts (   job_id NUMBER,   job_title VARCHAR2(20) CONSTRAINT job_posts_title_nn NOT NULL,   starting_wa"
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE job_posts (   job_id NUMBER,   job_title VARCHAR2(20) CONSTRAINT job_posts_title_nn NOT NULL,   starting_wa"
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE job_posts_history (   staff_id NUMBER,   date_started DATE,   date_ended DATE,    job_id NUMBER CONSTRAINT "
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE payroll_id_seq START WITH 1 INCREMENT BY 1 CACHE 500
 JTA_Create_Database.sql,"P05, P06, P25",3,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE payroll (   payroll_id NUMBER,   staff_id NUMBER CONSTRAINT payroll_staff_id_nn NOT NULL,   start_date DATE"
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE work_hours (   staff_id NUMBER,   work_date DATE,   hours_worked NUMBER CONSTRAINT work_hours_hw_nn NOT NUL"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE location_id_seq START WITH 10 INCREMENT BY 1 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE locations (   location_id NUMBER,   name VARCHAR2(20) CONSTRAINT locations_name_nn NOT NULL,   type VARCHAR"
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE locations (   location_id NUMBER,   name VARCHAR2(20) CONSTRAINT locations_name_nn NOT NULL,   type VARCHAR"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE office_id_seq START WITH 10 INCREMENT BY 1 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE office_sections (   office_id NUMBER,   contact_number VARCHAR2(14) CONSTRAINT office_contact_num_nn NOT NU"
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE office_sections (   office_id NUMBER,   contact_number VARCHAR2(14) CONSTRAINT office_contact_num_nn NOT NU"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE bill_id_seq START WITH 1 INCREMENT BY 1 CACHE 500
 JTA_Create_Database.sql,"P05, P06, P25",3,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE customer_bills (   bill_id NUMBER,   assignment_id NUMBER CONSTRAINT bills_assignment_nn NOT NULL,   date_t"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE bill_line_id_seq START WITH 1 INCREMENT BY 1 CACHE 500
-JTA_Create_Database.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"CREATE TABLE billed_items (   bill_line_id NUMBER,   bill_id NUMBER CONSTRAINT billed_bill_id_nn NOT NULL,   product_id "
+JTA_Create_Database.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"CREATE TABLE billed_items (   bill_line_id NUMBER,   bill_id NUMBER CONSTRAINT billed_bill_id_nn NOT NULL,   product_id "
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE station_id_seq START WITH 10 INCREMENT BY 1 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE cashier_stations (   station_id NUMBER,   location_id NUMBER CONSTRAINT station_location_nn NOT NULL,   des"
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE cashier_stations (   station_id NUMBER,   location_id NUMBER CONSTRAINT station_location_nn NOT NULL,   des"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE assignment_id_seq START WITH 1 INCREMENT BY 1 CACHE 100
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE cashier_drawer_assignments (   assignment_id NUMBER,   staff_id NUMBER CONSTRAINT cashiers_assign_staff_nn "
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE supplier_id_seq START WITH 10 INCREMENT BY 1 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE suppliers (   supplier_id NUMBER,   supplier_name VARCHAR2(50) CONSTRAINT supplier_name_nn NOT NULL,   addr"
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE suppliers (   supplier_id NUMBER,   supplier_name VARCHAR2(50) CONSTRAINT supplier_name_nn NOT NULL,   addr"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE sup_contact_id_seq START WITH 1 INCREMENT BY 1 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE supplier_contacts (   sup_contact_id NUMBER,   supplier_id NUMBER CONSTRAINT sup_contact_supplier_id_nn NOT"
-JTA_Create_Database.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"CREATE TABLE suppliers_per_products (   supplier_id NUMBER,   product_id NUMBER,   CONSTRAINT suppliers_per_products_pk "
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE supplier_contacts (   sup_contact_id NUMBER,   supplier_id NUMBER CONSTRAINT sup_contact_supplier_id_nn NOT"
+JTA_Create_Database.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"CREATE TABLE suppliers_per_products (   supplier_id NUMBER,   product_id NUMBER,   CONSTRAINT suppliers_per_products_pk "
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE invoice_number_seq START WITH 1 INCREMENT BY 1 CACHE 100
 JTA_Create_Database.sql,"P05, P06, P25",3,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE supplier_invoices (   invoice_number NUMBER,   supplier_id NUMBER CONSTRAINT sup_invoice_sup_id_nn NOT NULL"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE payment_record_id_seq START WITH 1 INCREMENT BY 1 CACHE 100
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE invoice_payments_records (   payment_record_id NUMBER,   invoice_number NUMBER CONSTRAINT payments_inv_num_"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE sup_inv_line_id_seq START WITH 1 INCREMENT BY 1 CACHE 100
-JTA_Create_Database.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"CREATE TABLE supplier_invoice_line (   sup_inv_line_id NUMBER,   invoice_number NUMBER CONSTRAINT sup_inv_num_nn NOT NUL"
-JTA_Create_Database.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"CREATE TABLE inventory_by_location (   product_id NUMBER,   location_id NUMBER,   quantity NUMBER CONSTRAINT inv_by_loca"
+JTA_Create_Database.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"CREATE TABLE supplier_invoice_line (   sup_inv_line_id NUMBER,   invoice_number NUMBER CONSTRAINT sup_inv_num_nn NOT NUL"
+JTA_Create_Database.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"CREATE TABLE inventory_by_location (   product_id NUMBER,   location_id NUMBER,   quantity NUMBER CONSTRAINT inv_by_loca"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE category_id_seq START WITH 10 INCREMENT BY 10 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE product_category (   category_id NUMBER,   category_name VARCHAR2(20) CONSTRAINT category_cat_name_nn NOT N"
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE product_category (   category_id NUMBER,   category_name VARCHAR2(20) CONSTRAINT category_cat_name_nn NOT N"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE m_item_id_seq START WITH 1 INCREMENT BY 1 CACHE 10
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE missing_items (   m_item_id NUMBER,   product_id NUMBER CONSTRAINT missing_items_product_nn NOT NULL,   dat"
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE price_history (   product_id NUMBER,   start_date DATE,   price_rate NUMBER(10,2) CONSTRAINT price_hist_rat"
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE pending_price_rates (   product_id NUMBER,   start_date DATE CONSTRAINT pending_price_startdate_nn NOT NULL"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE tax_code_seq START WITH 1 INCREMENT BY 1 NOCACHE
-JTA_Create_Database.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE tax_rates (   tax_code NUMBER,   tax_rate NUMBER(5,2) CONSTRAINT tax_rates_rate_nn NOT NULL,   description "
+JTA_Create_Database.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","CREATE TABLE tax_rates (   tax_code NUMBER,   tax_rate NUMBER(5,2) CONSTRAINT tax_rates_rate_nn NOT NULL,   description "
 JTA_Create_Database.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE tax_rate_history (   tax_code NUMBER,   start_date DATE,   end_date DATE,   tax_rate NUMBER(5,2) CONSTRAINT"
 JTA_Create_Database.sql,"P05, P06, P25",3,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE pending_tax_changes (   tax_code NUMBER,   tax_rate NUMBER(5,2) CONSTRAINT pending_tax_rate_nn NOT NULL,   "
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE po_id_seq START WITH 1 INCREMENT BY 1 CACHE 100
 JTA_Create_Database.sql,"P05, P07, P25",3,MEDIUM,"CHAR_PADDING_COMPARISON, NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","CREATE TABLE purchase_orders (   po_id NUMBER,   supplier_id NUMBER CONSTRAINT po_sid_nn NOT NULL,   staff_id NUMBER CON"
-JTA_Create_Database.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,"CREATE TABLE unit_measures (   unit_measure VARCHAR2(5),   description VARCHAR2(150),   CONSTRAINT unit_measures_pk PRIM"
+JTA_Create_Database.sql,P06,1,MEDIUM,STRING_TYPE_COMPATIBILITY,"CREATE TABLE unit_measures (   unit_measure VARCHAR2(5),   description VARCHAR2(150),   CONSTRAINT unit_measures_pk PRIM"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE po_line_id_seq START WITH 1 INCREMENT BY 1 CACHE 100
-JTA_Create_Database.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"CREATE TABLE purchase_order_lines (   po_line_id NUMBER,   po_id NUMBER CONSTRAINT po_line_poid_nn NOT NULL,   product_i"
+JTA_Create_Database.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"CREATE TABLE purchase_order_lines (   po_line_id NUMBER,   po_id NUMBER CONSTRAINT po_line_poid_nn NOT NULL,   product_i"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE transaction_id_seq START WITH 1 INCREMENT BY 1 CACHE 500
 JTA_Create_Database.sql,"P05, P06, P25",3,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","CREATE TABLE cost_sales_tracker (   transaction_id NUMBER,   product_id NUMBER CONSTRAINT cst_product_nn NOT NULL,   dir"
 JTA_Create_Database.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"INSERT INTO tax_rates VALUES  (tax_code_seq.nextval, 12.5, 'VAT')"
@@ -168,162 +168,128 @@ JTA_Create_Database.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"INSERT INTO 
 JTA_Create_Database.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"INSERT INTO purchase_order_lines VALUES (po_line_id_seq.nextval, 4, 2, 50, 7)"
 JTA_Create_Database.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"INSERT INTO purchase_order_lines VALUES (po_line_id_seq.nextval, 4, 3, 75, 12)"
 JTA_Create_Database.sql,P13,1,MEDIUM,HIERARCHY_QUERY_MIGRATION,CREATE SEQUENCE sold_products_seq START WITH 1 INCREMENT BY 1 CACHE 500
-JTA_Create_Database.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"CREATE TABLE sold_products (     sold_products_id NUMBER,  	product_id NUMBER, 	quantity NUMBER, 	CONSTRAINT sold_produc"
-JTA_Packages.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","-- procedures for quick exception handling     PROCEDURE throw (         p_code IN NUMBER,         p_message   IN VARCHA"
-JTA_Packages.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","PROCEDURE log_error (         p_code IN NUMBER,         p_message   IN VARCHAR2     )"
-JTA_Packages.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","PROCEDURE show_in_console (         p_code IN NUMBER := NULL,         p_message IN VARCHAR2     )"
-JTA_Packages.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","/  -- package body for jta_error CREATE OR REPLACE PACKAGE BODY jta_error IS      /*         Throw an exception, this ma"
-JTA_Packages.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY",/*         Log the exception to an error table.                  Most procedures will do this when exceptions occur.    
-JTA_Packages.sql,"P15, P23",2,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY","-- log error into error table         INSERT INTO jta_errors (error_id, date_time, user_name, code, message)         VAL"
-JTA_Packages.sql,"P06, P25",2,LOW,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY",/*         Show an error in the console.                  Sometimes you don't want to log an error because it is not a  
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,/   -- JTA Package Specification -- This package contains the main constructs for the jta database CREATE OR REPLACE PAC
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,hlt_surcharge_rate CONSTANT NUMBER := 0.005
-JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,-- public procedures and functions     PROCEDURE process_payroll (         p_date IN DATE     )
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"PROCEDURE update_inventory (         p_product_id IN cost_sales_tracker.product_id%TYPE,         p_quantity IN NUMBER,  "
+JTA_Create_Database.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"CREATE TABLE sold_products (     sold_products_id NUMBER,  	product_id NUMBER, 	quantity NUMBER, 	CONSTRAINT sold_produc"
+JTA_Packages.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","PROCEDURE throw (         p_code IN NUMBER,         p_message   IN VARCHAR2     )"
+JTA_Packages.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","PROCEDURE log_error (         p_code IN NUMBER,         p_message   IN VARCHAR2     )"
+JTA_Packages.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","PROCEDURE show_in_console (         p_code IN NUMBER := NULL,         p_message IN VARCHAR2     )"
+JTA_Packages.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","/   CREATE OR REPLACE PACKAGE BODY jta_error IS           PROCEDURE throw (         p_code IN NUMBER,         p_message "
+JTA_Packages.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","PROCEDURE log_error (       p_code IN NUMBER,       p_message   IN VARCHAR2     )     IS                  PRAGMA autonom"
+JTA_Packages.sql,"P15, P23",2,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY","INSERT INTO jta_errors (error_id, date_time, user_name, code, message)         VALUES (error_seq.NEXTVAL, sysdate, USER,"
+JTA_Packages.sql,"P06, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY","PROCEDURE show_in_console (         p_code IN NUMBER := NULL,         p_message IN VARCHAR2     )     IS     BEGIN      "
+JTA_Packages.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,/     CREATE OR REPLACE PACKAGE jta  IS          nat_insurance_rate CONSTANT NUMBER := 0.132
+JTA_Packages.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,hlt_surcharge_rate CONSTANT NUMBER := 0.005
+JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,PROCEDURE process_payroll (         p_date IN DATE     )
+JTA_Packages.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"PROCEDURE update_inventory (         p_product_id IN cost_sales_tracker.product_id%TYPE,         p_quantity IN NUMBER,  "
 JTA_Packages.sql,"P05, P06",2,MEDIUM,"STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","FUNCTION get_money_inflow (         p_location_id locations.location_id%TYPE,         p_start_date DATE,         p_end_d"
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,"TYPE price_change_record IS RECORD (         product_id products.product_id%TYPE,          product_name products.product"
+JTA_Packages.sql,P06,1,MEDIUM,STRING_TYPE_COMPATIBILITY,"TYPE price_change_record IS RECORD (         product_id products.product_id%TYPE,          product_name products.product"
 JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,"FUNCTION get_price_changes (         p_product_id products.product_id%type,         p_start_date DATE,         p_end_dat"
 JTA_Packages.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","PROCEDURE get_profits_for (         p_start_date IN DATE,         p_end_date IN DATE,         p_goods_sold OUT NOCOPY NU"
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,"PROCEDURE lookup_barcode (         p_barcode IN VARCHAR2,         p_product_id OUT NOCOPY products.product_id%TYPE,     "
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"FUNCTION receive_payment (         p_bill_id customer_bills.bill_id%TYPE,         p_type customer_bills.payment_type%TYP"
+JTA_Packages.sql,P06,1,MEDIUM,STRING_TYPE_COMPATIBILITY,"PROCEDURE lookup_barcode (         p_barcode IN VARCHAR2,         p_product_id OUT NOCOPY products.product_id%TYPE,     "
+JTA_Packages.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"FUNCTION receive_payment (         p_bill_id customer_bills.bill_id%TYPE,         p_type customer_bills.payment_type%TYP"
 JTA_Packages.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","FUNCTION get_tax_payment_due (         p_tax_code tax_rates.tax_code%TYPE,         p_year DATE     ) RETURN NUMBER"
 JTA_Packages.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","FUNCTION get_quantity_sold (         p_product_id products.product_id%TYPE,         p_location_id locations.location_id%"
 JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,"PROCEDURE sunday_check (         p_staff_id IN staff.staff_id%TYPE,         p_month IN DATE,         p_sundays OUT NOCOP"
 JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,"PROCEDURE payout (         p_staff_id IN staff.staff_id%TYPE,         p_begin_date IN DATE,         p_end_date IN DATE, "
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,FUNCTION get_name (         p_staff_id staff.staff_id%TYPE     ) RETURN VARCHAR2
-JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,/  -- JTA Package Body CREATE OR REPLACE PACKAGE BODY jta IS       /*         02         Private procedure: Get Hours   
+JTA_Packages.sql,P06,1,MEDIUM,STRING_TYPE_COMPATIBILITY,FUNCTION get_name (         p_staff_id staff.staff_id%TYPE     ) RETURN VARCHAR2
+JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,/   CREATE OR REPLACE PACKAGE BODY jta IS                PROCEDURE get_hours (         p_staff_id IN staff.staff_id%TYPE
 JTA_Packages.sql,"P04, P20",2,MEDIUM,"DATE_FORMAT_FUNCTION_MIGRATION, FUNCTION_COMPATIBILITY","SELECT nvl(SUM(hours_worked), 0) INTO doubletime             FROM work_hours             WHERE work_date BETWEEN start_d"
 JTA_Packages.sql,"P04, P20",2,MEDIUM,"DATE_FORMAT_FUNCTION_MIGRATION, FUNCTION_COMPATIBILITY","SELECT nvl(SUM(hours_worked), 0) INTO basic             FROM work_hours             WHERE work_date BETWEEN start_date A"
-JTA_Packages.sql,"P05, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, TEMPORAL_TYPE_MISMATCH","/*         03         Process payroll                  Given any date in a week,         retrieve the hours worked for e"
+JTA_Packages.sql,"P05, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, TEMPORAL_TYPE_MISMATCH","PROCEDURE process_payroll (         p_date IN DATE     )     IS                       v_start_date DATE := TRUNC(p_date,"
 JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,"v_end_date DATE := v_start_date + 6              + numtodsinterval(23, 'hour')             + numtodsinterval(59, 'minute"
-JTA_Packages.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"BEGIN              --dbms_output.put_line(to_char(v_start_date, 'yyyy-Mon-dd, HH24:MI:SS'))"
-JTA_Packages.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"--dbms_output.put_line(to_char(v_end_date, 'yyyy-Mon-dd, HH24:MI:SS'))"
-JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"-- insert new row into payroll table             INSERT INTO payroll (                  payroll_id, staff_id, start_date"
-JTA_Packages.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,-- commit when done and only when rows modified         ELSE              -- this exception is caught but not logged sin
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,/*         04         Update Inventory                  Add or remove items from the overall inventory (all lcoations). 
-JTA_Packages.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"BEGIN              -- if zero quantity, raise error         IF p_quantity = 0 THEN             jta_error.throw(-20201, '"
+JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"INSERT INTO payroll (                  payroll_id, staff_id, start_date, end_date,                  hours_basic, hours_o"
+JTA_Packages.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"ELSE                           jta_error.throw(-20201, 'There was no work hours recorded for this week: '               "
+JTA_Packages.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"PROCEDURE update_inventory (         p_product_id IN cost_sales_tracker.product_id%TYPE,         p_quantity IN NUMBER,  "
+JTA_Packages.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"BEGIN                       IF p_quantity = 0 THEN             jta_error.throw(-20201, 'cannot update a zero amount to i"
 JTA_Packages.sql,P10,1,MEDIUM,NESTED_QUERY_DEGRADATION,BEGIN             SELECT total INTO v_old_total             FROM cost_sales_tracker             WHERE product_id = p_pro
 JTA_Packages.sql,P10,1,MEDIUM,NESTED_QUERY_DEGRADATION,BEGIN             SELECT average_cost_per_unit INTO v_old_avg             FROM cost_sales_tracker             WHERE prod
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,-- average also remains the same                          -- reduce quantity (its a negative number)             v_new_t
-JTA_Packages.sql,"P15, P23",2,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY","-- insert data into database         INSERT INTO cost_sales_tracker (             transaction_id, product_id, direction,"
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"/*         05         Restock Urgent                  Find items that need restocking, and automatically create a purcha"
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,-- find distinct list of suppliers whose products need restocking         CURSOR suppliers IS             SELECT DISTINC
-JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,BEGIN                  -- for all suppliers who need restocking at each inventory location...         FOR supplier IN su
-JTA_Packages.sql,P15,1,LOW,FUNCTION_COMPATIBILITY,"INSERT INTO purchase_orders (po_id, supplier_id, staff_id, location_id, pending, approved, submitted_date)             V"
-JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"-- add purchase order lines for this supplier             FOR stock IN urgent(supplier.supplier_id, supplier.location_id"
-JTA_Packages.sql,"P02, P04",2,HIGH,"FUNCTION_COMPATIBILITY, FUNCTION_INDEX_BYPASS","-- we can sum the bill amounts, however we do something else instead         /*             SELECT SUM(nvl(payment_tende"
-JTA_Packages.sql,P04,1,LOW,FUNCTION_COMPATIBILITY,"*/                  -- we can get the payout from the assignment table instead,         -- this is because we have now s"
-JTA_Packages.sql,"P05, P06",2,MEDIUM,"STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH",/*         07         Cash flow query                  Find the total cash amount retrieved by cashiers for a certain pe
+JTA_Packages.sql,"P15, P23",2,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY","INSERT INTO cost_sales_tracker (             transaction_id, product_id, direction, date_time, quantity,             tot"
+JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,PROCEDURE restock_urgent (         p_staff_id IN staff.staff_id%TYPE     )     IS                                      C
+JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"CURSOR suppliers IS             SELECT DISTINCT supplier_id, location_id             FROM inventory_by_location inv     "
+JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,BEGIN                           FOR supplier IN suppliers LOOP                          v_current_po := po_id_seq.NEXTVA
+JTA_Packages.sql,P15,1,MEDIUM,FUNCTION_COMPATIBILITY,"INSERT INTO purchase_orders (po_id, supplier_id, staff_id, location_id, pending, approved, submitted_date)             V"
+JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"FOR stock IN urgent(supplier.supplier_id, supplier.location_id) LOOP                 INSERT INTO purchase_order_lines (p"
+JTA_Packages.sql,P04,1,MEDIUM,FUNCTION_COMPATIBILITY,"SELECT nvl(cash_amount_end, 0) INTO v_cash_sum         FROM cashier_drawer_assignments          WHERE assignment_id = v_"
+JTA_Packages.sql,"P05, P06",2,MEDIUM,"STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","FUNCTION get_money_inflow (         p_location_id locations.location_id%TYPE,         p_start_date DATE,         p_end_d"
 JTA_Packages.sql,"P09, P22",2,HIGH,"DATE_TRUNCATION_MIGRATION, JOIN_FULL_SCAN",IF p_type = 'cash' THEN             SELECT SUM(cash_amount_end) INTO v_cash_flow              FROM cashier_drawer_assign
 JTA_Packages.sql,"P09, P22",2,HIGH,"DATE_TRUNCATION_MIGRATION, JOIN_FULL_SCAN",ELSIF p_type = 'non-cash' THEN             SELECT SUM(non_cash_tender) INTO v_cash_flow             FROM cashier_drawer_
-JTA_Packages.sql,"P15, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY","/*         08         Update Taxes                  This procedure reads the pending tax rates table, and updates the ta"
-JTA_Packages.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"-- only if tax rate not the same                                  -- if no rows updated, that means the tax rate was the"
-JTA_Packages.sql,P15,1,LOW,FUNCTION_COMPATIBILITY,"-- update the tax_rate_history table, set old rate to end                 UPDATE tax_rate_history SET                   "
-JTA_Packages.sql,P15,1,LOW,FUNCTION_COMPATIBILITY,"-- insert new rate into tax_rate_history                 INSERT INTO tax_rate_history (tax_code, start_date, end_date, t"
-JTA_Packages.sql,"P15, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY",-- delete relevant entries from pending tax changes table         DELETE FROM pending_tax_changes          WHERE start_d
-JTA_Packages.sql,"P05, P09",2,HIGH,"JOIN_FULL_SCAN, TEMPORAL_TYPE_MISMATCH",/*         09         Get price changes                  Retreive a table (not stored) containing the price changes     
-JTA_Packages.sql,P10,1,MEDIUM,NESTED_QUERY_DEGRADATION,-- get old price for this product change             BEGIN                  SELECT price_rate into v_price_record.old_pr
-JTA_Packages.sql,"P05, P09, P10, P25",4,HIGH,"JOIN_FULL_SCAN, NESTED_QUERY_DEGRADATION, NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","/*         10         Get profits for                  Retrieve total number of goods sold, and total profit for a given"
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"BEGIN                  -- try to get current price and average cost and perform calculations,          -- log our own er"
-JTA_Packages.sql,P10,1,MEDIUM,NESTED_QUERY_DEGRADATION,SELECT average_cost_per_unit INTO v_avg             FROM cost_sales_tracker             WHERE transaction_id IN (SELECT 
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"BEGIN                  -- get relevant data for this purchase order line                 SELECT pol.quantity, inv.quanti"
-JTA_Packages.sql,"P01, P06, P13, P25",4,MEDIUM,"HIERARCHY_QUERY_MIGRATION, NUMERIC_TYPE_MAPPING, STRING_TYPE_COMPATIBILITY, TYPE_MISMATCH_INDEX_BYPASS",/*         13         Lookup barcode                  Find the price of an item given the barcode.         Barcodes can 
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"-- get id and name from products table             SELECT pr.product_id, pr.product_name, tr.tax_code, tr.tax_rate      "
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"ELSE             -- regular look up from products table             SELECT pr.product_id, pr.product_name, pr.price_rate"
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"/*         14         Update from bill                  Given a bill (which has just been approved and cashed),         "
-JTA_Packages.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,-- throw error if didn't update anything                     IF SQL%rowcount = 0 THEN                         jta_error.
-JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"-- insert into sold products,                      -- only inserts if above exception was not thrown                    "
-JTA_Packages.sql,"P05, P15",2,MEDIUM,"FUNCTION_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH",/*         15         Update sales                  Update the cost_sales_tracker using the update_inventory         pro
-JTA_Packages.sql,P23,1,HIGH,SEQUENCE_SYNTAX_INCOMPATIBILITY,"-- otherwise, insert new item for this product         ELSE             INSERT INTO billed_items (                 bill_"
-JTA_Packages.sql,P04,1,LOW,FUNCTION_COMPATIBILITY,"-- update price of bill,         UPDATE customer_bills SET             payment_tender = nvl(payment_tender, 0) + v_price"
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"/*         17          Receive payment for bill                  Given bill id, recieve payment for it         and updat"
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,-- return cash amount (change for customer)         v_return_change NUMBER := 0
-JTA_Packages.sql,P04,1,LOW,FUNCTION_COMPATIBILITY,"-- get tender (amount due) from bill         SELECT assignment_id, nvl(payment_tender, 0), nvl(payment_amount, 0), nvl(p"
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"-- check if amount is valid, change status depending on if full amount is paid         IF p_amount <= 0 THEN            "
-JTA_Packages.sql,P15,1,LOW,FUNCTION_COMPATIBILITY,-- update bill with payment         UPDATE customer_bills SET             payment_amount = v_prev + (p_amount - v_return
-JTA_Packages.sql,P04,1,LOW,FUNCTION_COMPATIBILITY,"-- if paying in cash, update cashier's cash on hand         IF p_type = 'cash' THEN             -- update cashier cash a"
-JTA_Packages.sql,P04,1,LOW,FUNCTION_COMPATIBILITY,"-- if non-cash, then update non_cash_tender         ELSE             UPDATE cashier_drawer_assignments SET              "
-JTA_Packages.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH",/*         18         Get tax payments due                  Find out tax payments due for a specified year.             
-JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,v_end DATE
-JTA_Packages.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_tax_value NUMBER
-JTA_Packages.sql,"P15, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY","BEGIN          -- sysdate can be passed in to find out for this year,          -- therefore we need to find the begin an"
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,"-- since we don't use timestamps, we don't have to add milliseconds.             -- it was decided that bills, payroll a"
-JTA_Packages.sql,P05,1,MEDIUM,TEMPORAL_TYPE_MISMATCH,"/*             Development Note:             since this query is likely to end up processing millions of rows,          "
-JTA_Packages.sql,"P05, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH",/*         19         Get quantity sold                  A useful function to get quantity of item sold at a location   
-JTA_Packages.sql,P09,1,HIGH,JOIN_FULL_SCAN,SELECT SUM(quantity)          INTO v_quantity         FROM billed_items bi JOIN customer_bills cb USING (bill_id)       
-JTA_Packages.sql,"P15, P23",2,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY","-- insert missing items into table             INSERT INTO missing_items (m_item_id, product_id, date_recorded, quantity"
-JTA_Packages.sql,"P05, P22, P25",3,MEDIUM,"DATE_TRUNCATION_MIGRATION, NUMERIC_TYPE_MAPPING, TEMPORAL_TYPE_MISMATCH","/*         21          Sunday Check,                  Find the number of Sundays an employee has worked so far in       "
-JTA_Packages.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"-- find sundays for the month         FOR work_day IN work_days LOOP             IF to_char(work_day.work_date, 'd') = '"
-JTA_Packages.sql,"P05, P10",2,MEDIUM,"NESTED_QUERY_DEGRADATION, TEMPORAL_TYPE_MISMATCH",/*         22          payout                  Get payout for employee for a specifed period.         This procedure ret
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,/*         minor extra functions for debug etc...     */     FUNCTION get_name (         p_staff_id staff.staff_id%TYPE 
-JTA_Packages.sql,"P05, P15",2,MEDIUM,"FUNCTION_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","/     /*     23 trigger, update job history when staff job_id changes          note1: because start_date is part of the "
-JTA_Packages.sql,"P05, P15",2,MEDIUM,"FUNCTION_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH",-- if no rows updated then this is an employee without a history (first job)     -- updates don't throw exceptions if no
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,/  /*     24      email the purchasing department staff     if an item is close to running out     (quantity reaches min
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,v_subject VARCHAR2(200)
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,v_message VARCHAR2(200)
-JTA_Packages.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,BEGIN                  -- we only want this trigger to work when we have reduced the quantity from above min stock level
-JTA_Packages.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,ELSIF :OLD.location_id = 11 THEN                 v_email := 'marabella_purchasing@jta.com'
-JTA_Packages.sql,"P15, P23",2,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY",/  /*     25 database event triggers     The purpose of these database event triggers is to log     users logging into a
-JTA_Packages.sql,P06,1,LOW,STRING_TYPE_COMPATIBILITY,/*         if user logged in from strange ip address we can raise an         application error and perform additional st
-JTA_Packages.sql,"P15, P23",2,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY",/  CREATE OR REPLACE TRIGGER logoff_trigger BEFORE LOGOFF ON SCHEMA  BEGIN     -- log event     INSERT INTO jta_events (
-JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,-- Earl Tilluck -- These anonymous blocks can be used to run and test each procedure/function in the jta package. -- Not
-JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"/     BEGIN         -- process payroll for week with sample data         jta.process_payroll(TO_DATE('2015-03-13', 'yyyy"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,/*     06 get last payout for cashier */     DECLARE         v_id NUMBER := 11
-JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,/*     07 cash inflow for time period */     BEGIN         dbms_output.put_line(             'cash inflow for Carlton Ce
+JTA_Packages.sql,"P15, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY",PROCEDURE update_taxes      IS                  CURSOR changes IS             SELECT * FROM pending_tax_changes         
+JTA_Packages.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"IF SQL%rowcount = 0 THEN                     jta_error.throw(-20201, 'attempt to update tax to same rate')"
+JTA_Packages.sql,P15,1,MEDIUM,FUNCTION_COMPATIBILITY,UPDATE tax_rate_history SET                     end_date = sysdate                 WHERE tax_code = new_rate.tax_code AN
+JTA_Packages.sql,P15,1,MEDIUM,FUNCTION_COMPATIBILITY,"INSERT INTO tax_rate_history (tax_code, start_date, end_date, tax_rate)                 VALUES (new_rate.tax_code, sysda"
+JTA_Packages.sql,"P15, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY","DELETE FROM pending_tax_changes          WHERE start_date = TRUNC(SYSDATE, 'dd')"
+JTA_Packages.sql,"P05, P09",2,HIGH,"JOIN_FULL_SCAN, TEMPORAL_TYPE_MISMATCH","FUNCTION get_price_changes (         p_product_id products.product_id%type,         p_start_date DATE,         p_end_dat"
+JTA_Packages.sql,P10,1,MEDIUM,NESTED_QUERY_DEGRADATION,BEGIN                  SELECT price_rate into v_price_record.old_price                 FROM price_history               
+JTA_Packages.sql,"P01, P04, P05, P06, P09, P10, P15, P20, P22, P23, P25",11,HIGH,"DATE_FORMAT_FUNCTION_MIGRATION, DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY, JOIN_FULL_SCAN, NESTED_QUERY_DEGRADATION, NUMERIC_TYPE_MAPPING, SEQUENCE_SYNTAX_INCOMPATIBILITY, STRING_TYPE_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH, TYPE_MISMATCH_INDEX_BYPASS",ELSE                 v_price_record.direction := '             END IF;                                       v_return_ta
+JTA_Packages.sql,"P06, P15, P23",3,HIGH,"FUNCTION_COMPATIBILITY, SEQUENCE_SYNTAX_INCOMPATIBILITY, STRING_TYPE_COMPATIBILITY",dbms_output.put_line('             dbms_output.put_line(' ');                                                           
+JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"BEGIN                  jta.process_payroll(TO_DATE('2015-05-13', 'yyyy-mm-dd'))"
+JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"/     BEGIN                  jta.process_payroll(TO_DATE('2015-03-13', 'yyyy-mm-dd'))"
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,DECLARE         v_id NUMBER := 11
+JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,BEGIN         dbms_output.put_line(             'cash inflow for Carlton Center (location 10) = '              || jta.ge
 JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,dbms_output.put_line(             'non-cash inflow for Carlton Center (location 10) = '              || jta.get_money_in
-JTA_Test_Code.sql,"P05, P15, P22",3,MEDIUM,"DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY, TEMPORAL_TYPE_MISMATCH","/*     08 update taxes */     -- insert a tax change with todays date, VAT set to 15%     INSERT INTO pending_tax_change"
-JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"BEGIN         -- call procedure 09, this returns a collection type         v_tab := jta.get_price_changes(2, TO_DATE('01"
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,/     -- review      SELECT * FROM price_history WHERE product_id = 2
-JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","/*     10 check profits for year 2015      */     DECLARE         v_start_date DATE := TO_DATE('2015-01-01', 'yyyy-mm-dd"
+JTA_Test_Code.sql,"P15, P22",2,MEDIUM,"DATE_TRUNCATION_MIGRATION, FUNCTION_COMPATIBILITY","INSERT INTO pending_tax_changes VALUES          (1, 15, TRUNC(SYSDATE, 'dd'), 'VAT (new tax rate)')"
+JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"BEGIN                  v_tab := jta.get_price_changes(2, TO_DATE('01-JAN-14', 'dd-MON-yy'), TO_DATE('31-DEC-14', 'dd-MON"
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,/          SELECT * FROM price_history WHERE product_id = 2
+JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","DECLARE         v_start_date DATE := TO_DATE('2015-01-01', 'yyyy-mm-dd')"
 JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","v_end_date DATE := TO_DATE('2015-12-31', 'yyyy-mm-dd')"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_goods_sold NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_gross_gain NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_costs NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_net_gain NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,/*     11 get a recommended new price for product no 3       */     DECLARE         v_product_id number := 1
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"-- 1,2,3 are valid products in inventory, 4 doesn't have sample input           v_avg_cost NUMBER"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_old_price NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_new_price NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_goods_sold NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_gross_gain NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_costs NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_net_gain NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,DECLARE         v_product_id number := 1
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_avg_cost NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_old_price NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_new_price NUMBER
 JTA_Test_Code.sql,P09,1,HIGH,JOIN_FULL_SCAN,SELECT * FROM purchase_order_lines pol     JOIN purchase_orders po ON (po.po_id = pol.po_id)       JOIN inventory_by_loc
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,DECLARE         v_line_id NUMBER := 5
-JTA_Test_Code.sql,"P01, P25",2,MEDIUM,"NUMERIC_TYPE_MAPPING, TYPE_MISMATCH_INDEX_BYPASS","/   /*     13 get price when given barcode          212340012062  -- beef using price lookup, value = 12.06     12345678"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_id NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_code NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_rate NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,DECLARE         v_line_id NUMBER := 5
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,/        DECLARE         v_price NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_id NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_code NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_rate NUMBER
 JTA_Test_Code.sql,"P23, P25",2,HIGH,"NUMERIC_TYPE_MAPPING, SEQUENCE_SYNTAX_INCOMPATIBILITY",DECLARE         v_bill_id NUMBER := bill_id_seq.NEXTVAL
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_change NUMBER
-JTA_Test_Code.sql,P15,1,LOW,FUNCTION_COMPATIBILITY,"BEGIN         -- create a new bill to add items to         INSERT INTO customer_bills VALUES (v_bill_id, 4, sysdate, NUL"
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_change NUMBER
+JTA_Test_Code.sql,P15,1,MEDIUM,FUNCTION_COMPATIBILITY,"BEGIN                  INSERT INTO customer_bills VALUES (v_bill_id, 4, sysdate, NULL, NULL, NULL, NULL, 'unpaid')"
 JTA_Test_Code.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"IF v_change IS NOT NULL THEN             dbms_output.put_line('your change is: ' || to_char(v_change, '$999.99' ))"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,DECLARE         v_change NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,DECLARE         v_change NUMBER
 JTA_Test_Code.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"IF v_change IS NOT NULL THEN             dbms_output.put_line('your change is: ' || to_char(v_change, '$999.99' ))"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,/          DECLARE         v_change NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,/          DECLARE         v_change NUMBER
 JTA_Test_Code.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"IF v_change IS NOT NULL THEN             dbms_output.put_line('your change is: ' || to_char(v_change, '$999.99' ))"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,/      DECLARE         v_change NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,/      DECLARE         v_change NUMBER
 JTA_Test_Code.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"IF v_change IS NOT NULL THEN             dbms_output.put_line('your change is: ' || to_char(v_change, '$999.99' ))"
 JTA_Test_Code.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"IF v_change IS NOT NULL THEN             dbms_output.put_line('your change is: ' || to_char(v_change, '$999.99' ))"
-JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","BEGIN         -- any date for the year can be inserted into the function,         -- the date period is processed for th"
-JTA_Test_Code.sql,P09,1,HIGH,JOIN_FULL_SCAN,/   /*     19 find out how much of a product was sold at a location      for the year 2015 */     -- data taken from    
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,DECLARE         v_product NUMBER := 1
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"-- sample data has 1,2,3         v_location number := 10"
-JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,-- sample data has 10     BEGIN         dbms_output.put_line('products sold = ' ||             jta.get_quantity_sold(v_p
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_location NUMBER := 11
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_product NUMBER := 3
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,"/   /*     21, check if an employee is available to work */     DECLARE         v_id number := 10"
+JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"BEGIN                           dbms_output.put_line('VAT due for 2015 = ' ||             jta.get_tax_payment_due( 1, TO"
+JTA_Test_Code.sql,P09,1,HIGH,JOIN_FULL_SCAN,"/             SELECT bit.product_id, cs.location_id, bit.quantity       FROM billed_items bit     JOIN customer_bills cb"
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,DECLARE         v_product NUMBER := 1
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_location number := 10
+JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"BEGIN         dbms_output.put_line('products sold = ' ||             jta.get_quantity_sold(v_product, v_location,       "
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_location NUMBER := 11
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_product NUMBER := 3
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,/        DECLARE         v_id number := 10
 JTA_Test_Code.sql,P21,1,MEDIUM,DATE_PARSE_FUNCTION_MIGRATION,"BEGIN         jta.sunday_check(v_id, TO_DATE('2015-03-01', 'yyyy-mm-dd'), v_sun, v_av)"
-JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","/   /*     22, get payout for employees for month of march 2015 */     DECLARE         v_begin DATE := TO_DATE('2015-05-"
-JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","-- month of march, 2015         v_end date := TO_DATE('2015-05-31','yyyy-mm-dd')"
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_gp NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_np NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_hlt NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_nat NUMBER
-JTA_Test_Code.sql,P25,1,LOW,NUMERIC_TYPE_MAPPING,v_ded NUMBER
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"/   /*     23,     test update job history trigger for jason bourne (id 12) */     -- new job     UPDATE staff SET job_i"
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,-- change job     UPDATE staff SET job_id = 11 WHERE staff_id = 12
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,-- another change     UPDATE staff SET job_id = 12 WHERE staff_id = 12
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"/   /*     24, trigger to email purchasing dept when item is running out */     BEGIN         -- raise inventory amount "
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"-- triggers only fire once per transaction, so we commit update statement                  -- drop amount down to min le"
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,"-- drop down again, should not trigger a second time         UPDATE inventory_by_location SET quantity = 900         WHE"
-JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,/      BEGIN         -- raise and drop for another product         UPDATE inventory_by_location SET quantity = 10000    
+JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","/        DECLARE         v_begin DATE := TO_DATE('2015-05-01','yyyy-mm-dd')"
+JTA_Test_Code.sql,"P05, P21",2,MEDIUM,"DATE_PARSE_FUNCTION_MIGRATION, TEMPORAL_TYPE_MISMATCH","v_end date := TO_DATE('2015-05-31','yyyy-mm-dd')"
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_gp NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_np NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_hlt NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_nat NUMBER
+JTA_Test_Code.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,v_ded NUMBER
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,/             UPDATE staff SET job_id = 10 WHERE staff_id = 12
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,UPDATE staff SET job_id = 11 WHERE staff_id = 12
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,UPDATE staff SET job_id = 12 WHERE staff_id = 12
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,/        BEGIN                  UPDATE inventory_by_location SET quantity = 10000          WHERE location_id = 11 AND pr
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,UPDATE inventory_by_location SET quantity = 990         WHERE location_id = 11 AND product_id = 1
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,UPDATE inventory_by_location SET quantity = 900         WHERE location_id = 11 AND product_id = 1
+JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,/      BEGIN                  UPDATE inventory_by_location SET quantity = 10000          WHERE location_id = 10 AND prod
 JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,UPDATE inventory_by_location SET quantity = 100          WHERE location_id = 10 AND product_id = 3
 JTA_Test_Code.sql,P01,1,MEDIUM,TYPE_MISMATCH_INDEX_BYPASS,UPDATE inventory_by_location SET quantity = 50          WHERE location_id = 10 AND product_id = 3
-JTA_Test_Code.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"/   /*     25, to test logon and logoff trigger,     log off and log back on, then check event table */ SELECT event_id,"
+JTA_Test_Code.sql,P20,1,MEDIUM,DATE_FORMAT_FUNCTION_MIGRATION,"/    SELECT event_id, user_name, to_char(date_time, 'DD-MON-YYYY, HH24-MI-SS') AS ""time"" , event, ip_address FROM jta_ev"
+oracle_pattern_fixtures.sql,"P03, P10",2,HIGH,"NESTED_QUERY_DEGRADATION, PAGINATION_MIGRATION_ERROR","SELECT * FROM (     SELECT p.*, ROWNUM rn     FROM jta_products p     WHERE ROWNUM <= 20 ) WHERE rn > 10"
+oracle_pattern_fixtures.sql,P12,1,HIGH,HIERARCHY_QUERY_MIGRATION,"SELECT category_id,        parent_category_id FROM jta_categories CONNECT BY PRIOR category_id = parent_category_id"
+oracle_pattern_fixtures.sql,P14,1,HIGH,JOIN_SYNTAX_INCOMPATIBILITY,"SELECT p.product_id,        c.category_name FROM jta_products p,      jta_categories c WHERE p.category_id = c.category_"
+oracle_pattern_fixtures.sql,P17,1,HIGH,UPSERT_SYNTAX_MIGRATION,MERGE INTO jta_products tgt USING jta_products_stage src ON (tgt.product_id = src.product_id) WHEN MATCHED THEN     UPDA
+oracle_pattern_fixtures.sql,"P15, P19",2,MEDIUM,"FUNCTION_COMPATIBILITY, SYSTEM_TABLE_DEPENDENCY",SELECT SYSDATE FROM DUAL
+oracle_pattern_fixtures.sql,P24,1,HIGH,AGGREGATION_FUNCTION_MIGRATION,"SELECT category_id,        LISTAGG(product_name, ',')            WITHIN GROUP (ORDER BY product_name) FROM jta_products "
+oracle_pattern_fixtures.sql,"P12, P13, P26",3,HIGH,"HIERARCHY_CYCLE_DETECTION_MIGRATION, HIERARCHY_QUERY_MIGRATION","SELECT category_id,        parent_category_id FROM jta_categories START WITH parent_category_id IS NULL CONNECT BY NOCYC"
+oracle_pattern_fixtures.sql,P27,1,MEDIUM,REGEX_FUNCTION_MIGRATION,"SELECT * FROM jta_customers WHERE REGEXP_LIKE(     email,     '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$' )"
+oracle_pattern_fixtures.sql,"P10, P28",2,HIGH,"NESTED_QUERY_DEGRADATION, PIVOT_SYNTAX_INCOMPATIBILITY","SELECT * FROM (     SELECT category_id,            status,            amount     FROM jta_sales ) PIVOT (     SUM(amount"
+oracle_pattern_fixtures.sql,P29,1,HIGH,DEPRECATED_AGGREGATION_MIGRATION,"SELECT category_id,        WM_CONCAT(product_name) FROM jta_products GROUP BY category_id"
+oracle_pattern_fixtures.sql,"P25, P30",2,MEDIUM,"NUMERIC_TYPE_MAPPING, UNICODE_TYPE_MAPPING","CREATE TABLE jta_unicode_test (     id            NUMBER,     name_nchar    NCHAR(50),     desc_nvarchar NVARCHAR2(200) "

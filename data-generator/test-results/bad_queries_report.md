@@ -1,5 +1,5 @@
 # 시나리오 C — bad_queries.sql MySQL 에러 검증 리포트
-> 생성: 2026-05-30 20:53:21
+> 생성: 2026-06-01 19:19:37
 > 대상: bucketstore_dummy (MySQL 8.0)
 
 ## 요약
