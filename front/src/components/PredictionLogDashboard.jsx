@@ -153,21 +153,37 @@ function CompareTab({ isDarkMode, logs }) {
         </div>
       )}
       {hasRealData && <>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={chartData} barGap={2} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#2d2d2d' : '#e5e7eb'} />
-            <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
-            <YAxis tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 11 }} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 11, color: isDarkMode ? '#888' : '#6b7280' }} />
-            <Bar dataKey="before" name="이관 전(ms)" radius={[3,3,0,0]}>
-              {chartData.map((entry, i) => (
-                <Cell key={i} fill={entry.error > 3.0 ? '#ef4444' : '#6366f1'} fillOpacity={0.8} />
-              ))}
-            </Bar>
-            <Bar dataKey="after" name="이관 후(ms)" fill="#22c55e" fillOpacity={0.7} radius={[3,3,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {/* 이관 전 / 이관 후 각각 별도 차트로 분리 — 스케일 차이로 after가 안 보이는 문제 해결 */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-600'}`}>이관 전 실행시간 (ms)</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#2d2d2d' : '#e5e7eb'} />
+                <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 10 }} />
+                <YAxis tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 10 }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="before" name="이관 전(ms)" radius={[3,3,0,0]}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.error > 3.0 ? '#ef4444' : '#6366f1'} fillOpacity={0.8} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-600'}`}>이관 후 실행시간 (ms)</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#2d2d2d' : '#e5e7eb'} />
+                <XAxis dataKey="name" tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 10 }} />
+                <YAxis tick={{ fill: isDarkMode ? '#888' : '#6b7280', fontSize: 10 }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="after" name="이관 후(ms)" fill="#22c55e" fillOpacity={0.8} radius={[3,3,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
         {/* 오차율 막대 */}
         <p className={`text-xs font-medium ${isDarkMode ? 'text-[#ccc]' : 'text-zinc-600'}`}>패턴별 오차율</p>
         <ResponsiveContainer width="100%" height={160}>
@@ -277,56 +293,88 @@ function GridSearchTab({ isDarkMode }) {
 function QuantSignalTab({ isDarkMode }) {
   const signals = mockData.quant_signals;
   const t = isDarkMode
-    ? { card: 'bg-[#161616] border-[#2d2d2d]', sub: 'text-[#888]', text: 'text-[#ccc]' }
-    : { card: 'bg-white border-zinc-200',        sub: 'text-zinc-400', text: 'text-zinc-700' };
+    ? { border: 'border-[#2d2d2d]', sub: 'text-[#888]', text: 'text-[#ccc]', row: 'hover:bg-[#1e1e1e]', head: 'bg-[#161616] text-[#888]' }
+    : { border: 'border-zinc-200',   sub: 'text-zinc-400', text: 'text-zinc-700', row: 'hover:bg-zinc-50',   head: 'bg-zinc-50 text-zinc-400' };
+
+  const getStatus = (sig) => {
+    const danger = sig.full_scan_ratio > 0.7 || sig.rows_ratio > 200 || sig.no_index_flag;
+    const warn   = sig.full_scan_ratio > 0.4 || sig.rows_ratio > 50;
+    if (danger) return { label: '위험', cls: 'bg-red-500/20 text-red-400 border-red-500/40' };
+    if (warn)   return { label: '주의', cls: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' };
+    return       { label: '안전', cls: 'bg-green-500/20 text-green-400 border-green-500/40' };
+  };
+
+  const dangerCount = signals.filter(s => getStatus(s).label === '위험').length;
+  const warnCount   = signals.filter(s => getStatus(s).label === '주의').length;
+  const safeCount   = signals.filter(s => getStatus(s).label === '안전').length;
 
   return (
     <div className="space-y-4">
-      <p className={`text-xs ${isDarkMode ? 'text-[#888]' : 'text-zinc-400'}`}>
-        EXPLAIN 실행 계획 기반 정량 신호 · 실 API 연동 후 진단 결과와 연동 예정 (W2)
-      </p>
-      <div className="grid grid-cols-1 gap-3">
-        {signals.map(sig => (
-          <div key={sig.pattern_id} className={`rounded-xl border p-4 ${t.card}`}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-mono text-sm font-semibold text-blue-400">{sig.pattern_id}</span>
-              <div className="flex gap-2">
-                {sig.no_index_flag && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 font-semibold">
-                    NO INDEX
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* full_scan_ratio 게이지 */}
-            <div className="mb-3">
-              <div className="flex justify-between items-center mb-1">
-                <span className={`text-[11px] ${t.sub}`}>full_scan_ratio</span>
-                <span className={`text-[11px] font-semibold ${sig.full_scan_ratio > 0.5 ? 'text-red-400' : 'text-green-400'}`}>
-                  {(sig.full_scan_ratio * 100).toFixed(0)}%
-                </span>
-              </div>
-              <div className={`h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-[#2d2d2d]' : 'bg-zinc-200'}`}>
-                <div
-                  className={`h-full rounded-full transition-all duration-700 ${sig.full_scan_ratio > 0.7 ? 'bg-red-500' : sig.full_scan_ratio > 0.4 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                  style={{ width: `${sig.full_scan_ratio * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* rows_ratio */}
-            <div className="flex items-center justify-between">
-              <span className={`text-[11px] ${t.sub}`}>rows_ratio</span>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${sig.rows_ratio > 100 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                {sig.rows_ratio}x {sig.rows_ratio > 100 && '⚠ 급증'}
-              </span>
-            </div>
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: '위험 패턴', value: `${dangerCount}개`, color: 'text-red-400',    desc: '즉시 개선 필요' },
+          { label: '주의 패턴', value: `${warnCount}개`,   color: 'text-yellow-400', desc: '성능 저하 가능' },
+          { label: '안전 패턴', value: `${safeCount}개`,   color: 'text-green-400',  desc: '정상 범위' },
+        ].map(card => (
+          <div key={card.label} className={`rounded-xl p-3 border ${isDarkMode ? 'bg-[#161616] border-[#2d2d2d]' : 'bg-white border-zinc-200'}`}>
+            <p className={`text-xs ${t.sub}`}>{card.label}</p>
+            <p className={`text-xl font-bold mt-1 ${card.color}`}>{card.value}</p>
+            <p className={`text-[10px] mt-0.5 ${t.sub}`}>{card.desc}</p>
           </div>
         ))}
       </div>
-      <div className={`rounded-xl border p-3 text-xs ${isDarkMode ? 'bg-[#161616] border-[#2d2d2d] text-[#666]' : 'bg-zinc-50 border-zinc-200 text-zinc-400'}`}>
-        W2에서 /diagnose API 응답에 explain_signal 필드 추가 후 실 데이터로 전환 예정
+
+      {/* 테이블 */}
+      <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200'}`}>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className={t.head}>
+              {['패턴', '전체 스캔 비율', '인덱스', '행 과부하', '종합'].map(h => (
+                <th key={h} className={`px-3 py-2.5 text-left font-medium border-b ${t.border}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {signals.map((sig, i) => {
+              const status = getStatus(sig);
+              return (
+                <tr key={sig.pattern_id} className={`transition-colors ${t.row} ${i !== signals.length - 1 ? `border-b ${t.border}` : ''}`}>
+                  <td className="px-3 py-2.5 font-mono font-bold text-blue-400">{sig.pattern_id}</td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-[#2d2d2d]' : 'bg-zinc-200'}`}>
+                        <div
+                          className={`h-full rounded-full ${sig.full_scan_ratio > 0.7 ? 'bg-red-500' : sig.full_scan_ratio > 0.4 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                          style={{ width: `${sig.full_scan_ratio * 100}%` }}
+                        />
+                      </div>
+                      <span className={`text-[11px] font-semibold w-8 text-right ${sig.full_scan_ratio > 0.5 ? 'text-red-400' : 'text-green-400'}`}>
+                        {(sig.full_scan_ratio * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {sig.no_index_flag
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded border bg-red-500/20 text-red-400 border-red-500/40 font-semibold">미사용</span>
+                      : <span className="text-[10px] px-1.5 py-0.5 rounded border bg-green-500/20 text-green-400 border-green-500/40 font-semibold">사용중</span>
+                    }
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={`text-xs font-semibold ${sig.rows_ratio > 100 ? 'text-red-400' : sig.rows_ratio > 50 ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {sig.rows_ratio}배
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${status.cls}`}>
+                      {status.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
