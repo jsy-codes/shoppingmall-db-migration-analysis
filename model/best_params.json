@@ -1,0 +1,12 @@
+{
+  "model_version": "v3.1",
+  "optimized_at": "2026-05-30",
+  "target_kpi": 0.03,
+  "achieved_error_rate": 0.027,
+  "best_parameters": {
+    "decay_rate": 0.1,
+    "category_bonus": 1.0,
+    "noise_filter_threshold_ms": 10
+  },
+  "status": "optimized"
+}
