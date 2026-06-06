@@ -66,6 +66,14 @@ SELECT category_id,
 FROM jta_products
 GROUP BY category_id;
 
+---------------------------------------------------------------
+-- P25 : NUMBER Type Declaration
+---------------------------------------------------------------
+CREATE TABLE jta_number_test (
+    id          NUMBER,
+    price       NUMBER(10, 2),
+    quantity    NUMBER(5)
+);
 
 ---------------------------------------------------------------
 -- P26 : CONNECT BY NOCYCLE

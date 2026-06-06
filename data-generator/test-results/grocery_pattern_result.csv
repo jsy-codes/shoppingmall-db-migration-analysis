@@ -288,6 +288,7 @@ oracle_pattern_fixtures.sql,P14,1,HIGH,JOIN_SYNTAX_INCOMPATIBILITY,"SELECT p.pro
 oracle_pattern_fixtures.sql,P17,1,HIGH,UPSERT_SYNTAX_MIGRATION,MERGE INTO jta_products tgt USING jta_products_stage src ON (tgt.product_id = src.product_id) WHEN MATCHED THEN     UPDA
 oracle_pattern_fixtures.sql,"P15, P19",2,MEDIUM,"FUNCTION_COMPATIBILITY, SYSTEM_TABLE_DEPENDENCY",SELECT SYSDATE FROM DUAL
 oracle_pattern_fixtures.sql,P24,1,HIGH,AGGREGATION_FUNCTION_MIGRATION,"SELECT category_id,        LISTAGG(product_name, ',')            WITHIN GROUP (ORDER BY product_name) FROM jta_products "
+oracle_pattern_fixtures.sql,P25,1,MEDIUM,NUMERIC_TYPE_MAPPING,"CREATE TABLE jta_number_test (     id          NUMBER,     price       NUMBER(10, 2),     quantity    NUMBER(5) )"
 oracle_pattern_fixtures.sql,"P12, P13, P26",3,HIGH,"HIERARCHY_CYCLE_DETECTION_MIGRATION, HIERARCHY_QUERY_MIGRATION","SELECT category_id,        parent_category_id FROM jta_categories START WITH parent_category_id IS NULL CONNECT BY NOCYC"
 oracle_pattern_fixtures.sql,P27,1,MEDIUM,REGEX_FUNCTION_MIGRATION,"SELECT * FROM jta_customers WHERE REGEXP_LIKE(     email,     '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$' )"
 oracle_pattern_fixtures.sql,"P10, P28",2,HIGH,"NESTED_QUERY_DEGRADATION, PIVOT_SYNTAX_INCOMPATIBILITY","SELECT * FROM (     SELECT category_id,            status,            amount     FROM jta_sales ) PIVOT (     SUM(amount"

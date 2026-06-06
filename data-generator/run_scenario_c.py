@@ -97,6 +97,22 @@ def classify_ok(sql: str) -> tuple[str, str]:
 # SQL 파일 파싱 — 쿼리 번호·패턴·SQL 추출
 # ══════════════════════════════════════════════════════════════
 
+def detect_pattern_from_sql(sql: str, current_pattern: str) -> str:
+    sql_upper = sql.upper()
+    if "LISTAGG" in sql_upper:
+        return "P24"
+    if "NOCYCLE" in sql_upper:
+        return "P26"
+    if "REGEXP_LIKE" in sql_upper:
+        return "P27"
+    if "PIVOT" in sql_upper:
+        return "P28"
+    if "WM_CONCAT" in sql_upper:
+        return "P29"
+    if "NVARCHAR2" in sql_upper or "NCHAR" in sql_upper:
+        return "P30"
+    return current_pattern
+
 def parse_bad_queries(sql_path: Path) -> list[dict]:
     """
     bad_queries.sql에서 Q번호, 패턴, 설명, SQL을 파싱.
@@ -110,7 +126,7 @@ def parse_bad_queries(sql_path: Path) -> list[dict]:
     current_desc    = None
     current_sql     = []
 
-    pattern_re = re.compile(r"--\s*\[?(P\d+)\]?")
+    pattern_re = re.compile(r"--\s*\[(P\d+)\]")
     qnum_re    = re.compile(r"--\s*(Q\d+)[.\s]+(.+)")
 
     for line in lines:
@@ -130,7 +146,7 @@ def parse_bad_queries(sql_path: Path) -> list[dict]:
                 sql_text = " ".join(current_sql).strip().rstrip(";")
                 queries.append({
                     "qnum":    current_qnum,
-                    "pattern": current_pattern or "?",
+                    "pattern": detect_pattern_from_sql(sql_text, current_pattern or "?"),
                     "desc":    current_desc or "",
                     "sql":     sql_text,
                 })
@@ -143,13 +159,13 @@ def parse_bad_queries(sql_path: Path) -> list[dict]:
         # SQL 라인 수집 (주석 제외)
         if not stripped.startswith("--") and stripped:
             current_sql.append(stripped)
-
+    
     # 마지막 쿼리 저장
     if current_qnum and current_sql:
         sql_text = " ".join(current_sql).strip().rstrip(";")
         queries.append({
             "qnum":    current_qnum,
-            "pattern": current_pattern or "?",
+            "pattern": detect_pattern_from_sql(sql_text, current_pattern or "?"),
             "desc":    current_desc or "",
             "sql":     sql_text,
         })
