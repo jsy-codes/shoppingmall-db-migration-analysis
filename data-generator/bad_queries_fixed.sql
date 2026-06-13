@@ -1,5 +1,5 @@
--- ============================================================
--- Oracle → MySQL 마이그레이션 안티패턴 검증용 쿼리셋 (58종)
+﻿-- ============================================================
+-- Oracle → MySQL 마이그레이션 안티패턴 검증용 쿼리셋 (64종)
 -- 대상 스키마: bucketstore_dummy
 -- 테이블: MEMBERS, CATEGORIES, PRODUCTS, COUPONS,
 --         ORDERS, ORDER_ITEMS, PAYMENTS
@@ -18,15 +18,12 @@
 -- ──────────────────────────────────────────────
 
 -- Q01. ORDERS.member_id(VARCHAR FK)에 숫자 비교 → 형변환 발생
--- [수정] phone 컬럼 없음 → member_id(VARCHAR)와 숫자 비교로 변경
 SELECT id, member_id FROM ORDERS WHERE member_id = 10050;
 
 -- Q02. PAYMENTS.id에 산술 연산(+0) → 인덱스 완전 배제
--- [수정] receipt_id 없음 → id 사용
 SELECT * FROM PAYMENTS WHERE id + 0 = 100;
 
 -- Q03. MEMBERS.id(VARCHAR PK)를 숫자 범위 비교 → 형변환 발생
--- [수정] zip_code 없음 → id(VARCHAR)와 숫자 범위 비교로 변경
 SELECT * FROM MEMBERS WHERE id > 10000 AND id < 20000;
 
 
@@ -39,7 +36,6 @@ SELECT * FROM MEMBERS WHERE id > 10000 AND id < 20000;
 SELECT id, email FROM MEMBERS WHERE UPPER(email) LIKE '%@GMAIL.COM%';
 
 -- Q05. PRODUCTS.product_name 앞 3자리 SUBSTR 검색 → Range Scan 불가
--- [수정] product_code 없음 → product_name 사용
 SELECT * FROM PRODUCTS WHERE SUBSTR(product_name, 1, 3) = 'MAC';
 
 -- Q06. MEMBERS.name 공백 제거 후 검색 → 풀스캔
@@ -55,7 +51,6 @@ SELECT * FROM MEMBERS WHERE REPLACE(name, ' ', '') = '이동훈';
 SELECT * FROM ORDERS WHERE DATE(created_at) = '2025-05-08';
 
 -- Q14. PAYMENTS.payment_date를 CAST로 형변환 후 비교
--- [수정] approved_at 없음 → payment_date 사용
 SELECT * FROM PAYMENTS WHERE CAST(payment_date AS DATE) = '2025-05-01';
 
 -- Q15. ORDERS.created_at에 산술 연산 → 인덱스 무력화
@@ -71,7 +66,6 @@ SELECT * FROM ORDERS WHERE created_at + 1 >= '2025-05-09';
 SELECT * FROM ORDERS WHERE TRIM(status) = 'COMPLETE';
 
 -- Q18. PAYMENTS.payment_method Oracle || 연산자로 결합 후 비교
--- [수정] p.status 없음 → payment_method 사용
 SELECT * FROM PAYMENTS WHERE payment_method || ' ' = 'CARD ';
 
 
@@ -84,7 +78,6 @@ SELECT * FROM PAYMENTS WHERE payment_method || ' ' = 'CARD ';
 CREATE INDEX idx_members_email_lower ON MEMBERS(LOWER(email));
 
 -- Q20. PRODUCTS.product_name 대문자 함수 기반 인덱스 생성 시도
--- [수정] category_name 없음 → product_name 사용
 CREATE INDEX idx_prod_name_upper ON PRODUCTS(UPPER(product_name));
 
 
@@ -121,7 +114,6 @@ SELECT * FROM ORDERS WHERE NVL(member_id, '0') = '10050';
 SELECT id FROM COUPONS WHERE NVL(discount_amount, 0) + 1000 > 5000;
 
 -- Q12. PRODUCTS 정렬 시 NVL → Filesort 부하
--- [수정] updated_at 없음 → stock_quantity 사용
 SELECT * FROM PRODUCTS ORDER BY NVL(stock_quantity, 0) DESC;
 
 
@@ -202,16 +194,13 @@ SELECT id, parent_id FROM CATEGORIES CONNECT BY NOCYCLE PRIOR id = parent_id;
 -- ──────────────────────────────────────────────
 
 -- Q21. MEMBERS.status ↔ ORDERS.status 비인덱스 컬럼 조인
--- [수정] address/shipping_address 없음 → status 컬럼 조인으로 변경
 SELECT m.name, o.total_amount FROM MEMBERS m JOIN ORDERS o ON m.status = o.status;
 
 -- Q22. PRODUCTS.product_name LIKE로 CATEGORIES.name 포함 조인
--- [수정] description/category_name 없음 → product_name, CATEGORIES.name 사용
 SELECT p.product_name, c.name
 FROM PRODUCTS p JOIN CATEGORIES c ON p.product_name LIKE CONCAT('%', c.name, '%');
 
 -- Q23. DATE() 함수 씌워 조인 (P05+P09 복합)
--- [수정] approved_at 없음 → payment_date 사용
 SELECT o.id, p.id FROM ORDERS o
 JOIN PAYMENTS p ON DATE(o.created_at) = DATE(p.payment_date) AND o.id = p.order_id;
 
@@ -225,7 +214,6 @@ JOIN PAYMENTS p ON DATE(o.created_at) = DATE(p.payment_date) AND o.id = p.order_
 SELECT m.name, o.id FROM MEMBERS m, ORDERS o WHERE m.id = o.member_id (+);
 
 -- Q33. 다중 테이블 아우터 조인 + 추가 조건
--- [수정] p.status 없음 → p.payment_method 사용
 SELECT o.id, p.id FROM ORDERS o, PAYMENTS p
 WHERE o.id = p.order_id (+) AND p.payment_method (+) = 'CARD';
 
@@ -290,7 +278,6 @@ SELECT * FROM ORDERS WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') = TO_CHAR(created_at, 'Y
 -- ──────────────────────────────────────────────
 
 -- Q37. PAYMENTS.payment_date에 SYSTIMESTAMP 업데이트
--- [수정] approved_at 없음 → payment_date 사용
 UPDATE PAYMENTS SET payment_date = SYSTIMESTAMP WHERE payment_method = 'CARD';
 
 -- Q38. ORDERS.created_at과 INTERVAL 연산 혼용
@@ -309,7 +296,6 @@ WHERE TO_CHAR(created_at, 'YYYYMMDD') LIKE '202505%'
 GROUP BY TO_CHAR(created_at, 'YYYYMMDD');
 
 -- Q45. PAYMENTS.payment_date 시분초 포맷 정렬
--- [수정] approved_at → payment_date
 SELECT * FROM PAYMENTS ORDER BY TO_CHAR(payment_date, 'YYYY-MM-DD HH24:MI:SS') DESC;
 
 -- Q46. PRODUCTS.price 숫자 포맷으로 변환해 비교
@@ -322,7 +308,6 @@ SELECT * FROM PRODUCTS WHERE TO_CHAR(price, '999,999') = '10,000';
 -- ──────────────────────────────────────────────
 
 -- Q47. PAYMENTS.payment_date에 TO_DATE 시간 포맷 비교
--- [수정] approved_at → payment_date
 SELECT * FROM PAYMENTS
 WHERE payment_date >= TO_DATE('2025-05-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS');
 
@@ -340,7 +325,6 @@ WHERE created_at BETWEEN TO_DATE('20250101', 'YYYYMMDD') AND TO_DATE('20251231',
 SELECT TRUNC(created_at, 'MM'), COUNT(*) FROM ORDERS GROUP BY TRUNC(created_at, 'MM');
 
 -- Q50. PAYMENTS.payment_date TRUNC + SYSDATE (P22+P15 복합)
--- [수정] approved_at → payment_date
 SELECT * FROM PAYMENTS WHERE TRUNC(payment_date) = TRUNC(SYSDATE - 1);
 
 
@@ -394,14 +378,12 @@ CREATE TABLE t30 (
 -- ──────────────────────────────────────────────
 
 -- Q39. 재고 차감 MERGE INTO (WHEN MATCHED) + DUAL (P17+P19 복합)
--- [수정] stock → stock_quantity
 MERGE INTO PRODUCTS p
 USING (SELECT 50 AS id, 10 AS qty FROM DUAL) d
 ON (p.id = d.id)
 WHEN MATCHED THEN UPDATE SET p.stock_quantity = p.stock_quantity - d.qty;
 
 -- Q40. 회원 상태 MERGE INTO (WHEN NOT MATCHED) + DUAL (P17+P19 복합)
--- [수정] MEMBERS.id는 VARCHAR(50) → 문자열 리터럴 사용
 MERGE INTO MEMBERS m
 USING (SELECT 'USR10050' AS id, 'ACTIVE' AS status FROM DUAL) d
 ON (m.id = d.id)
@@ -443,9 +425,6 @@ SELECT member_seq.NEXTVAL FROM DUAL;
 INSERT INTO ORDERS (id, member_id, status, total_amount)
 VALUES (my_seq.NEXTVAL, 'USR001', 'PENDING', 15000);
 
--- Q51-B. CURRVAL 참조
-SELECT my_seq.CURRVAL FROM DUAL;
-
 
 -- ──────────────────────────────────────────────
 -- [P27] REGEXP_LIKE Function (MEDIUM)
@@ -468,4 +447,69 @@ SELECT * FROM (
 PIVOT (
     SUM(total_amount)
     FOR status IN ('PENDING', 'COMPLETE', 'CANCEL')
+);
+
+-- ▌CATEGORY 9 : 신규 패턴 추가 케이스
+-- ══════════════════════════════════════════════════════════
+-- ▌CATEGORY 9 : 신규 패턴 P24/P26/P27/P28/P29/P30 추가 케이스
+-- ══════════════════════════════════════════════════════════
+
+-- ──────────────────────────────────────────────
+-- [P24] LISTAGG Aggregation (HIGH)
+-- ──────────────────────────────────────────────
+
+-- Q59. LISTAGG로 카테고리명 문자열 집계 시도
+SELECT id, LISTAGG(name, ', ') WITHIN GROUP (ORDER BY name)
+FROM CATEGORIES
+GROUP BY id;
+
+
+-- ──────────────────────────────────────────────
+-- [P26] CONNECT BY NOCYCLE (HIGH)
+-- ──────────────────────────────────────────────
+
+-- Q60. 순환 방지 계층 조회 (단독 케이스)
+SELECT id, parent_id, name
+FROM CATEGORIES
+CONNECT BY NOCYCLE PRIOR id = parent_id
+START WITH parent_id IS NULL;
+
+
+-- ──────────────────────────────────────────────
+-- [P27] REGEXP_LIKE Function (MEDIUM)
+-- ──────────────────────────────────────────────
+
+-- Q61. Oracle 정규식 함수로 이메일 도메인 검색
+SELECT id, email FROM MEMBERS
+WHERE REGEXP_LIKE(email, '@gmail\.com$', 'i');
+
+
+-- ──────────────────────────────────────────────
+-- [P28] PIVOT / UNPIVOT Operator (HIGH)
+-- ──────────────────────────────────────────────
+
+-- Q62. Oracle PIVOT으로 상태별 주문금액 집계
+SELECT * FROM (
+    SELECT status, total_amount FROM ORDERS
+)
+PIVOT (SUM(total_amount) FOR status IN ('PENDING', 'COMPLETE', 'CANCELLED'));
+
+
+-- ──────────────────────────────────────────────
+-- [P29] WM_CONCAT Aggregation (HIGH)
+-- ──────────────────────────────────────────────
+
+-- Q63. WM_CONCAT으로 카테고리명 집계
+SELECT WM_CONCAT(name) FROM CATEGORIES;
+
+
+-- ──────────────────────────────────────────────
+-- [P30] NCHAR / NVARCHAR2 Type (MEDIUM)
+-- ──────────────────────────────────────────────
+
+-- Q64. Oracle 유니코드 타입으로 테이블 생성 시도
+CREATE TABLE unicode_test (
+    id INT PRIMARY KEY,
+    name NVARCHAR2(100),
+    code NCHAR(10)
 );

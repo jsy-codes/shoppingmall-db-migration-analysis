@@ -1,12 +1,12 @@
 # 시나리오 A — Grocery Market Oracle 패턴 탐지 결과 캡처
-> 생성: 2026-06-01 19:15:51
+> 생성: 2026-06-06 16:23:10
 
 ## 기준 비교
 
 | 항목 | 중간평가 기준 (JTA_Packages.sql) | 현재 (전체 3파일) |
 |------|----------------------------------|------------------|
-| 분석 구문 수 | 470개 | 682개 |
-| 패턴 탐지 건수 | 131건 | 401건 |
+| 분석 구문 수 | 470개 | 683개 |
+| 패턴 탐지 건수 | 131건 | 402건 |
 | 실패 유형 종류 | 11종 | 23종 |
 
 ## 파일별 탐지 현황
@@ -16,7 +16,7 @@
 | JTA_Create_Database.sql | 272 | 232 |
 | JTA_Packages.sql | 196 | 85 |
 | JTA_Test_Code.sql | 203 | 67 |
-| oracle_pattern_fixtures.sql | 11 | 17 |
+| oracle_pattern_fixtures.sql | 12 | 18 |
 
 ## 패턴별 탐지 횟수
 
@@ -41,7 +41,7 @@
 | P22 | TRUNC Date Function | MEDIUM | 7건 |
 | P23 | SEQUENCE NEXTVAL/CURRVAL | HIGH | 80건 |
 | P24 | LISTAGG Aggregation | HIGH | 1건 |
-| P25 | NUMBER Type Declaration | MEDIUM | 77건 |
+| P25 | NUMBER Type Declaration | MEDIUM | 78건 |
 | P26 | CONNECT BY NOCYCLE | HIGH | 1건 |
 | P27 | REGEXP_LIKE Function | MEDIUM | 1건 |
 | P28 | PIVOT/UNPIVOT Operator | HIGH | 1건 |
@@ -59,7 +59,7 @@
 ### 신규 패턴 P23~P30
 - ✅ P23 — SEQUENCE NEXTVAL/CURRVAL (80건)
 - ✅ P24 — LISTAGG Aggregation (1건)
-- ✅ P25 — NUMBER Type Declaration (77건)
+- ✅ P25 — NUMBER Type Declaration (78건)
 - ✅ P26 — CONNECT BY NOCYCLE (1건)
 - ✅ P27 — REGEXP_LIKE Function (1건)
 - ✅ P28 — PIVOT/UNPIVOT Operator (1건)
