@@ -39,7 +39,7 @@
 
 ### P04 — NVL Function
 **왜 어려운가**: NVL은 Oracle 전용 — MySQL에서 function not found 에러
-**vanilla 5회**: ['MEDIUM', 'MEDIUM', 'MEDIUM', 'MEDIUM', 'MEDIUM']  →  일관성 100%
+**vanilla 5회**: ['MEDIUM', 'MEDIUM', 'MEDIUM', 'LOW', 'MEDIUM']  →  일관성 80%
 **우리 시스템 5회**: ['MEDIUM', 'MEDIUM', 'MEDIUM', 'MEDIUM', 'MEDIUM']  →  일관성 100%  점수: 60.0~60.0점
 
 ### P12 — CONNECT BY Hierarchy

@@ -107,7 +107,7 @@ TEST_CASES = [
 
 VANILLA_PROMPT = """다음 SQL을 Oracle에서 MySQL로 이관할 때 위험도를 평가해주세요.
 
-위험도는반드시HIGH/MEDIUM/LOW중하나만답변 첫 줄에 작성하고,
+위험도는 반드시 HIGH/MEDIUM/LOW중 하나만 답변 첫 줄에 작성하고,
 그 다음 줄에 이유를 간단히 설명해주세요.
 
 SQL:

@@ -338,11 +338,15 @@ export function PredictionLogTabs({ isDarkMode }) {
   const [logs, setLogs] = useState(mockData.logs);
   const [loading, setLoading] = useState(true);
 
+  // useEffect(() => {
+  //   fetchLogs()
+  //     .then(setLogs)
+  //     .catch(() => setLogs(mockData.logs))
+  //     .finally(() => setLoading(false));
+  // }, []);
   useEffect(() => {
-    fetchLogs()
-      .then(setLogs)
-      .catch(() => setLogs(mockData.logs))
-      .finally(() => setLoading(false));
+  setLogs(mockData.logs);
+  setLoading(false);
   }, []);
 
   const theme = isDarkMode
@@ -389,11 +393,15 @@ export default function PredictionLogDashboard({ isDarkMode, onClose }) {
   const [logs, setLogs] = useState(mockData.logs);
   const [loading, setLoading] = useState(true);
 
+  // useEffect(() => {
+  //   fetchLogs()
+  //     .then(setLogs)
+  //     .catch(() => setLogs(mockData.logs))
+  //     .finally(() => setLoading(false));
+  // }, []);
   useEffect(() => {
-    fetchLogs()
-      .then(setLogs)
-      .catch(() => setLogs(mockData.logs))
-      .finally(() => setLoading(false));
+  setLogs(mockData.logs);
+  setLoading(false);
   }, []);
 
   const theme = isDarkMode
