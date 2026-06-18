@@ -13,7 +13,7 @@ import PredictionLogDashboard, { PredictionLogTabs } from './components/Predicti
 const IS_MOCK = false;
 
 // const API_BASE = 'http://localhost:8000';
- const API_BASE = 'https://shoppingmall-ui.onrender.com';
+ const API_BASE = 'https://shoppingmall-db-migration-analysis.onrender.com';
 const getAnonId = () => {
   let anonId = localStorage.getItem('anon_id');
   if (!anonId) {
