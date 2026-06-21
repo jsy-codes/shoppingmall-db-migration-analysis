@@ -97,7 +97,7 @@ async def auth_callback(request: Request):
         algorithm="HS256",
     )
 
-    return RedirectResponse(url=f"https://shoppingmall-db-migration-analysis.onrender.com?token={jwt_token}")
+    return RedirectResponse(url=f"https://shoppingmall-ui.onrender.com?token={jwt_token}")
 
 
 @app.get("/logout")
