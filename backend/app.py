@@ -81,7 +81,7 @@ class SessionRequest(BaseModel):
 # ─── 로그인 관련 ───────────────────────────────────────────────
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = "https://shoppingmall-ui.onrender.com/auth/callback"
+    redirect_uri = "https://shoppingmall-db-migration-analysis.onrender.com/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -97,7 +97,7 @@ async def auth_callback(request: Request):
         algorithm="HS256",
     )
 
-    return RedirectResponse(url=f"https://shoppingmall-ui.onrender.com?token={jwt_token}")
+    return RedirectResponse(url=f"https://shoppingmall-db-migration-analysis.onrender.com?token={jwt_token}")
 
 
 @app.get("/logout")
