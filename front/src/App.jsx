@@ -643,6 +643,7 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   const [visible, setVisible] = useState(false);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -661,27 +662,29 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
   const cfg = getRiskConfig(isDarkMode)[result.risk] || getRiskConfig(isDarkMode).LOW;
 
   const accentStyle = {
-    HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/8 to-transparent'    : 'from-red-100 to-transparent' },
-    MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/8 to-transparent' : 'from-yellow-100 to-transparent' },
-    LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/5 to-transparent' : 'from-emerald-100 to-transparent' },
+    HIGH:   { bar: 'bg-red-500',    glow: isDarkMode ? 'from-red-500/20 to-transparent'    : 'from-red-200 to-transparent' },
+    MEDIUM: { bar: 'bg-yellow-500', glow: isDarkMode ? 'from-yellow-500/20 to-transparent' : 'from-yellow-200 to-transparent' },
+    LOW:    { bar: 'bg-emerald-500',glow: isDarkMode ? 'from-emerald-500/15 to-transparent' : 'from-emerald-200 to-transparent' },
   }[result.risk] || { bar: 'bg-zinc-500', glow: 'from-transparent to-transparent' };
 
-  const copyDdl = async () => {   
-    if (!result.recommended_ddl) return;
+  const copyText = async (text, setter) => {
     try {
-      await navigator.clipboard.writeText(result.recommended_ddl); 
+      await navigator.clipboard.writeText(text);
     } catch {
       const el = document.createElement('textarea');
-      el.value = result.recommended_ddl;
+      el.value = text;
       el.style.cssText = 'position:fixed;opacity:0';
       document.body.appendChild(el);
       el.select();
       document.execCommand('copy');
       document.body.removeChild(el);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
   };
+
+  const copyDdl = () => copyText(result.recommended_ddl, setCopied);
+  const copySql = () => copyText(result.sql, setCopiedSql);
 
   const shortSQL = result.sql.length > 40 ? result.sql.slice(0, 40) + '…' : result.sql;
 
@@ -719,100 +722,120 @@ function QueryAccordion({ result, index, isDarkMode, delay = 0 }) {
       </button>
 
       {open && (
-        <div id={`query-detail-${result.index}`} className="flex flex-col">
-          {/* SQL 원문 */}
-          <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
-            <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${theme.subText}`}>SQL 원문</p>
-            <pre className={`text-xs font-sans p-4 rounded-xl overflow-x-auto leading-relaxed ${
-              isDarkMode ? 'bg-[#0a0a0a] text-[#c0c0c0] border border-[#2d2d2d]' : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
-            }`}>
-              {result.sql}
-            </pre>
+        <div id={`query-detail-${result.index}`} className={`border-t ${theme.divider}`}>
+          <div className={`grid grid-cols-2 divide-x ${isDarkMode ? 'divide-[#2d2d2d]' : 'divide-zinc-200'}`}>
+
+            {/* 왼쪽: SQL 원문 + 문제 설명 */}
+            <div className={`flex flex-col ${isDarkMode ? 'divide-y divide-[#2d2d2d] bg-[#111111]/40' : 'divide-y divide-zinc-200 bg-zinc-50/60'}`}>
+
+              {/* SQL 원문 */}
+              <div className="p-4">
+                <div className={`flex items-center justify-between mb-2 pb-2 border-b ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200'}`}>
+                  <div className="flex items-center gap-1.5">
+                    <p className={`text-sm font-bold ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-700'}`}>SQL 원문</p>
+                  </div>
+                  <button
+                    onClick={copySql}
+                    className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all ${
+                      isDarkMode ? 'bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#c0c0c0] border border-[#2d2d2d]' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-zinc-300'
+                    }`}
+                  >
+                    {copiedSql ? <Check size={11} /> : <Copy size={11} />}
+                    {copiedSql ? '복사됨' : '복사'}
+                  </button>
+                </div>
+                <pre className={`text-xs font-mono p-3 rounded-lg leading-relaxed whitespace-pre-wrap break-words ${
+                  isDarkMode ? 'bg-[#0a0a0a] text-[#c0c0c0] border border-[#2d2d2d]' : 'bg-zinc-100 text-zinc-700 border border-zinc-300'
+                }`}>
+                  {result.sql}
+                </pre>
+              </div>
+
+              {/* 문제 설명 */}
+              {result.reason && (
+                <div className="p-4">
+                  <div className={`flex items-center gap-1.5 mb-2 pb-2 border-b ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200'}`}>
+                    <div className="w-1 h-3.5 rounded-full bg-red-400" />
+                    <p className={`text-sm font-bold ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-700'}`}>문제 설명</p>
+                  </div>
+                  <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                    <TypewriterText text={result.reason} speed={15} />
+                  </p>
+                </div>
+              )}
+
+              {/* 감지된 패턴 — 2개 이상일 때만 표시 */}
+              {result.matched.length >= 2 && (
+                <div className="p-4">
+                  <div className={`flex items-center gap-1.5 mb-2 pb-2 border-b ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200'}`}>
+                    <p className={`text-sm font-bold ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-700'}`}>
+                      감지된 패턴
+                      <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${isDarkMode ? 'bg-[#1e1e1e] text-[#a0a0a0]' : 'bg-zinc-200 text-zinc-500'}`}>
+                        {result.matched.length}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {result.matched.map(m => {
+                      const mc = getRiskConfig(isDarkMode)[m.risk] || getRiskConfig(isDarkMode).LOW;
+                      return (
+                        <div key={m.id} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border ${mc.bg} ${mc.border}`}>
+                          <span className={`text-xs font-mono font-bold shrink-0 ${mc.text}`}>{m.id}</span>
+                          <p className={`text-xs font-bold flex-1 truncate ${mc.text}`}>{m.name}</p>
+                          <RiskBadge risk={m.risk} isDarkMode={isDarkMode} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 오른쪽: 권고 DDL + 개선 효과 */}
+            <div className={`flex flex-col divide-y ${isDarkMode ? 'divide-[#2d2d2d]' : 'divide-zinc-200'}`}>
+
+              {/* 권고 DDL */}
+              <div className="flex-1">
+                <div className={`flex items-center justify-between px-4 py-3 border-b ${theme.divider}`}>
+                  <div className="flex items-center gap-1.5">
+                    <p className={`text-sm font-bold ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-700'}`}>권고 DDL</p>
+                    {result.recommended_ddl && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full border ${isDarkMode ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 border-emerald-400'}`}>AI 생성</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={copyDdl}
+                    disabled={!result.recommended_ddl}
+                    className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all disabled:opacity-30 ${
+                      isDarkMode ? 'bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#c0c0c0] border border-[#2d2d2d]' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-zinc-300'
+                    }`}
+                  >
+                    {copied ? <Check size={11} /> : <Copy size={11} />}
+                    {copied ? '복사됨' : '복사'}
+                  </button>
+                </div>
+                <pre className={`px-4 py-3 font-mono text-xs max-h-52 whitespace-pre-wrap break-words ${isDarkMode ? 'bg-[#0a0a0a] text-green-400' : 'bg-zinc-100 text-green-700 border-t border-zinc-300'}`}>
+                  {result.recommended_ddl
+                    ? <TypewriterText text={result.recommended_ddl} speed={10} />
+                    : (result.matched.length === 0 ? '-- 권고 DDL 없음' : '-- API 연동 후 AI 생성 DDL이 표시됩니다')
+                  }
+                </pre>
+              </div>
+
+              {/* 예상 개선 효과 */}
+              {result.estimated_improvement && (
+                <div className="p-4">
+                  <div className={`flex items-center gap-1.5 mb-2 pb-2 border-b ${isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200'}`}>
+                    <div className="w-1 h-3.5 rounded-full bg-emerald-400" />
+                    <p className={`text-sm font-bold ${isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-700'}`}>예상 개선 효과</p>
+                  </div>
+                  <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                    <TypewriterText text={result.estimated_improvement} speed={15} />
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* 문제 설명 */}
-          {result.reason && (
-            <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
-              <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${theme.subText}`}>문제 설명</p>
-              <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>
-                <TypewriterText text={result.reason} speed={15} />
-              </p>
-            </div>
-          )}
-
-          {/* 감지된 패턴 */}
-          {result.matched.length > 0 && (
-            <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
-              <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${theme.subText}`}>
-                감지된 패턴 <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${isDarkMode ? 'bg-[#1e1e1e] text-[#a0a0a0]' : 'bg-zinc-200 text-zinc-500'}`}>{result.matched.length}</span>
-              </p>
-              <div className="flex flex-col gap-2">
-                {result.matched.map(m => {
-                  const mc = getRiskConfig(isDarkMode)[m.risk] || getRiskConfig(isDarkMode).LOW;
-                  return (
-                    <div key={m.id} className={`flex items-start gap-3 p-3 rounded-xl border ${mc.bg} ${mc.border}`}>
-                      <span className={`text-xs font-mono font-bold shrink-0 mt-0.5 ${mc.text}`}>{m.id}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-bold ${mc.text}`}>{m.name}</p>
-                        <p className={`text-xs mt-0.5 ${theme.subText}`}>{m.description}</p>
-                        {m.fix && <p className="text-xs mt-1.5 text-emerald-400 font-mono">→ {m.fix}</p>}
-                      </div>
-                      <RiskBadge risk={m.risk} isDarkMode={isDarkMode} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 패턴 없음 */}
-          {result.matched.length === 0 && (
-            <div className={`pl-6 pr-5 py-4 border-t ${theme.divider}`}>
-              <div className="flex items-center gap-2 text-emerald-400">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <p className="text-sm font-medium">감지된 위험 패턴 없음</p>
-              </div>
-            </div>
-          )}
-
-          {/* 권고 DDL */}
-          <div className={`border-t ${theme.divider} overflow-hidden`}>
-            <div className={`flex items-center justify-between pl-6 pr-5 py-3 border-b ${theme.divider}`}>
-              <div className="flex items-center gap-2">
-                <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>권고 DDL</p>
-                {result.recommended_ddl && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">AI 생성</span>
-                )}
-              </div>
-              <button
-                onClick={copyDdl}
-                disabled={!result.recommended_ddl}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-30 ${
-                  isDarkMode
-                    ? 'bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#c0c0c0] border border-[#2d2d2d]'
-                    : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-zinc-300'
-                }`}
-              >
-                {copied ? <Check size={11} /> : <Copy size={11} />}
-                {copied ? '복사됨' : '복사'}
-              </button>
-            </div>
-            <pre className="px-5 py-4 font-mono text-xs text-green-400 overflow-x-auto overflow-y-auto bg-[#0a0a0a] max-h-48">
-              {result.recommended_ddl
-                ? <TypewriterText text={result.recommended_ddl} speed={10} />
-                : (result.matched.length === 0 ? '-- 권고 DDL 없음' : '-- API 연동 후 AI 생성 DDL이 표시됩니다')
-              }
-            </pre>
-          </div>
-
-          {result.estimated_improvement && (
-            <div className={`px-5 py-4 border-t ${theme.divider}`}>
-              <p className={`text-xs font-bold mb-1 ${theme.subText}`}>예상 개선 효과</p>
-              <p className="text-sm leading-relaxed">
-                <TypewriterText text={result.estimated_improvement} speed={15} />
-              </p>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -1012,8 +1035,8 @@ function Sidebar({ isOpen, onToggle, historyItems, user, isDarkMode, onSelectHis
   };
 
   const t = {
-    bg:        isDarkMode ? 'bg-[#0e0e0e]' : 'bg-zinc-100',
-    border:    isDarkMode ? 'border-[#2d2d2d]' : 'border-zinc-200',
+    bg:        isDarkMode ? 'bg-[#1E1D1B]' : 'bg-zinc-100',
+    border:    isDarkMode ? 'border-white/[0.06]' : 'border-zinc-200',
     text:      isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800',
     subText:   isDarkMode ? 'text-[#666666]' : 'text-zinc-400',
     iconBtn:   isDarkMode ? 'text-[#a0a0a0] hover:bg-[#1e1e1e] hover:text-[#e0e0e0]' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700',
@@ -1151,7 +1174,10 @@ export default function App() {
 
   const [page, setPage]               = useState('main'); // 'main' | 'prediction'
 
-  const [isDarkMode, setIsDarkMode]   = useState(true);
+  const [isDarkMode, setIsDarkMode]   = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [loading, setLoading]         = useState(false);
   const [totalCount, setTotalCount]   = useState(0);
   const [query, setQuery]             = useState('');
@@ -1168,6 +1194,7 @@ export default function App() {
   const [showCatalog, setShowCatalog] = useState(false);
   const [fileError, setFileError]     = useState(null);
   const [isExiting, setIsExiting]     = useState(false);
+  const [isOfflineCache, setIsOfflineCache] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
@@ -1310,7 +1337,7 @@ const handleDeleteHistory = useCallback(async (id) => {
   }, []);
 
   const theme = useMemo(() => ({
-    bg:       isDarkMode ? 'bg-[#121212]' : 'bg-zinc-200',
+    bg:       isDarkMode ? 'bg-[#171615]' : 'bg-zinc-200',
     card:     isDarkMode ? 'bg-[#1a1a1a] border-[#2d2d2d]' : 'bg-white border-zinc-200',
     text:     isDarkMode ? 'text-[#e0e0e0]' : 'text-zinc-800',
     subText:  isDarkMode ? 'text-[#a0a0a0]' : 'text-zinc-500',
@@ -1369,7 +1396,9 @@ const handleDeleteHistory = useCallback(async (id) => {
       mockData = mod.default;
     }
 
-    const { fetchDiagnose } = IS_MOCK ? {} : await import('./api/diagnose');
+    const { fetchDiagnose, getOfflineCache } = IS_MOCK ? {} : await import('./api/diagnose');
+
+    setIsOfflineCache(false);
 
     for (let i = 0; i < sqls.length; i++) {
       let result;
@@ -1384,7 +1413,13 @@ const handleDeleteHistory = useCallback(async (id) => {
           successCount++;
         } catch (e) {
           console.error(`[API ERROR] Query #${i + 1}:`, e.message);
-          result = analyzeSQL(sqls[i], i);
+          try {
+            const cached = await getOfflineCache(sqls[i]);
+            result = processApiResult(cached, sqls[i], i);
+            setIsOfflineCache(true);
+          } catch {
+            result = analyzeSQL(sqls[i], i);
+          }
         }
       }
 
@@ -1461,6 +1496,14 @@ const handleDeleteHistory = useCallback(async (id) => {
       {/* 컨텐츠 영역 — 사이드바 너비만큼 밀기 */}
       <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-12'}`}>
 
+      {/* 오프라인 캐시 배너 */}
+      {isOfflineCache && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 py-2 text-xs font-medium bg-yellow-500/90 text-yellow-950 backdrop-blur-sm">
+          <AlertTriangle size={13} />
+          네트워크 오류 — 오프라인 캐시 응답을 사용 중입니다
+        </div>
+      )}
+
       {/* 우측 상단 고정 */}
       <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
         {hasResult && statusBadge && (
@@ -1481,7 +1524,7 @@ const handleDeleteHistory = useCallback(async (id) => {
           </button>
           <div className={`w-px h-4 ${isDarkMode ? 'bg-[#2d2d2d]' : 'bg-zinc-200'}`} />
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
+            onClick={() => { const next = !isDarkMode; setIsDarkMode(next); localStorage.setItem('darkMode', next); }}
             className={`p-1.5 rounded-lg transition-all hover:scale-105 ${
               isDarkMode ? 'hover:bg-[#1e1e1e] text-[#a0a0a0] hover:text-[#e0e0e0]' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700'
             }`}
@@ -1647,7 +1690,7 @@ function InputArea({
   return (
     <div className="mb-6">
       {/* 포커스 시 보라 글로우가 생기는 입력 패널 */}
-      <div className={`input-panel rounded-2xl border overflow-hidden transition-all duration-300 ${theme.card}`}>
+      <div className={`input-panel rounded-2xl border overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#1E1D1C] border-[#2d2d2d]' : 'bg-white border-zinc-200'}`}>
 
         {/* 파일명 표시 */}
         {fileName && (

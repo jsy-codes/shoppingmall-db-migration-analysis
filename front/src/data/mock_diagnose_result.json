@@ -1,73 +1,124 @@
 {
-  "results": [
-    {
-      "rule_id": "P03",
-      "risk_level": "HIGH",
-      "risk_score": 92,
-      "matched_pattern_ids": ["P03"],
-      "reason": "ROWNUM은 Oracle 전용 페이징 구문입니다. MySQL에서 LIMIT 없이 이관 시 전체 행 조회가 발생하여 심각한 성능 저하를 유발합니다.",
-      "recommended_ddl": "SELECT * FROM orders\nWHERE status = 'COMPLETE'\nLIMIT 10;",
-      "estimated_improvement": "Full Scan 제거, 응답시간 98% 단축",
-      "simulator_detail": []
+  "HIGH": {
+    "rule_id": "P12",
+    "risk_level": "HIGH",
+    "risk_score": 88,
+    "matched_pattern_ids": ["P12"],
+    "reason": "CONNECT BY는 Oracle 전용 계층형 쿼리 구문입니다. MySQL에서는 지원되지 않아 이관 시 즉시 syntax error가 발생합니다. WITH RECURSIVE CTE 구문으로 변환해야 합니다.",
+    "recommended_ddl": "WITH RECURSIVE cte AS (\n  SELECT id, name, parent_id\n  FROM categories\n  WHERE parent_id IS NULL\n  UNION ALL\n  SELECT c.id, c.name, c.parent_id\n  FROM categories c\n  JOIN cte ON c.parent_id = cte.id\n)\nSELECT * FROM cte;",
+    "converted_sql": "WITH RECURSIVE cte AS (SELECT id, name, parent_id FROM categories WHERE parent_id IS NULL UNION ALL SELECT c.id, c.name, c.parent_id FROM categories c JOIN cte ON c.parent_id = cte.id) SELECT * FROM cte;",
+    "estimated_improvement": "계층 쿼리 호환성 100% 확보, syntax error 방지, 재귀 CTE 적용 시 응답시간 약 60% 단축 예상",
+    "model_predicted_improvement": 82,
+    "simulator_detail": [
+      {
+        "sql": "SELECT employee_id FROM emp CONNECT BY PRIOR employee_id = manager_id",
+        "matched_patterns": [
+          {
+            "id": "P12",
+            "name": "CONNECT BY Hierarchy",
+            "severity": "HIGH",
+            "failure_type": "HIERARCHY_QUERY_MIGRATION",
+            "description": "Oracle 전용 계층형 쿼리 구문으로 MySQL에서 지원 안 됨",
+            "impact": "이관 시 즉시 syntax error 발생"
+          }
+        ],
+        "recommendations": ["WITH RECURSIVE CTE 구문으로 변환 필요"]
+      }
+    ],
+    "performance_data": [
+      { "pattern": "P12", "label": "계층쿼리", "before": 7800, "after": 210, "improvement": 97.3 }
+    ],
+    "risk_score_data": [
+      { "id": "P12", "name": "CONNECT BY", "score": 88 },
+      { "id": "P13", "name": "START WITH", "score": 72 },
+      { "id": "P14", "name": "Outer Join (+)", "score": 65 }
+    ],
+    "quant_signal": {
+      "before": { "full_scan_ratio": 0.9, "no_index_flag": 1, "rows_ratio": 250 },
+      "after":  { "full_scan_ratio": 0.1, "no_index_flag": 0, "rows_ratio": 12 }
     },
-    {
-      "rule_id": "P02",
-      "risk_level": "HIGH",
-      "risk_score": 88,
-      "matched_pattern_ids": ["P02"],
-      "reason": "UPPER() 함수를 인덱스 컬럼에 적용하면 인덱스가 무력화되어 전체 테이블 스캔이 발생합니다.",
-      "recommended_ddl": "ALTER TABLE members ADD name_upper VARCHAR(100) GENERATED ALWAYS AS (UPPER(name));\nCREATE INDEX idx_members_name_upper ON members(name_upper);\nSELECT * FROM members WHERE name_upper = 'KIM';",
-      "estimated_improvement": "인덱스 재활성화로 Full Scan 제거, 응답시간 98.6% 단축",
-      "simulator_detail": []
+    "grid_search_params": { "decay": 0.85, "scale": 1.0 }
+  },
+
+  "MEDIUM": {
+    "rule_id": "P21",
+    "risk_level": "MEDIUM",
+    "risk_score": 52,
+    "matched_pattern_ids": ["P21"],
+    "reason": "TO_DATE는 Oracle 전용 날짜 파싱 함수입니다. MySQL에서는 STR_TO_DATE를 사용해야 하며, 날짜 포맷 토큰도 다릅니다. 이관 시 syntax error 또는 잘못된 날짜 파싱이 발생할 수 있습니다.",
+    "recommended_ddl": "SELECT * FROM orders\nWHERE created_at >= STR_TO_DATE('2024-01-01', '%Y-%m-%d');",
+    "converted_sql": "SELECT * FROM orders WHERE created_at >= STR_TO_DATE('2024-01-01', '%Y-%m-%d');",
+    "estimated_improvement": "날짜 함수 호환성 확보, 포맷 토큰 변환으로 정확한 날짜 파싱 보장",
+    "model_predicted_improvement": 48,
+    "simulator_detail": [
+      {
+        "sql": "SELECT * FROM orders WHERE created_at >= TO_DATE('2024-01-01', 'YYYY-MM-DD')",
+        "matched_patterns": [
+          {
+            "id": "P21",
+            "name": "TO_DATE Parsing",
+            "severity": "MEDIUM",
+            "failure_type": "DATE_PARSE_FUNCTION_MIGRATION",
+            "description": "Oracle 전용 날짜 파싱 함수, MySQL 미지원",
+            "impact": "이관 시 syntax error 또는 잘못된 날짜 파싱"
+          }
+        ],
+        "recommendations": ["STR_TO_DATE(col, '%Y-%m-%d') 로 변환"]
+      }
+    ],
+    "performance_data": [
+      { "pattern": "P21", "label": "TO_DATE", "before": 1200, "after": 580, "improvement": 51.7 }
+    ],
+    "risk_score_data": [
+      { "id": "P21", "name": "TO_DATE", "score": 52 },
+      { "id": "P20", "name": "TO_CHAR", "score": 45 },
+      { "id": "P22", "name": "TRUNC Date", "score": 38 }
+    ],
+    "quant_signal": {
+      "before": { "full_scan_ratio": 0.5, "no_index_flag": 0, "rows_ratio": 45 },
+      "after":  { "full_scan_ratio": 0.2, "no_index_flag": 0, "rows_ratio": 18 }
     },
-    {
-      "rule_id": "P04",
-      "risk_level": "LOW",
-      "risk_score": 30,
-      "matched_pattern_ids": ["P04"],
-      "reason": "NVL은 Oracle 전용 함수입니다. MySQL에서는 IFNULL 또는 COALESCE를 사용해야 합니다.",
-      "recommended_ddl": "SELECT IFNULL(price, 0) FROM products;",
-      "estimated_improvement": "함수 호환성 확보, syntax error 방지",
-      "simulator_detail": []
+    "grid_search_params": { "decay": 0.85, "scale": 1.0 }
+  },
+
+  "LOW": {
+    "rule_id": "P04",
+    "risk_level": "LOW",
+    "risk_score": 28,
+    "matched_pattern_ids": ["P04"],
+    "reason": "NVL은 Oracle 전용 NULL 처리 함수입니다. MySQL에서는 IFNULL 또는 COALESCE를 사용해야 합니다. 문법 변환이 단순하여 이관 위험도는 낮지만 반드시 교체가 필요합니다.",
+    "recommended_ddl": "SELECT IFNULL(price, 0) FROM products;\n-- 또는\nSELECT COALESCE(price, 0) FROM products;",
+    "converted_sql": "SELECT IFNULL(price, 0) FROM products;",
+    "estimated_improvement": "함수 호환성 확보, syntax error 방지, 변환 난이도 낮음",
+    "model_predicted_improvement": 22,
+    "simulator_detail": [
+      {
+        "sql": "SELECT NVL(price, 0) FROM products",
+        "matched_patterns": [
+          {
+            "id": "P04",
+            "name": "NVL Function",
+            "severity": "LOW",
+            "failure_type": "FUNCTION_COMPATIBILITY",
+            "description": "Oracle 전용 NULL 처리 함수",
+            "impact": "MySQL에서 syntax error 발생"
+          }
+        ],
+        "recommendations": ["IFNULL(col, 0) 또는 COALESCE(col, 0) 으로 변환"]
+      }
+    ],
+    "performance_data": [
+      { "pattern": "P04", "label": "NVL", "before": 420, "after": 390, "improvement": 7.1 }
+    ],
+    "risk_score_data": [
+      { "id": "P04", "name": "NVL", "score": 28 },
+      { "id": "P11", "name": "DECODE", "score": 32 },
+      { "id": "P19", "name": "DUAL", "score": 15 }
+    ],
+    "quant_signal": {
+      "before": { "full_scan_ratio": 0.1, "no_index_flag": 0, "rows_ratio": 8 },
+      "after":  { "full_scan_ratio": 0.1, "no_index_flag": 0, "rows_ratio": 8 }
     },
-    {
-      "rule_id": "P12",
-      "risk_level": "HIGH",
-      "risk_score": 85,
-      "matched_pattern_ids": ["P12"],
-      "reason": "CONNECT BY는 Oracle 전용 계층형 쿼리 구문입니다. MySQL에서는 WITH RECURSIVE CTE로 변환해야 합니다.",
-      "recommended_ddl": "WITH RECURSIVE cte AS (\n  SELECT id, name, parent_id FROM categories WHERE parent_id IS NULL\n  UNION ALL\n  SELECT c.id, c.name, c.parent_id FROM categories c\n  JOIN cte ON c.parent_id = cte.id\n)\nSELECT * FROM cte;",
-      "estimated_improvement": "계층 쿼리 호환성 100% 확보, syntax error 방지",
-      "simulator_detail": []
-    },
-    {
-      "rule_id": "P09",
-      "risk_level": "HIGH",
-      "risk_score": 78,
-      "matched_pattern_ids": ["P09"],
-      "reason": "JOIN 컬럼에 인덱스가 없으면 MySQL 옵티마이저가 전체 스캔을 수행합니다.",
-      "recommended_ddl": "CREATE INDEX idx_orders_member_id ON orders(member_id);\nCREATE INDEX idx_orders_product_id ON orders(product_id);",
-      "estimated_improvement": "조인 Full Scan 제거, 응답시간 98.2% 단축",
-      "simulator_detail": []
-    }
-  ],
-  "performance_data": [
-    { "pattern": "P02", "label": "함수인덱스", "before": 3200, "after": 45,  "improvement": 98.6 },
-    { "pattern": "P03", "label": "ROWNUM",    "before": 8900, "after": 120, "improvement": 98.7 },
-    { "pattern": "P09", "label": "조인인덱스", "before": 5400, "after": 98,  "improvement": 98.2 },
-    { "pattern": "P10", "label": "중첩쿼리",  "before": 2100, "after": 67,  "improvement": 96.8 },
-    { "pattern": "P12", "label": "계층쿼리",  "before": 7800, "after": 210, "improvement": 97.3 }
-  ],
-  "risk_score_data": [
-    { "id": "P02", "name": "Function Index",  "score": 88 },
-    { "id": "P03", "name": "ROWNUM",          "score": 92 },
-    { "id": "P09", "name": "JOIN No Index",   "score": 78 },
-    { "id": "P12", "name": "CONNECT BY",      "score": 85 },
-    { "id": "P14", "name": "Outer Join (+)",  "score": 80 },
-    { "id": "P17", "name": "MERGE INTO",      "score": 83 },
-    { "id": "P01", "name": "Implicit Cast",   "score": 55 },
-    { "id": "P10", "name": "Nested Subquery", "score": 60 },
-    { "id": "P04", "name": "NVL",             "score": 30 },
-    { "id": "P19", "name": "DUAL",            "score": 20 }
-  ]
+    "grid_search_params": { "decay": 0.85, "scale": 1.0 }
+  }
 }
