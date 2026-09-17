@@ -1,4 +1,10 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// ─── API 호출 함수 모음 ──────────────────────────────────────────
+// 백엔드 /diagnose 엔드포인트 호출
+// 요청 형식: { "sql": "입력한 SQL 문자열" }
+// 응답 형식: { rule_id, risk_level, reason, recommended_ddl,
+//              estimated_improvement, risk_score, matched_pattern_ids }
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://shoppingmall-db-migration-analysis.onrender.com';
 
 export async function fetchDiagnose(sql) {
   const res = await fetch(`${API_URL}/diagnose`, {

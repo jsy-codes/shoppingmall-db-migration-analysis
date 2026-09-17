@@ -1,26 +1,26 @@
 # 시나리오 C — bad_queries.sql MySQL 에러 검증 리포트
-> 생성: 2026-06-01 19:19:37
+> 생성: 2026-06-06 16:08:42
 > 대상: bucketstore_dummy (MySQL 8.0)
 
 ## 요약
-- 전체: 58건
+- 전체: 64건
 - 성공(OK/OK_SLOW/OK_WRONG): 17건
-- 에러(ERROR): 41건
-- **에러율: 70.7%**
+- 에러(ERROR): 47건
+- **에러율: 73.4%**
 
 ## 실패 유형별 분류
 
 | 실패 유형 | 건수 | 의미 |
 |-----------|------|------|
-| SYNTAX_ERROR | 20 | MySQL이 아예 인식 못 하는 Oracle 전용 문법 |
-| FUNCTION_NOT_FOUND | 18 | MySQL에 없는 Oracle 전용 함수 |
-| UNKNOWN_ERROR | 3 | 분류되지 않은 기타 오류 |
+| SYNTAX_ERROR | 22 | MySQL이 아예 인식 못 하는 Oracle 전용 문법 |
+| FUNCTION_NOT_FOUND | 21 | MySQL에 없는 Oracle 전용 함수 |
+| UNKNOWN_ERROR | 4 | 분류되지 않은 기타 오류 |
 
 ## 전체 실행 결과
 
 | 번호 | 패턴 | 결과 | 실패 유형 | 수정 방향 | 설명 |
 |------|------|------|-----------|-----------|------|
-| Q01 | P01 | ✅ OK | - | 정상 실행 | ORDERS.member_id(VARCHAR FK)에  |
+| Q01 | P01 | ❌ ERROR | UNKNOWN_ERROR | 에러 원인 수동 확인 필요 | ORDERS.member_id(VARCHAR FK)에  |
 | Q02 | P01 | ✅ OK | - | 정상 실행 | PAYMENTS.id에 산술 연산(+0) → 인덱스 완 |
 | Q03 | P02 | ✅ OK | - | 정상 실행 | MEMBERS.id(VARCHAR PK)를 숫자 범위  |
 | Q04 | P02 | ✅ OK_SLOW | - | 인덱스 컬럼에 함수 적용 — 성능 저하 (P02) | MEMBERS.email에 UPPER + 양방향 와일드 |
@@ -41,12 +41,12 @@
 | Q12 | P11 | ❌ ERROR | FUNCTION_NOT_FOUND | NVL 함수 미지원 — IFNULL 또는 COALESCE로 변환 | PRODUCTS 정렬 시 NVL → Filesort 부 |
 | Q27 | P11 | ❌ ERROR | FUNCTION_NOT_FOUND | DECODE 함수 미지원 — CASE WHEN으로 변환 | 집계 + GROUP BY 모두 DECODE 사용 |
 | Q28 | P24 | ❌ ERROR | FUNCTION_NOT_FOUND | DECODE 함수 미지원 — CASE WHEN으로 변환 | WHERE절 DECODE → 인덱스 우회 |
-| Q52 | P29 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | Oracle LISTAGG 집계 함수 사용 |
-| Q57 | P12 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | WM_CONCAT 문자열 집계 |
+| Q52 | P24 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | Oracle LISTAGG 집계 함수 사용 |
+| Q57 | P29 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | WM_CONCAT 문자열 집계 |
 | Q29 | P12 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 카테고리 무한 루프 위험 계층 조회 |
 | Q30 | P13 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 레벨 제한 계층 조회 |
 | Q31 | P26 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 최상위 카테고리부터 시작하는 계층 조회 (P12+P13 |
-| Q54 | P09 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | NOCYCLE 순환 방지 계층 조회 (P12+P26 복 |
+| Q54 | P26 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | NOCYCLE 순환 방지 계층 조회 (P12+P26 복 |
 | Q21 | P09 | ✅ OK | - | 정상 실행 | MEMBERS.status ↔ ORDERS.status |
 | Q22 | P09 | ✅ OK | - | 정상 실행 | PRODUCTS.product_name LIKE로 CA |
 | Q23 | P14 | ✅ OK | - | 정상 실행 | DATE() 함수 씌워 조인 (P05+P09 복합) |
@@ -69,20 +69,34 @@
 | Q50 | P06 | ❌ ERROR | FUNCTION_NOT_FOUND | TRUNC 함수 미지원 — DATE() 또는 DATE_FORMAT으로 변 | PAYMENTS.payment_date TRUNC +  |
 | Q16 | P25 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | 임시 테이블 생성 시 VARCHAR2 사용 |
 | Q53 | P30 | ❌ ERROR | SYNTAX_ERROR | Oracle NUMBER 타입 미지원 — INT/DECIMAL로 변환 필 | Oracle NUMBER 타입으로 테이블 생성 |
-| Q58 | P17 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | Oracle NVARCHAR2/NCHAR 타입 선언 |
+| Q58 | P30 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | Oracle NVARCHAR2/NCHAR 타입 선언 |
 | Q39 | P17 | ❌ ERROR | SYNTAX_ERROR | MERGE INTO 미지원 — INSERT ON DUPLICATE KEY | 재고 차감 MERGE INTO (WHEN MATCHED |
 | Q40 | P18 | ❌ ERROR | SYNTAX_ERROR | MERGE INTO 미지원 — INSERT ON DUPLICATE KEY | 회원 상태 MERGE INTO (WHEN NOT MAT |
 | Q41 | P18 | ❌ ERROR | SYNTAX_ERROR | MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인 | 주문 이력 없는 회원 도출 (MINUS) |
 | Q42 | P19 | ❌ ERROR | SYNTAX_ERROR | MINUS 미지원 — NOT EXISTS 또는 LEFT JOIN 안티조인 | 팔리지 않은 상품 도출 (MINUS) |
 | Q43 | P23 | ❌ ERROR | SYNTAX_ERROR | Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 | 시퀀스 NEXTVAL FROM DUAL (AUTO_IN |
 | Q51 | P27 | ❌ ERROR | SYNTAX_ERROR | Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 | Oracle SEQUENCE.NEXTVAL INSERT |
-| Q55 | P28 | ✅ OK_WRONG | - | REGEXP_LIKE 실행되나 플래그 동작이 Oracle과 다름 — RE | REGEXP_LIKE 대소문자 무시 플래그 사용 |
+| Q55 | P27 | ✅ OK_WRONG | - | REGEXP_LIKE 실행되나 플래그 동작이 Oracle과 다름 — RE | REGEXP_LIKE 대소문자 무시 플래그 사용 |
 | Q56 | P28 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | Oracle PIVOT으로 연도별 매출 집계 |
+| Q59 | P24 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | LISTAGG로 카테고리명 문자열 집계 시도 |
+| Q60 | P26 | ❌ ERROR | SYNTAX_ERROR | 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요 | 순환 방지 계층 조회 (단독 케이스) |
+| Q61 | P27 | ✅ OK_WRONG | - | REGEXP_LIKE 실행되나 플래그 동작이 Oracle과 다름 — RE | Oracle 정규식 함수로 이메일 도메인 검색 |
+| Q62 | P28 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | Oracle PIVOT으로 상태별 주문금액 집계 |
+| Q63 | P29 | ❌ ERROR | FUNCTION_NOT_FOUND | Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필 | WM_CONCAT으로 카테고리명 집계 |
+| Q64 | P30 | ❌ ERROR | SYNTAX_ERROR | VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요 | Oracle 유니코드 타입으로 테이블 생성 시도 |
 
 ## 에러 항목 상세 — C(이현종) Claude 프롬프트 반영용
 
 아래 항목들은 Claude API 프롬프트의 `[이관 규칙 가이드라인]`에
 실제 에러 메시지와 수정 방향을 보강해야 합니다.
+
+### Q01 — P01 (UNKNOWN_ERROR)
+- **설명**: ORDERS.member_id(VARCHAR FK)에 숫자 비교 → 형변환 발생
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: 에러 원인 수동 확인 필요
+```sql
+﻿-- ============================================================ SELECT id, member_id FROM ORDERS WHERE member_id = 10050
+```
 
 ### Q19 — P08 (UNKNOWN_ERROR)
 - **설명**: MEMBERS.email 소문자 함수 기반 인덱스 생성 시도
@@ -164,7 +178,7 @@ SELECT DECODE(status, 'COMPLETE', 1, 0) AS is_done, COUNT(*) FROM ORDERS GROUP B
 SELECT * FROM PAYMENTS WHERE DECODE(payment_method, 'CARD', 1, 0) = 1
 ```
 
-### Q52 — P29 (FUNCTION_NOT_FOUND)
+### Q52 — P24 (FUNCTION_NOT_FOUND)
 - **설명**: Oracle LISTAGG 집계 함수 사용
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
@@ -172,7 +186,7 @@ SELECT * FROM PAYMENTS WHERE DECODE(payment_method, 'CARD', 1, 0) = 1
 SELECT LISTAGG(name, ',') WITHIN GROUP (ORDER BY name) FROM CATEGORIES
 ```
 
-### Q57 — P12 (FUNCTION_NOT_FOUND)
+### Q57 — P29 (FUNCTION_NOT_FOUND)
 - **설명**: WM_CONCAT 문자열 집계
 - **에러**: `FUNCTION bucketstore_dummy.WM_CONCAT does not exist`
 - **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
@@ -204,7 +218,7 @@ SELECT * FROM CATEGORIES CONNECT BY PRIOR id = parent_id AND LEVEL <= 3
 SELECT * FROM CATEGORIES START WITH parent_id IS NULL CONNECT BY PRIOR id = parent_id
 ```
 
-### Q54 — P09 (SYNTAX_ERROR)
+### Q54 — P26 (SYNTAX_ERROR)
 - **설명**: NOCYCLE 순환 방지 계층 조회 (P12+P26 복합)
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요
@@ -348,7 +362,7 @@ CREATE TEMPORARY TABLE temp_vip_users (user_id VARCHAR2(50), grade VARCHAR2(10))
 CREATE TABLE t25 ( price NUMBER(10,2), count NUMBER )
 ```
 
-### Q58 — P17 (SYNTAX_ERROR)
+### Q58 — P30 (SYNTAX_ERROR)
 - **설명**: Oracle NVARCHAR2/NCHAR 타입 선언
 - **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
 - **수정 방향**: VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요
@@ -398,10 +412,10 @@ SELECT member_seq.NEXTVAL FROM DUAL
 
 ### Q51 — P27 (SYNTAX_ERROR)
 - **설명**: Oracle SEQUENCE.NEXTVAL INSERT
-- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **에러**: `Unknown column 'my_seq.NEXTVAL' in 'field list'`
 - **수정 방향**: Oracle SEQUENCE 문법 미지원 — AUTO_INCREMENT로 변환 필요
 ```sql
-INSERT INTO ORDERS (id, member_id, status, total_amount) VALUES (my_seq.NEXTVAL, 'USR001', 'PENDING', 15000); SELECT my_seq.CURRVAL FROM DUAL
+INSERT INTO ORDERS (id, member_id, status, total_amount) VALUES (my_seq.NEXTVAL, 'USR001', 'PENDING', 15000)
 ```
 
 ### Q56 — P28 (FUNCTION_NOT_FOUND)
@@ -410,4 +424,44 @@ INSERT INTO ORDERS (id, member_id, status, total_amount) VALUES (my_seq.NEXTVAL,
 - **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
 ```sql
 SELECT * FROM ( SELECT member_id, status, total_amount FROM ORDERS ) PIVOT ( SUM(total_amount) FOR status IN ('PENDING', 'COMPLETE', 'CANCEL') )
+```
+
+### Q59 — P24 (FUNCTION_NOT_FOUND)
+- **설명**: LISTAGG로 카테고리명 문자열 집계 시도
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
+```sql
+SELECT id, LISTAGG(name, ', ') WITHIN GROUP (ORDER BY name) FROM CATEGORIES GROUP BY id
+```
+
+### Q60 — P26 (SYNTAX_ERROR)
+- **설명**: 순환 방지 계층 조회 (단독 케이스)
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: 계층 쿼리 미지원 — WITH RECURSIVE로 변환 필요
+```sql
+SELECT id, parent_id, name FROM CATEGORIES CONNECT BY NOCYCLE PRIOR id = parent_id START WITH parent_id IS NULL
+```
+
+### Q62 — P28 (FUNCTION_NOT_FOUND)
+- **설명**: Oracle PIVOT으로 상태별 주문금액 집계
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
+```sql
+SELECT * FROM ( SELECT status, total_amount FROM ORDERS ) PIVOT (SUM(total_amount) FOR status IN ('PENDING', 'COMPLETE', 'CANCELLED'))
+```
+
+### Q63 — P29 (FUNCTION_NOT_FOUND)
+- **설명**: WM_CONCAT으로 카테고리명 집계
+- **에러**: `FUNCTION bucketstore_dummy.WM_CONCAT does not exist`
+- **수정 방향**: Oracle 전용 함수/연산자 미지원 — MySQL 대체 함수로 변환 필요
+```sql
+SELECT WM_CONCAT(name) FROM CATEGORIES
+```
+
+### Q64 — P30 (SYNTAX_ERROR)
+- **설명**: Oracle 유니코드 타입으로 테이블 생성 시도
+- **에러**: `You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version`
+- **수정 방향**: VARCHAR2 타입 미지원 — VARCHAR으로 변환 필요
+```sql
+CREATE TABLE unicode_test ( id INT PRIMARY KEY, name NVARCHAR2(100), code NCHAR(10) )
 ```

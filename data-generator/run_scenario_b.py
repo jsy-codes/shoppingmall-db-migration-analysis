@@ -53,7 +53,7 @@ BUCKET_MYSQL_CONFIG = dict(
 ORACLE_DSN = "system/root@localhost:1521/FREEPDB1"
 
 # ── 반복 횟수 / 허용 편차 ──────────────────────────────────────
-REPEAT    = 3
+REPEAT    = 5
 THRESHOLD = 5.0  # ±5%
 
 # ── 목표 적재 건수 ─────────────────────────────────────────────
