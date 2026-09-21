@@ -391,14 +391,24 @@ def compare_sql_time(original_sql: str, converted_sql: str):
 
     try:
         before_ms = db.measure_ms(original_sql)
+        before_error = db.last_error  # [FIX] before SQL 실패 사유 (1146 테이블 없음 / 문법 오류 등)
+
         after_ms = db.measure_ms(converted_sql)
+        after_error = db.last_error  # [FIX] after SQL 실패 사유
 
         improvement_rate = calculate_actual_improvement(before_ms, after_ms)
+
+        # [FIX] 측정 불가 상태를 명시적 status로 노출 (experiments.py invalid_run 판정 이식)
+        #   before/after 둘 중 하나라도 MySQL 실행 실패(-1.0)면 "실측 불가"로 명시
+        status = "MYSQL_EXECUTION_FAILED" if (before_ms < 0 or after_ms < 0) else "OK"
 
         return {
             "original_sql_ms": before_ms,
             "converted_sql_ms": after_ms,
             "improvement_rate": improvement_rate,
+            "original_sql_error": before_error,
+            "converted_sql_error": after_error,
+            "status": status,
         }
 
     finally:
@@ -439,6 +449,54 @@ def get_explain_json_from_mysql(sql: str) -> str:
         return ""
     finally:
         db.close()
+
+
+# [FIX] Claude가 실제 테이블 구조를 모른 채 converted_sql을 만들어 컬럼명이 틀리는 경우 방지용
+def get_schema_from_mysql(sql: str) -> str:
+    """
+    입력 SQL에 등장하는 테이블명을 information_schema에서 조회해
+    "테이블(컬럼 타입, ...)" 형태의 스키마 텍스트로 반환.
+    테이블을 못 찾거나 조회 실패 시 빈 문자열 반환 (프롬프트에서 생략됨).
+    """
+    table_names = re.findall(r"(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", sql, re.IGNORECASE)
+    table_names = list(dict.fromkeys(t.lower() for t in table_names))  # 중복 제거, 순서 유지
+
+    if not table_names:
+        return ""
+
+    db = DBRunner()
+
+    try:
+        cursor = db.conn.cursor(buffered=True)
+        placeholders = ", ".join(["%s"] * len(table_names))
+        cursor.execute(
+            f"""
+            SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE
+            FROM information_schema.columns
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND LOWER(TABLE_NAME) IN ({placeholders})
+            ORDER BY TABLE_NAME, ORDINAL_POSITION
+            """,
+            table_names,
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+    except Exception as e:
+        print(f"[SCHEMA LOG] 스키마 조회 실패: {e}")
+        return ""
+    finally:
+        db.close()
+
+    if not rows:
+        return ""
+
+    schema_by_table: dict[str, list[str]] = {}
+    for table_name, column_name, data_type in rows:
+        schema_by_table.setdefault(table_name, []).append(f"{column_name} {data_type}")
+
+    return "\n".join(
+        f"{table}({', '.join(columns)})" for table, columns in schema_by_table.items()
+    )
 
 
 def get_explain_signal_from_mysql(sql: str) -> dict[str, Any]:
@@ -566,11 +624,22 @@ async def diagnose(req: QueryRequest, request: Request):
         model_predicted_improvement=model_predicted_improvement,
     )
 
+    # [FIX] 실제 MySQL 스키마를 프롬프트에 포함 — converted_sql이 존재하지 않는 컬럼을
+    # 참조해서 실행 실패(1146/1054 등)하는 것을 줄이기 위함
+    schema_text = get_schema_from_mysql(req.sql)
+    schema_block = (
+        f"[실제 MySQL 테이블 스키마]\n{schema_text}"
+        if schema_text
+        else "[실제 MySQL 테이블 스키마]\n(조회 실패 — 입력 SQL에 나온 테이블/컬럼명을 그대로 유지할 것)"
+    )
+
     system_prompt = f"""
 당신은 Oracle→MySQL 이관 전문가입니다.
 
 [탐지 규칙]
 {matched_rules_str}
+
+{schema_block}
 
 {explain_prompt_block}
 
@@ -580,6 +649,7 @@ async def diagnose(req: QueryRequest, request: Request):
 - Oracle/MySQL 차이를 기술적으로 설명
 - recommended_ddl은 즉시 실행 가능해야 함
 - "converted_sql"에는 반드시 실행 가능한 SELECT SQL만 작성
+- [실제 MySQL 테이블 스키마]에 없는 테이블/컬럼명을 임의로 만들어내지 말 것
 - matched_ids 중 핵심 패턴 하나를 rule_id로 선택
 - est_im_percent는 모델 기반 예상 개선율 값을 우선 반영
 - JSON 외 텍스트 작성 금지
@@ -708,6 +778,10 @@ async def diagnose(req: QueryRequest, request: Request):
                 "original_sql_ms": None,
                 "converted_sql_ms": None,
                 "improvement_rate": None,
+                # [FIX] measure_ms 호출 전(예: DB 연결 실패) 단계에서 죽은 경우의 사유
+                "original_sql_error": str(e),
+                "converted_sql_error": str(e),
+                "status": "MYSQL_EXECUTION_FAILED",
             }
             actual_improvement = None
             improvement_gap = None

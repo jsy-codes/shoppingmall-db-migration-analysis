@@ -122,6 +122,7 @@ class DBRunner:
     def __init__(self):
         self.conn = mysql.connector.connect(**DB_CONFIG)
         self.conn.autocommit = True
+        self.last_error: str | None = None  # 직전 measure_ms() 실패 사유 (성공 시 None)
 
     def close(self):
         if self.conn.is_connected():
@@ -153,6 +154,7 @@ class DBRunner:
     def measure_ms(self, sql: str, repeat: int = REPEAT) -> float:
         times = []
         cursor = self.conn.cursor(buffered=True)
+        self.last_error = None  # 매 호출마다 초기화
 
         for _ in range(repeat):
             try:
@@ -167,6 +169,9 @@ class DBRunner:
 
             except MySQLError as e:
                 print(f"  [실행 오류] {e}", file=sys.stderr)
+                # [FIX] 실패 사유를 삼키지 않고 last_error에 남김 (1146 테이블 없음 / 문법 오류 등 구분 가능)
+                errno = getattr(e, "errno", None)
+                self.last_error = f"{errno} {e.msg}" if errno and hasattr(e, "msg") else str(e)
                 cursor.close()
                 return -1.0
 
@@ -175,6 +180,7 @@ class DBRunner:
 
     def get_explain_json(self, sql: str) -> str:
         cursor = self.conn.cursor(buffered=True)
+        self.last_error = None  # 매 호출마다 초기화
 
         try:
             clean = sql.strip().rstrip(";")
@@ -184,6 +190,9 @@ class DBRunner:
 
         except MySQLError as e:
             print(f"  [EXPLAIN 오류] {e}", file=sys.stderr)
+            # [FIX] measure_ms와 동일하게 실패 사유를 last_error에 남김
+            errno = getattr(e, "errno", None)
+            self.last_error = f"{errno} {e.msg}" if errno and hasattr(e, "msg") else str(e)
             return ""
 
         finally:
