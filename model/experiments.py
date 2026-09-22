@@ -439,12 +439,32 @@ def run_all_experiments(save_db: bool = True) -> list[ExperimentResult]:
 
 
 def _save_csv(results: list[ExperimentResult]) -> None:
-    rows = []
+    if not results:
+        print("\n[CSV] 저장할 실험 결과가 없습니다.")
+        return
 
+    rows = []
     for r in results:
         d = asdict(r)
-        d["quant_signal"] = json.dumps(d["quant_signal"], ensure_ascii=False)
+        
+        qs = d.get("quant_signal")
+        d["quant_signal"] = json.dumps(qs, ensure_ascii=False) if qs else "{}"
+        
         d.pop("explain_json_raw", None)
+        
+        before_ms = d.get("before_ms")
+        after_ms = d.get("after_ms")
+        if isinstance(before_ms, (int, float)) and isinstance(after_ms, (int, float)) and before_ms > 0 and after_ms >= 0:
+            d["actual_improvement"] = f"{(before_ms - after_ms) / max(0.001, before_ms) * 100:.2f}%"
+        else:
+            d["actual_improvement"] = "N/A"
+            
+        err_rate = d.get("error_rate")
+        if isinstance(err_rate, (int, float)):
+            d["error_rate"] = f"{err_rate:.2f}%"
+        else:
+            d["error_rate"] = "N/A"
+            
         rows.append(d)
 
     RESULT_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -454,7 +474,7 @@ def _save_csv(results: list[ExperimentResult]) -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"\n[CSV] 실험 결과 저장 → {RESULT_CSV}")
+    print(f"\n[CSV] 프론트엔드 연동용 실험 결과 저장 완료 → {RESULT_CSV}")
 
 
 import numpy as np
