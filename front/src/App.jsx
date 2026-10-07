@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+﻿import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { AlertTriangle, Sun, Moon, HelpCircle, Zap, Search } from 'lucide-react';
 import PredictionLogDashboard from './components/PredictionLogDashboard';
 
 import { API_BASE, IS_MOCK, getAuthHeaders } from './utils/api';
 import { RISK_RANK } from './utils/risk';
 import { splitSQLs, analyzeSQL, calcSummary, processApiResult } from './utils/diagnosis';
+import { extractSQLFromCSV } from './utils/csv';
 import { EXAMPLE_QUERIES } from './data/exampleQueries';
 
 import Sidebar from './components/Sidebar';
@@ -41,6 +42,7 @@ export default function App() {
   const [fileError, setFileError]     = useState(null);
   const [isExiting, setIsExiting]     = useState(false);
   const [isOfflineCache, setIsOfflineCache] = useState(false);
+  const [lastApiError, setLastApiError] = useState(null); // 실제 백엔드 호출 실패 원인 — 화면에 그대로 표시용
   const fileInputRef = useRef(null);
 
   const handleCloseHelp    = useCallback(() => setShowHelp(false),    []);
@@ -193,13 +195,23 @@ const handleDeleteHistory = useCallback(async (id) => {
 
   const handleFile = useCallback((file) => {
     if (!file) return;
-    if (!file.name.endsWith('.sql') && !file.name.endsWith('.txt')) {
-      setFileError('.sql 또는 .txt 파일만 지원합니다');  
+    const isCsv = file.name.endsWith('.csv');
+    if (!file.name.endsWith('.sql') && !file.name.endsWith('.txt') && !isCsv) {
+      setFileError('.sql, .txt 또는 .csv 파일만 지원합니다');
       return;
     }
-    setFileError(null); 
+    setFileError(null);
     const reader = new FileReader();
-    reader.onload = (e) => { setQuery(e.target.result); setFileName(file.name); };
+    reader.onload = (e) => {
+      const raw = e.target.result;
+      const content = isCsv ? extractSQLFromCSV(raw) : raw;
+      if (isCsv && !content) {
+        setFileError('CSV에서 SQL을 찾지 못했습니다. sql, query_sql 컬럼이 있는지 확인해주세요.');
+        return;
+      }
+      setQuery(content);
+      setFileName(file.name);
+    };
     reader.onerror = () => setFileError('파일을 읽을 수 없습니다. 다시 시도해주세요.');
     reader.readAsText(file);
   }, []);
@@ -242,9 +254,10 @@ const handleDeleteHistory = useCallback(async (id) => {
       mockData = mod.default;
     }
 
-    const { fetchDiagnose, getOfflineCache } = IS_MOCK ? {} : await import('./api/diagnose');
+    const { fetchDiagnose } = IS_MOCK ? {} : await import('./api/diagnose');
 
     setIsOfflineCache(false);
+    setLastApiError(null);
 
     for (let i = 0; i < sqls.length; i++) {
       let result;
@@ -259,13 +272,11 @@ const handleDeleteHistory = useCallback(async (id) => {
           successCount++;
         } catch (e) {
           console.error(`[API ERROR] Query #${i + 1}:`, e.message);
-          try {
-            const cached = await getOfflineCache(sqls[i]);
-            result = processApiResult(cached, sqls[i], i);
-            setIsOfflineCache(true);
-          } catch {
-            result = analyzeSQL(sqls[i], i);
-          }
+          // getOfflineCache는 입력 쿼리와 무관하게 고정 응답을 반환하는 문제가 있어
+          // 실제 쿼리 내용을 읽는 로컬 패턴 분석(analyzeSQL)으로 바로 대체합니다.
+          result = analyzeSQL(sqls[i], i);
+          setIsOfflineCache(true);
+          setLastApiError(e.message || String(e));
         }
       }
 
@@ -346,7 +357,8 @@ const handleDeleteHistory = useCallback(async (id) => {
       {isOfflineCache && (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 py-2 text-xs font-medium bg-yellow-500/90 text-yellow-950 backdrop-blur-sm">
           <AlertTriangle size={13} />
-          네트워크 오류 — 오프라인 캐시 응답을 사용 중입니다
+          AI 서버 연결 실패 — 로컬 패턴 분석 결과입니다 (참고용)
+          {lastApiError && <span className="font-mono opacity-70">· {lastApiError}</span>}
         </div>
       )}
 
