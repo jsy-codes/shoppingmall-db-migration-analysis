@@ -1,4 +1,4 @@
-import { Upload, FileText, X, Search } from 'lucide-react';
+﻿import { Upload, FileText, X, Search } from 'lucide-react';
 
 // ─── 입력 영역 ───────────────────────────────────────────────
 function InputArea({
@@ -66,7 +66,7 @@ function InputArea({
               <Upload size={13} />
               파일 업로드
             </button>
-            <input ref={fileInputRef} type="file" accept=".sql,.txt" className="hidden"
+            <input ref={fileInputRef} type="file" accept=".sql,.txt,.csv" className="hidden"
               onChange={e => handleFile(e.target.files[0])} />
             {sqlCount > 0 && (
               <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${isDarkMode ? 'bg-[#1e1e1e] text-[#c0c0c0] border-[#2d2d2d]' : 'bg-zinc-100 text-zinc-600 border-zinc-300'}`}>

@@ -1,4 +1,4 @@
-// ─── 도움말 데이터 ─────────────────────────────────────────────
+﻿// ─── 도움말 데이터 ─────────────────────────────────────────────
 const HELP_SECTIONS = [
   {
     icon: '❓',
@@ -8,7 +8,7 @@ const HELP_SECTIONS = [
   {
     icon: '✍️',
     title: 'SQL 입력 방법',
-    desc: '분석할 Oracle SQL을 직접 입력하거나 .sql 이나 .txt 파일을 업로드하세요. 여러 쿼리를 한 번에 분석하려면 세미콜론(;)으로 구분합니다.',
+    desc: '분석할 Oracle SQL을 직접 입력하거나 .sql, .txt, .csv 파일을 업로드하세요. 여러 쿼리를 한 번에 분석하려면 세미콜론(;)으로 구분합니다. (csv는 sql 또는 query_sql 컬럼을 자동으로 읽습니다)',
     example: {
       label: '입력 예시',
       code: `SELECT * FROM orders WHERE ROWNUM <= 10;\nSELECT NVL(customer_name, '미입력') FROM customers;\nSELECT employee_id FROM emp CONNECT BY PRIOR employee_id = manager_id`,
